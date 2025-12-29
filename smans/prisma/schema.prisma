@@ -1,0 +1,78 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String?
+  email     String   @unique
+  password  String?
+  role      String   @default("teacher") // admin, teacher, student, parent
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Student {
+  id           String   @id @default(cuid())
+  name         String
+  rollNumber   String   @unique
+  class        String
+  email        String?
+  phone        String?
+  parentName   String?
+  parentPhone  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  attendance   Attendance[]
+  grades       Grade[]
+
+  @@map("students")
+}
+
+model Attendance {
+  id        String   @id @default(cuid())
+  studentId String
+  date      DateTime
+  present   Boolean  @default(true)
+
+  student   Student  @relation(fields: [studentId], references: [id])
+
+  @@unique([studentId, date])
+  @@map("attendance")
+}
+
+model Grade {
+  id        String @id @default(cuid())
+  studentId String
+  examName  String
+  subject   String
+  marks     Int
+  maxMarks  Int    @default(100)
+
+  student   Student @relation(fields: [studentId], references: [id])
+
+  @@unique([studentId, examName, subject])
+  @@map("grades")
+}
+
+model Timetable {
+  id      String @id @default(cuid())
+  class   String
+  day     String // Monday, Tuesday, etc.
+  time    String // 8:00-9:00
+  subject String
+  teacher String?
+  room    String?
+
+  @@unique([class, day, time])
+  @@map("timetable")
+}
