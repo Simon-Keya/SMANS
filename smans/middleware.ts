@@ -1,47 +1,70 @@
 // middleware.ts
 import { getToken } from "next-auth/jwt";
+import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
 const protectedRoutes = ["/dashboard"];
-const roleBasedRoutes = {
-  admin: ["/dashboard/dashboard/students", "/dashboard/grades"],
+
+const roleBasedRoutes: Record<string, string[]> = {
+  admin: ["/dashboard/students", "/dashboard/grades"],
   teacher: ["/dashboard/attendance", "/dashboard/grades/enter"],
   student: ["/dashboard/grades", "/dashboard/timetable"],
   parent: ["/dashboard/grades", "/dashboard/attendance/report"],
 };
 
-export async function middleware(req: any) {
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Allow auth routes
+  // Allow all auth-related routes
   if (pathname.startsWith("/auth")) {
     return NextResponse.next();
   }
 
-  // Protect dashboard
-  if (protectedRoutes.some((route) => pathname.startsWith(route))) {
-    if (!token) {
-      return NextResponse.redirect(new URL("/auth/login", req.url));
-    }
+  // Check if the request is for a protected route
+  const isProtectedRoute = protectedRoutes.some((route) =>
+    pathname.startsWith(route)
+  );
 
-    const role = token.role as string;
+  if (!isProtectedRoute) {
+    return NextResponse.next();
+  }
 
-    // Role-based access control
-    if (role && roleBasedRoutes[role as keyof typeof roleBasedRoutes]) {
-      const allowed = roleBasedRoutes[role as keyof typeof roleBasedRoutes].some((route) =>
-        pathname.startsWith(route)
-      );
-      if (!allowed && !pathname.startsWith("/dashboard/profile")) {
-        return NextResponse.redirect(new URL("/dashboard", req.url));
-      }
+  // Get the JWT token (session)
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+
+  // If no token, redirect to login
+  if (!token) {
+    const loginUrl = new URL("/auth/login", req.url);
+    loginUrl.searchParams.set("callbackUrl", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  const role = token.role as string | undefined;
+
+  // Allow profile page for all authenticated users
+  if (pathname.startsWith("/dashboard/profile")) {
+    return NextResponse.next();
+  }
+
+  // Role-based access control
+  if (role && roleBasedRoutes[role]) {
+    const allowedRoutes = roleBasedRoutes[role];
+    const hasAccess = allowedRoutes.some((route) => pathname.startsWith(route));
+
+    if (!hasAccess) {
+      // Redirect to dashboard home if trying to access unauthorized section
+      return NextResponse.redirect(new URL("/dashboard", req.url));
     }
   }
 
+  // All checks passed
   return NextResponse.next();
 }
 
+// Matcher: Apply middleware only to these paths
 export const config = {
-  matcher: ["/dashboard/:path*", "/auth/:path*"],
+  matcher: [
+    "/dashboard/:path*",
+    "/auth/:path*",
+  ],
 };

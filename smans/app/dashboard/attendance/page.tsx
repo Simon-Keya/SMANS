@@ -13,7 +13,7 @@ export default function AttendanceDashboard() {
           </CardHeader>
           <CardContent>
             <Button asChild className="w-full">
-              <Link href="/dashboard/attendance/mark">Mark Today's Attendance</Link>
+              <Link href="/dashboard/attendance/mark">Mark Today&apos;s Attendance</Link>
             </Button>
           </CardContent>
         </Card>
