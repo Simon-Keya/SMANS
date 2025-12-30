@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Label } from "@/components/ui/Label";
+import { CheckedState } from "@radix-ui/react-checkbox"; // Import the type
 import { useState } from "react";
 
 interface Student {
@@ -20,12 +21,14 @@ interface AttendanceMarkerProps {
 export default function AttendanceMarker({ students, date, onSubmit }: AttendanceMarkerProps) {
   const [attendance, setAttendance] = useState<Record<string, boolean>>({});
 
-  const handleToggle = (studentId: string, checked: boolean) => {
-    setAttendance((prev) => ({ ...prev, [studentId]: checked }));
+  const handleToggle = (studentId: string, checked: CheckedState) => {
+    // Convert "indeterminate" or boolean to boolean
+    const isPresent = checked === true;
+    setAttendance((prev) => ({ ...prev, [studentId]: isPresent }));
   };
 
   const handleMarkAll = (present: boolean) => {
-    const all = students.reduce((acc, s) => ({ ...acc, [s.id]: present }), {});
+    const all = students.reduce((acc, s) => ({ ...acc, [s.id]: present }), {} as Record<string, boolean>);
     setAttendance(all);
   };
 
@@ -38,33 +41,35 @@ export default function AttendanceMarker({ students, date, onSubmit }: Attendanc
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h3 className="text-lg font-semibold">Mark Attendance - {date}</h3>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => handleMarkAll(true)}>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <Button variant="outline" size="sm" onClick={() => handleMarkAll(true)} className="flex-1 sm:flex-initial">
             All Present
           </Button>
-          <Button variant="outline" size="sm" onClick={() => handle handleMarkAll(false)}>
+          <Button variant="outline" size="sm" onClick={() => handleMarkAll(false)} className="flex-1 sm:flex-initial">
             All Absent
           </Button>
         </div>
       </div>
 
-      <div className="border rounded-lg">
+      <div className="border rounded-lg divide-y">
         {students.map((student) => (
-          <div key={student.id} className="flex items-center justify-between p-4 border-b last:border-b-0">
+          <div key={student.id} className="flex items-center justify-between p-4">
             <div>
               <p className="font-medium">{student.name}</p>
               <p className="text-sm text-muted-foreground">Roll: {student.rollNumber}</p>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-3">
               <Checkbox
                 id={student.id}
                 checked={attendance[student.id] ?? true}
-                onCheckedChange={(checked) => handleToggle(student.id, checked as boolean)}
+                onCheckedChange={(checked) => handleToggle(student.id, checked)}
               />
-              <Label htmlFor={student.id}>{attendance[student.id] === false ? "Absent" : "Present"}</Label>
+              <Label htmlFor={student.id} className="cursor-pointer select-none">
+                {attendance[student.id] === false ? "Absent" : "Present"}
+              </Label>
             </div>
           </div>
         ))}

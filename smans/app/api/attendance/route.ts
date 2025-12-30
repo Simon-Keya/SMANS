@@ -5,8 +5,9 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
+  const userRole = session?.user?.role as string | undefined;
 
-  if (!session || !["admin", "teacher"].includes(session.user.role)) {
+  if (!session || !userRole || !["admin", "teacher"].includes(userRole)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -20,8 +21,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
+  const userRole = session?.user?.role as string | undefined;
 
-  if (!session || !["admin", "teacher"].includes(session.user.role)) {
+  if (!session || !userRole || !["admin", "teacher"].includes(userRole)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

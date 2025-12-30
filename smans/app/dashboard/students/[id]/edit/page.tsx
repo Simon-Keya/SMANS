@@ -11,7 +11,20 @@ async function updateStudent(id: string, data: any) {
 
 export default async function EditStudentPage({ params }: { params: { id: string } }) {
   const student = await prisma.student.findUnique({ where: { id: params.id } });
+
   if (!student) notFound();
+
+  // Normalize Prisma's null values to undefined to match form expectations
+  const normalizedStudent = {
+    name: student.name,
+    rollNumber: student.rollNumber,
+    class: student.class,
+    email: student.email ?? undefined,
+    phone: student.phone ?? undefined,
+    parentName: student.parentName ?? undefined,
+    parentPhone: student.parentPhone ?? undefined,
+    // Exclude id, createdAt, updatedAt — not needed in the form
+  };
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -20,7 +33,10 @@ export default async function EditStudentPage({ params }: { params: { id: string
           <CardTitle>Edit Student</CardTitle>
         </CardHeader>
         <CardContent>
-          <StudentForm defaultValues={student} onSubmit={(data) => updateStudent(params.id, data)} />
+          <StudentForm
+            defaultValues={normalizedStudent}
+            onSubmit={(data) => updateStudent(params.id, data)}
+          />
         </CardContent>
       </Card>
     </div>

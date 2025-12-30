@@ -30,8 +30,9 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);
+  const userRole = session?.user?.role as string | undefined;
 
-  if (!session || !["admin", "teacher"].includes(session.user.role)) {
+  if (!session || !userRole || !["admin", "teacher"].includes(userRole)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

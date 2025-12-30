@@ -2,11 +2,13 @@ import AttendanceSummary from "@/components/attendance/AttendanceSummary";
 import AttendanceTable from "@/components/attendance/AttendanceTable";
 
 export default async function AttendanceReportPage() {
-  // Mock data - replace with real fetch
   const summary = { totalDays: 100, presentDays: 92, percentage: 92 };
-  const records = [
+
+  // Explicitly type the array to match AttendanceRecord
+  const records: { date: string; status: "present" | "absent" | "late" }[] = [
     { date: "2025-12-28", status: "present" },
     { date: "2025-12-27", status: "absent" },
+    { date: "2025-12-26", status: "late" },
   ];
 
   return (
