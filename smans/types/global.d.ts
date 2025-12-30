@@ -1,2 +1,2 @@
-// app/types/global.d.ts
-declare module "*.css";
+declare module '*.css';
+declare module 'daisyui'
