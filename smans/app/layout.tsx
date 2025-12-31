@@ -1,3 +1,4 @@
+// app/layout.tsx
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
@@ -12,12 +13,6 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "SMANS - School Management System",
   description: "A modern school management system for administrators, teachers, students, and parents.",
-  keywords: "school management, education, attendance, grades, timetable, SMANS",
-  authors: [{ name: "Simon Keya" }],
-  viewport: "width=device-width, initial-scale=1",
-  icons: {
-    icon: "/favicon.ico",
-  },
 };
 
 export default function RootLayout({
@@ -26,10 +21,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="h-full" suppressHydrationWarning>
+    <html lang="en" data-theme="smans" className="h-full" suppressHydrationWarning>
       <body
         className={cn(
-          "min-h-screen flex flex-col bg-background font-sans antialiased",
+          "min-h-screen flex flex-col bg-base-100 font-sans antialiased",
           inter.className
         )}
       >
