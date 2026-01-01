@@ -4,7 +4,11 @@ import { Button } from "@/components/ui/Button";
 import { LogOut } from "lucide-react";
 import { signIn, signOut, useSession } from "next-auth/react";
 
-export default function SignInButton() {
+interface SignInButtonProps {
+  callbackUrl?: string;
+}
+
+export default function SignInButton({ callbackUrl = "/dashboard" }: SignInButtonProps) {
   const { data: session, status } = useSession();
 
   if (status === "loading") {
@@ -21,7 +25,7 @@ export default function SignInButton() {
   }
 
   return (
-    <Button onClick={() => signIn()}>
+    <Button onClick={() => signIn("credentials", { callbackUrl })}>
       Sign In
     </Button>
   );
