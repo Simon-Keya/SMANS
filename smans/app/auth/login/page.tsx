@@ -14,8 +14,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const searchParams = useSearchParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -26,15 +26,13 @@ export default function LoginPage() {
     const res = await signIn("credentials", {
       email,
       password,
-      redirect: false, // Important: handle redirect manually
-      callbackUrl,
+      redirect: false,
     });
 
     if (res?.error) {
       setError("Invalid email or password");
       setLoading(false);
     } else {
-      // Success — redirect manually
       router.push(callbackUrl);
     }
   };
@@ -42,46 +40,28 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-base-200">
       <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl text-center">SMANS Login</CardTitle>
-          <p className="text-sm text-muted-foreground text-center">
-            Enter your credentials to access your dashboard
-          </p>
+        <CardHeader>
+          <CardTitle className="text-center text-2xl">SMANS Login</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="admin@smans.ac.ke"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+            <div>
+              <Label>Email</Label>
+              <Input value={email} onChange={e => setEmail(e.target.value)} />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+            <div>
+              <Label>Password</Label>
               <Input
-                id="password"
                 type="password"
-                placeholder="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
+                onChange={e => setPassword(e.target.value)}
               />
             </div>
-            {error && (
-              <p className="text-sm text-destructive text-center">{error}</p>
-            )}
+            {error && <p className="text-sm text-destructive">{error}</p>}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
-          <p className="text-xs text-center text-muted-foreground mt-6">
-            Demo credentials: <strong>admin@smans.ac.ke</strong> / <strong>password</strong>
-          </p>
         </CardContent>
       </Card>
     </div>
