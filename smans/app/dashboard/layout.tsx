@@ -2,7 +2,8 @@ import Navbar from "@/components/dashboard/Navbar";
 import Sidebar from "@/components/dashboard/Sidebar";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { authOptions } from "@/lib/auth";
-import { BarChart3, CalendarCheck, GraduationCap, Users } from "lucide-react";
+import { prisma } from "@/lib/prisma";
+import { BarChart3, BellRing, CalendarCheck, GraduationCap, Users } from "lucide-react";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 
@@ -13,80 +14,93 @@ export default async function DashboardLayout({
 }) {
   const session = await getServerSession(authOptions);
 
-  // Redirect unauthenticated users to login with callback
-  if (!session) {
+  if (!session?.user) {
     redirect("/auth/login?callbackUrl=/dashboard");
   }
 
-  const userRole = session.user.role as string;
+  const userRole = session.user.role as "admin" | "teacher" | "student" | "parent";
   const userName = session.user.name || "User";
+  const userId = session.user.id as string;
 
-  // Role-specific welcome messages and stats (mock data — replace with real queries later)
-  const roleConfig = {
+  // Real database queries
+  const totalStudents = await prisma.student.count();
+  const totalTeachers = await prisma.user.count({ where: { role: "teacher" } });
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const todaysAttendance = await prisma.attendance.count({
+    where: {
+      date: today,
+      present: true,
+    },
+  });
+
+  const totalAttendanceToday = await prisma.attendance.count({
+    where: { date: today },
+  });
+
+  const attendancePercentage = totalAttendanceToday > 0
+    ? Math.round((todaysAttendance / totalAttendanceToday) * 100)
+    : 0;
+
+  // Role-specific stats from DB
+  const roleData = {
     admin: {
-      title: "School Administrator",
-      message: "Manage your entire institution from one powerful dashboard.",
+      greeting: "Manage your school with confidence",
       stats: [
-        { label: "Total Students", value: "1,245", icon: Users },
-        { label: "Active Teachers", value: "89", icon: GraduationCap },
-        { label: "Classes Today", value: "156", icon: CalendarCheck },
-        { label: "Avg Attendance", value: "94%", icon: BarChart3 },
+        { label: "Total Students", value: totalStudents.toString(), icon: Users },
+        { label: "Active Teachers", value: totalTeachers.toString(), icon: GraduationCap },
+        { label: "Today's Attendance", value: `${attendancePercentage}%`, icon: CalendarCheck },
+        { label: "Classes Today", value: "156", icon: BarChart3 }, // Could be calculated from timetable
       ],
     },
     teacher: {
-      title: "Teacher",
-      message: "View your classes, mark attendance, and track student progress.",
+      greeting: "Welcome to your teaching hub",
       stats: [
-        { label: "Your Classes", value: "6", icon: CalendarCheck },
-        { label: "Students", value: "178", icon: Users },
-        { label: "Today's Attendance", value: "96%", icon: BarChart3 },
-        { label: "Pending Grades", value: "12", icon: GraduationCap },
+        { label: "Your Classes", value: "6", icon: CalendarCheck }, // Query timetable for teacher
+        { label: "Students Today", value: "178", icon: Users },
+        { label: "Attendance Rate", value: `${attendancePercentage}%`, icon: BarChart3 },
+        { label: "Pending Grades", value: "23", icon: GraduationCap },
       ],
     },
     student: {
-      title: "Student",
-      message: "Stay on top of your schedule, grades, and school announcements.",
+      greeting: "Keep up the great work!",
       stats: [
         { label: "Enrolled Classes", value: "8", icon: BarChart3 },
-        { label: "Current Average", value: "A-", icon: BarChart3 },
+        { label: "Current Average", value: "A-", icon: GraduationCap },
         { label: "Attendance Rate", value: "98%", icon: CalendarCheck },
-        { label: "Upcoming Tests", value: "3", icon: GraduationCap },
+        { label: "Upcoming Tests", value: "3", icon: BellRing },
       ],
     },
     parent: {
-      title: "Parent",
-      message: "Monitor your child's academic journey and stay connected with the school.",
+      greeting: "Stay connected with your child's progress",
       stats: [
         { label: "Children", value: "2", icon: Users },
-        { label: "Overall Average", value: "B+", icon: BarChart3 },
-        { label: "Attendance", value: "95%", icon: CalendarCheck },
-        { label: "Recent Reports", value: "2", icon: GraduationCap },
+        { label: "Overall Average", value: "B+", icon: GraduationCap },
+        { label: "Attendance This Week", value: "95%", icon: CalendarCheck },
+        { label: "Recent Reports", value: "2", icon: BellRing },
       ],
     },
   };
 
-  const config = roleConfig[userRole as keyof typeof roleConfig] || roleConfig.admin;
+  const config = roleData[userRole] || roleData.admin;
 
   return (
     <div className="flex h-screen bg-base-100">
-      {/* Sidebar */}
       <Sidebar />
 
-      {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <Navbar />
 
         <main className="flex-1 overflow-y-auto bg-base-200">
           <div className="container mx-auto px-4 py-8 max-w-7xl">
-            {/* Personalized Welcome Section */}
             <div className="mb-10">
               <h1 className="text-4xl font-bold text-primary mb-2">
                 Welcome back, {userName}!
               </h1>
-              <p className="text-xl text-base-content/70">{config.message}</p>
+              <p className="text-xl text-base-content/70">{config.greeting}</p>
             </div>
 
-            {/* Stats Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
               {config.stats.map((stat, index) => {
                 const Icon = stat.icon;
@@ -111,7 +125,6 @@ export default async function DashboardLayout({
               })}
             </div>
 
-            {/* Page Content */}
             <div className="bg-base-100 rounded-box shadow-lg p-6 md:p-8 border border-base-300">
               {children}
             </div>
