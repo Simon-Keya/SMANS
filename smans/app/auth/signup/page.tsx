@@ -1,6 +1,5 @@
 "use client";
 
-import { signUpAction } from "@/actions/authActions"; // We'll create this next
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -10,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
+import { signUpAction } from "../../actions/authActions"; // We'll create this next
 
 const signUpSchema = z.object({
   name: z.string().min(2, "Name is required"),
