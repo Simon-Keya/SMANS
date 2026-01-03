@@ -2,32 +2,87 @@
 
 import AttendanceMarker from "@/components/attendance/AttendanceMarker";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-const mockStudents = [
-  { id: "1", name: "John Doe", rollNumber: "001" },
-  { id: "2", name: "Jane Smith", rollNumber: "002" },
-  // Add more or fetch from API
-];
+type Student = {
+  id: string;
+  name: string;
+  rollNumber: string;
+};
+
+type AttendanceRecord = {
+  studentId: string;
+  present: boolean;
+};
 
 export default function MarkAttendancePage() {
   const router = useRouter();
+  const [students, setStudents] = useState<Student[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (attendance: any[]) => {
+  // Fetch students from API
+  useEffect(() => {
+    const fetchStudents = async () => {
+      try {
+        const res = await fetch("/api/students");
+        if (!res.ok) throw new Error("Failed to fetch students");
+        const data: Student[] = await res.json();
+        setStudents(data);
+      } catch (err: any) {
+        console.error(err);
+        setError(err.message || "Error fetching students");
+      }
+    };
+
+    fetchStudents();
+  }, []);
+
+  const handleSubmit = async (attendance: AttendanceRecord[]) => {
     setIsLoading(true);
-    // Call server action or API
-    await fetch("/api/attendance", {
-      method: "POST",
-      body: JSON.stringify({ date: new Date().toISOString().split("T")[0], records: attendance }),
-    });
-    router.push("/dashboard/attendance");
+    setError(null);
+
+    try {
+      const res = await fetch("/api/attendance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date: new Date().toISOString().split("T")[0],
+          records: attendance,
+        }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Failed to submit attendance");
+      }
+
+      router.push("/dashboard/attendance");
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "Submission failed");
+      setIsLoading(false);
+    }
   };
 
+  if (error) {
+    return <p className="text-red-500 font-semibold">{error}</p>;
+  }
+
+  if (!students.length) {
+    return <p className="text-gray-500">Loading students...</p>;
+  }
+
   return (
-    <div>
+    <div className="space-y-6">
       <h1 className="text-3xl font-bold mb-6">Mark Attendance</h1>
-      <AttendanceMarker students={mockStudents} date={new Date().toLocaleDateString()} onSubmit={handleSubmit} />
+
+      <AttendanceMarker
+        students={students}
+        date={new Date().toLocaleDateString()}
+        onSubmit={handleSubmit}
+        isSubmitting={isLoading}
+      />
     </div>
   );
 }
