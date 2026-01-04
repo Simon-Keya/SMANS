@@ -1,8 +1,17 @@
+"use client";
+
 import { Button } from "@/components/ui/Button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/Table";
 import { Edit, Trash2 } from "lucide-react";
 
-interface Student {
+export interface Student {
   id: string;
   name: string;
   rollNumber: string;
@@ -11,13 +20,13 @@ interface Student {
   parentPhone?: string;
 }
 
-interface StudentTableProps {
+interface Props {
   students: Student[];
   onEdit: (student: Student) => void;
   onDelete: (id: string) => void;
 }
 
-export default function StudentTable({ students, onEdit, onDelete }: StudentTableProps) {
+export default function StudentTable({ students, onEdit, onDelete }: Props) {
   return (
     <Table>
       <TableHeader>
@@ -30,10 +39,11 @@ export default function StudentTable({ students, onEdit, onDelete }: StudentTabl
           <TableHead className="text-right">Actions</TableHead>
         </TableRow>
       </TableHeader>
+
       <TableBody>
         {students.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={6} className="text-center text-muted-foreground">
+            <TableCell colSpan={6} className="text-center">
               No students found
             </TableCell>
           </TableRow>
@@ -41,11 +51,11 @@ export default function StudentTable({ students, onEdit, onDelete }: StudentTabl
           students.map((student) => (
             <TableRow key={student.id}>
               <TableCell>{student.rollNumber}</TableCell>
-              <TableCell className="font-medium">{student.name}</TableCell>
+              <TableCell>{student.name}</TableCell>
               <TableCell>{student.class}</TableCell>
-              <TableCell>{student.email || "-"}</TableCell>
-              <TableCell>{student.parentPhone || "-"}</TableCell>
-              <TableCell className="text-right">
+              <TableCell>{student.email ?? "-"}</TableCell>
+              <TableCell>{student.parentPhone ?? "-"}</TableCell>
+              <TableCell className="text-right space-x-1">
                 <Button variant="ghost" size="icon" onClick={() => onEdit(student)}>
                   <Edit className="h-4 w-4" />
                 </Button>

@@ -1,29 +1,20 @@
-import StudentTable from "@/components/students/StudentTable";
 import { Button } from "@/components/ui/Button";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
+import StudentsClient from "./students-client";
 
 export default async function StudentsPage() {
   const rawStudents = await prisma.student.findMany({
-    select: {
-      id: true,
-      name: true,
-      rollNumber: true,
-      class: true,
-      email: true,
-      parentPhone: true,
-    },
     orderBy: { rollNumber: "asc" },
   });
 
-  // Normalize null → undefined for type compatibility
-  const students = rawStudents.map((student) => ({
-    id: student.id,
-    name: student.name,
-    rollNumber: student.rollNumber,
-    class: student.class,
-    email: student.email ?? undefined,
-    parentPhone: student.parentPhone ?? undefined,
+  const students = rawStudents.map((s) => ({
+    id: s.id,
+    name: s.name,
+    rollNumber: s.rollNumber,
+    class: s.class,
+    email: s.email ?? undefined,
+    parentPhone: s.parentPhone ?? undefined,
   }));
 
   return (
@@ -35,19 +26,7 @@ export default async function StudentsPage() {
         </Button>
       </div>
 
-      <StudentTable
-        students={students}
-        onEdit={(student) => {
-          // Optional: You can log or handle if needed
-          // Navigation is usually handled inside StudentTable via Link
-        }}
-        onDelete={async (id: string) => {
-          "use server";
-          // This is a valid Server Action when passed correctly
-          await prisma.student.delete({ where: { id } });
-          // Revalidate or refresh data (optional, Next.js will handle cache)
-        }}
-      />
+      <StudentsClient students={students} />
     </div>
   );
 }
