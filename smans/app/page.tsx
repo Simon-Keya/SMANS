@@ -101,7 +101,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ================= CTA ================= */}
+      {/* ================ CTA ================*/}
       <section className="py-28 bg-slate-900 text-white">
         <div className="container mx-auto px-6 text-center">
           <h2 className="text-4xl md:text-5xl font-bold mb-6">
@@ -126,7 +126,7 @@ export default function Home() {
   );
 }
 
-/* ================= FEATURE CARD ================= */
+/* ================ FEATURE CARD ================= */
 
 function FeatureCard({
   icon,
