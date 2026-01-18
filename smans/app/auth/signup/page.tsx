@@ -1,17 +1,17 @@
 "use client";
 
-import { signUpAction } from "@/actions/authActions";
-import { Alert, AlertDescription } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
+import { cn } from "@/lib/utils"; // ← Fixed cn import
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
+import { signUpAction } from "../../actions/authActions";
 
 const signUpSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -53,7 +53,7 @@ export default function SignUpPage() {
         router.push("/auth/login?success=account_created");
       }, 2000);
     } catch (err: any) {
-      setError(err.message || "Something went wrong. Please try again.");
+      setError(err.message || "Sign up failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -71,11 +71,12 @@ export default function SignUpPage() {
 
         <CardContent className="space-y-6">
           {success && (
-            <Alert className="bg-success/10 text-success border-success/30">
-              <AlertDescription>
-                Account created successfully! Redirecting to login...
-              </AlertDescription>
-            </Alert>
+            <div className={cn(
+              "p-4 rounded-lg text-center border",
+              "bg-success/10 border-success/30 text-success"
+            )}>
+              Account created successfully! Redirecting to login...
+            </div>
           )}
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
@@ -85,7 +86,7 @@ export default function SignUpPage() {
                 id="name"
                 placeholder="John Doe"
                 {...register("name")}
-                className={errors.name ? "border-destructive" : ""}
+                className={cn(errors.name && "border-destructive")}
               />
               {errors.name && (
                 <p className="text-sm text-destructive">{errors.name.message}</p>
@@ -99,7 +100,7 @@ export default function SignUpPage() {
                 type="email"
                 placeholder="john@smans.ac.ke"
                 {...register("email")}
-                className={errors.email ? "border-destructive" : ""}
+                className={cn(errors.email && "border-destructive")}
               />
               {errors.email && (
                 <p className="text-sm text-destructive">{errors.email.message}</p>
@@ -113,7 +114,7 @@ export default function SignUpPage() {
                 type="password"
                 placeholder="At least 8 characters"
                 {...register("password")}
-                className={errors.password ? "border-destructive" : ""}
+                className={cn(errors.password && "border-destructive")}
               />
               {errors.password && (
                 <p className="text-sm text-destructive">{errors.password.message}</p>
@@ -142,9 +143,12 @@ export default function SignUpPage() {
             </div>
 
             {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
+              <div className={cn(
+                "p-4 rounded-lg text-center border",
+                "bg-destructive/10 border-destructive/30 text-destructive"
+              )}>
+                {error}
+              </div>
             )}
 
             <Button
@@ -153,7 +157,7 @@ export default function SignUpPage() {
               disabled={loading}
             >
               {loading ? (
-                <span className="loading loading-spinner"></span>
+                <span className="loading loading-spinner loading-sm"></span>
               ) : (
                 "Create Account"
               )}
