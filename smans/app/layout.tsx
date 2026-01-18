@@ -1,8 +1,9 @@
-// app/layout.tsx
+// app/layout.tsx          ← remains a Server Component (no "use client")
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 
+import ClientWrapper from "@/components/layout/ClientWrapper"; // ← new file
 import Footer from "@/components/layout/Footer";
 import Header from "@/components/layout/Header";
 import AuthSessionProvider from "@/components/providers/AuthSessionProviders";
@@ -13,8 +14,7 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "SMANS - School Management System",
-  description:
-    "A modern school management system for administrators, teachers, students, and parents.",
+  description: "A modern school management system for administrators, teachers, students, and parents.",
 };
 
 export default function RootLayout({
@@ -23,23 +23,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html
-      lang="en"
-      data-theme="smans"
-      className="h-full"
-      suppressHydrationWarning
-    >
-      <body
-        className={cn(
-          "min-h-screen flex flex-col bg-base-100 font-sans antialiased",
-          inter.className
-        )}
-      >
+    <html lang="en" data-theme="smans" className="h-full" suppressHydrationWarning>
+      <body className={cn("min-h-screen flex flex-col bg-base-100 font-sans antialiased", inter.className)}>
         <AuthSessionProvider>
           <ToastProvider>
-            <Header />
-            <main className="flex-1">{children}</main>
-            <Footer />
+            <ClientWrapper>
+              <Header />
+              <main className="flex-1">{children}</main>
+              <Footer />
+            </ClientWrapper>
             <ToastViewport />
           </ToastProvider>
         </AuthSessionProvider>
