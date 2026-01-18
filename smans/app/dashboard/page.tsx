@@ -1,34 +1,22 @@
-// app/dashboard/page.tsx Dashboard page
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import {
-  BarChart3,
-  BellRing,
-  CalendarCheck,
-  GraduationCap,
-  Users,
-} from "lucide-react";
+import { BarChart3, BellRing, CalendarCheck, GraduationCap, Users } from "lucide-react";
 import { getServerSession } from "next-auth";
 
 export default async function DashboardHome() {
   const session = await getServerSession(authOptions);
 
-  if (!session?.user) return null;
+  if (!session?.user) {
+    return null; // Layout should redirect anyway
+  }
 
-  const userRole = session.user.role as
-    | "admin"
-    | "teacher"
-    | "student"
-    | "parent";
-
+  const userRole = (session.user.role as string)?.toLowerCase() || "student";
   const userName = session.user.name || "User";
 
-  // ---------- DATABASE QUERIES ----------
+  // Real DB queries (cached by Next.js in production)
   const totalStudents = await prisma.student.count();
-  const totalTeachers = await prisma.user.count({
-    where: { role: "teacher" },
-  });
+  const totalTeachers = await prisma.user.count({ where: { role: "teacher" } });
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -46,86 +34,76 @@ export default async function DashboardHome() {
       ? Math.round((presentToday / totalAttendanceToday) * 100)
       : 0;
 
-  // ---------- ROLE CONFIG ----------
+  // Role-based content (greeting + stats)
   const roleData = {
     admin: {
-      greeting: "Manage your school with confidence",
+      greeting: "Welcome back, Administrator",
       stats: [
-        { label: "Total Students", value: totalStudents, icon: Users },
-        { label: "Active Teachers", value: totalTeachers, icon: GraduationCap },
-        {
-          label: "Today's Attendance",
-          value: `${attendanceRate}%`,
-          icon: CalendarCheck,
-        },
-        { label: "Classes Today", value: 156, icon: BarChart3 },
+        { label: "Total Students", value: totalStudents, icon: Users, color: "text-primary" },
+        { label: "Active Teachers", value: totalTeachers, icon: GraduationCap, color: "text-secondary" },
+        { label: "Today's Attendance", value: `${attendanceRate}%`, icon: CalendarCheck, color: "text-success" },
+        { label: "System Alerts", value: "3", icon: BellRing, color: "text-warning" },
       ],
     },
     teacher: {
-      greeting: "Welcome to your teaching hub",
+      greeting: "Good to see you, Teacher",
       stats: [
-        { label: "Your Classes", value: 6, icon: CalendarCheck },
-        { label: "Students Today", value: 178, icon: Users },
-        {
-          label: "Attendance Rate",
-          value: `${attendanceRate}%`,
-          icon: BarChart3,
-        },
-        { label: "Pending Grades", value: 23, icon: GraduationCap },
+        { label: "Your Classes Today", value: "4", icon: CalendarCheck, color: "text-primary" },
+        { label: "Students in Class", value: "145", icon: Users, color: "text-secondary" },
+        { label: "Today's Attendance", value: `${attendanceRate}%`, icon: BarChart3, color: "text-success" },
+        { label: "Pending Grades", value: "18", icon: GraduationCap, color: "text-accent" },
       ],
     },
     student: {
-      greeting: "Keep up the great work!",
+      greeting: "Welcome back!",
       stats: [
-        { label: "Enrolled Classes", value: 8, icon: BarChart3 },
-        { label: "Current Average", value: "A-", icon: GraduationCap },
-        { label: "Attendance Rate", value: "98%", icon: CalendarCheck },
-        { label: "Upcoming Tests", value: 3, icon: BellRing },
+        { label: "Your Classes", value: "7", icon: CalendarCheck, color: "text-primary" },
+        { label: "Current Average", value: "A-", icon: GraduationCap, color: "text-success" },
+        { label: "Attendance Rate", value: "97%", icon: CalendarCheck, color: "text-success" },
+        { label: "Upcoming Assignments", value: "4", icon: BellRing, color: "text-warning" },
       ],
     },
     parent: {
-      greeting: "Stay connected with your child's progress",
+      greeting: "Hello Parent",
       stats: [
-        { label: "Children", value: 2, icon: Users },
-        { label: "Overall Average", value: "B+", icon: GraduationCap },
-        { label: "Attendance This Week", value: "95%", icon: CalendarCheck },
-        { label: "Recent Reports", value: 2, icon: BellRing },
+        { label: "Your Children", value: "2", icon: Users, color: "text-primary" },
+        { label: "Overall Average", value: "B+", icon: GraduationCap, color: "text-success" },
+        { label: "Attendance This Month", value: "96%", icon: CalendarCheck, color: "text-success" },
+        { label: "School Notices", value: "5", icon: BellRing, color: "text-accent" },
       ],
     },
   };
 
-  const config = roleData[userRole];
+  const data = roleData[userRole as keyof typeof roleData] || roleData.admin;
 
   return (
-    <div>
-      {/* Header */}
-      <div className="mb-10">
-        <h1 className="text-4xl font-bold text-primary mb-2">
-          Welcome back, {userName}!
+    <div className="space-y-8">
+      {/* Greeting Header */}
+      <div className="bg-gradient-to-r from-primary to-secondary p-8 rounded-2xl text-primary-content shadow-xl">
+        <h1 className="text-4xl md:text-5xl font-bold mb-3">
+          {data.greeting}, {userName}!
         </h1>
-        <p className="text-xl text-base-content/70">
-          {config.greeting}
+        <p className="text-xl opacity-90">
+          Here's a quick overview of your school day.
         </p>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-        {config.stats.map((stat, index) => {
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {data.stats.map((stat, index) => {
           const Icon = stat.icon;
           return (
             <Card
               key={index}
-              className="bg-base-100 shadow-xl border border-primary/10"
+              className="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 border border-primary/10 hover:border-primary"
             >
               <CardHeader className="flex flex-row items-center gap-4">
-                <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <Icon className="w-8 h-8 text-primary" />
+                <div className={`w-14 h-14 rounded-xl ${stat.color}/10 flex items-center justify-center`}>
+                  <Icon className={`w-8 h-8 ${stat.color}`} />
                 </div>
                 <div>
-                  <p className="text-sm text-base-content/60">
-                    {stat.label}
-                  </p>
-                  <CardTitle className="text-3xl font-bold text-primary">
+                  <p className="text-sm text-base-content/60">{stat.label}</p>
+                  <CardTitle className={`text-3xl font-bold ${stat.color} mt-1`}>
                     {stat.value}
                   </CardTitle>
                 </div>
@@ -136,16 +114,12 @@ export default async function DashboardHome() {
       </div>
 
       {/* Role Message */}
-      <div className="alert alert-info">
+      <div className="alert alert-info mt-8">
         <span>
-          {userRole === "admin" &&
-            "You have full access to all school management features."}
-          {userRole === "teacher" &&
-            "Check your classes and mark attendance for today."}
-          {userRole === "student" &&
-            "View your grades and upcoming assignments."}
-          {userRole === "parent" &&
-            "Monitor your child's progress and attendance."}
+          {userRole === "admin" && "Full access: manage students, teachers, and reports."}
+          {userRole === "teacher" && "Focus on teaching: mark attendance and enter grades."}
+          {userRole === "student" && "Stay on track: check timetable and grades."}
+          {userRole === "parent" && "Stay informed: monitor attendance and progress."}
         </span>
       </div>
     </div>

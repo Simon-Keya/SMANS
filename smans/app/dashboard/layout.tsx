@@ -1,8 +1,8 @@
-// app/dashboard/layout.tsx
 import Navbar from "@/components/dashboard/Navbar";
 import Sidebar from "@/components/dashboard/Sidebar";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
+import { redirect } from "next/navigation";
 
 export default async function DashboardLayout({
   children,
@@ -11,17 +11,22 @@ export default async function DashboardLayout({
 }) {
   const session = await getServerSession(authOptions);
 
-  // Middleware already guaranteed auth
+  // Redirect if no session (middleware should catch this, but double-check)
   if (!session?.user) {
-    return null;
+    redirect("/auth/login?callbackUrl=/dashboard");
   }
 
+  const userRole = (session.user.role as string)?.toLowerCase() || "student";
+
+  // Role-specific sidebar visibility or props can be passed here if needed
   return (
     <div className="flex h-screen bg-base-100">
-      <Sidebar />
+      {/* Sidebar - can be role-aware if you pass props */}
+      <Sidebar role={userRole} />
 
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <Navbar />
+      {/* Main Area */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <Navbar role={userRole} />
 
         <main className="flex-1 overflow-y-auto bg-base-200">
           <div className="container mx-auto px-4 py-8 max-w-7xl">
