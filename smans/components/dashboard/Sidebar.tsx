@@ -65,10 +65,6 @@ export default function Sidebar({ role = "student" }: SidebarProps) {
 
   return (
     <div className="hidden md:flex flex-col w-64 bg-base-200 border-r">
-      <div className="p-6 border-b">
-        <h2 className="text-2xl font-bold tracking-tight text-primary">SMANS</h2>
-        <p className="text-sm text-base-content/60 mt-1">School Management System</p>
-      </div>
       <nav className="flex-1 p-4">
         {items.map((item) => {
           const Icon = item.icon;
@@ -89,9 +85,6 @@ export default function Sidebar({ role = "student" }: SidebarProps) {
         })}
       </nav>
       <div className="p-4 border-t">
-        <p className="text-xs text-base-content/50 text-center">
-          © {new Date().getFullYear()} SMANS
-        </p>
       </div>
     </div>
   );

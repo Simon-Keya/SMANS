@@ -1,5 +1,7 @@
 "use client";
 
+import Footer from "@/components/layout/Footer"; // ← Add this import
+import Header from "@/components/layout/Header"; // ← Add this import
 import { usePathname } from "next/navigation";
 
 interface ClientWrapperProps {
@@ -13,8 +15,8 @@ export default function ClientWrapper({ children }: ClientWrapperProps) {
   return (
     <>
       {!isDashboard && <Header />}
-      {children}
-      <Footer />
+      <main className="flex-1">{children}</main>
+      <Footer />  {/* Footer always visible */}
     </>
   );
 }
