@@ -10,17 +10,23 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/DropDownMenu";
-import { Bell, Menu } from "lucide-react";
-import { signOut, useSession } from "next-auth/react";
+import { Bell, LogOut, Menu, UserCircle } from "lucide-react";
+import { signOut } from "next-auth/react";
+import Link from "next/link";
 
 interface NavbarProps {
   onMenuClick?: () => void;
+  role?: string;          // ← Add role prop
+  userName?: string;      // Optional: for display
+  userEmail?: string;     // Optional: for tooltip
 }
 
-export default function Navbar({ onMenuClick }: NavbarProps) {
-  const { data: session } = useSession();
-  const user = session?.user;
-
+export default function Navbar({
+  onMenuClick,
+  role = "student",
+  userName = "User",
+  userEmail = "",
+}: NavbarProps) {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-base-100/95 backdrop-blur supports-[backdrop-filter]:bg-base-100/60">
       <div className="flex h-16 items-center px-4">
@@ -44,14 +50,14 @@ export default function Navbar({ onMenuClick }: NavbarProps) {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="flex items-center gap-3 px-3">
               <Avatar className="h-8 w-8">
-                <AvatarImage src={user?.image || ""} />
+                <AvatarImage src="" alt={userName} />
                 <AvatarFallback className="bg-primary text-primary-content">
-                  {user?.name?.charAt(0).toUpperCase() || "U"}
+                  {userName.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div className="hidden lg:block text-left">
-                <p className="text-sm font-medium">{user?.name || "User"}</p>
-                <p className="text-xs text-base-content/60 capitalize">{user?.role || "Guest"}</p>
+                <p className="text-sm font-medium">{userName}</p>
+                <p className="text-xs text-base-content/60 capitalize">{role}</p>
               </div>
             </Button>
           </DropdownMenuTrigger>

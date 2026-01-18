@@ -3,6 +3,7 @@
 import { cn } from "@/lib/utils";
 import {
   BarChart3,
+  BellRing,
   BookOpen,
   CalendarCheck,
   CalendarDays,
@@ -12,14 +13,15 @@ import {
   UserCircle,
   Users,
 } from "lucide-react";
-import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export default function Sidebar() {
+interface SidebarProps {
+  role?: string;  // ← Add this prop
+}
+
+export default function Sidebar({ role = "student" }: SidebarProps) {
   const pathname = usePathname();
-  const { data: session } = useSession();
-  const role = (session?.user?.role as string)?.toLowerCase() || "student";
 
   // Role-based navigation items
   const navItems = {
