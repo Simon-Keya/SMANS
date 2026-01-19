@@ -1,3 +1,4 @@
+// components/dashboard/teachers/components/TeacherForm.tsx
 "use client";
 
 import { Button } from "@/components/ui/Button";
@@ -6,13 +7,13 @@ import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
+import { useTransition } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
 const teacherSchema = z.object({
   name: z.string().min(2, "Name is required"),
   email: z.string().email("Invalid email"),
-  // password only for new teacher
   password: z.string().min(8, "Password must be at least 8 characters").optional(),
 });
 
@@ -20,16 +21,18 @@ type TeacherFormData = z.infer<typeof teacherSchema> & { id?: string };
 
 interface TeacherFormProps {
   teacher?: { id: string; name: string; email: string };
+  onSuccess?: () => void;
 }
 
-export default function TeacherForm({ teacher }: TeacherFormProps = {}) {
+export default function TeacherForm({ teacher, onSuccess }: TeacherFormProps = {}) {
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
   const isEdit = !!teacher;
 
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm<TeacherFormData>({
     resolver: zodResolver(teacherSchema),
     defaultValues: teacher
@@ -38,29 +41,36 @@ export default function TeacherForm({ teacher }: TeacherFormProps = {}) {
   });
 
   const onSubmit = async (data: TeacherFormData) => {
-    try {
-      if (isEdit) {
-        // Update teacher (you can create updateTeacher action)
-        await fetch(`/api/teachers/${teacher?.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
-        });
-      } else {
-        // Create new teacher
-        await fetch("/api/teachers", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
-        });
-      }
+    startTransition(async () => {
+      try {
+        if (isEdit) {
+          // Update teacher
+          const res = await fetch(`/api/teachers/${teacher?.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+          });
 
-      router.push("/dashboard/teachers");
-      router.refresh();
-    } catch (err) {
-      console.error(err);
-      alert("Failed to save teacher");
-    }
+          if (!res.ok) throw new Error("Failed to update");
+        } else {
+          // Create new teacher
+          const res = await fetch("/api/teachers", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+          });
+
+          if (!res.ok) throw new Error("Failed to create");
+        }
+
+        router.push("/dashboard/teachers");
+        router.refresh();
+        onSuccess?.();
+      } catch (err) {
+        console.error(err);
+        alert("Operation failed. Please try again.");
+      }
+    });
   };
 
   return (
@@ -93,8 +103,8 @@ export default function TeacherForm({ teacher }: TeacherFormProps = {}) {
             <Button type="button" variant="outline" onClick={() => router.back()}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Saving..." : isEdit ? "Update Teacher" : "Create Teacher"}
+            <Button type="submit" disabled={isPending}>
+              {isPending ? "Saving..." : isEdit ? "Update Teacher" : "Create Teacher"}
             </Button>
           </div>
         </form>

@@ -1,8 +1,8 @@
+import TeacherForm from "@/components/teachers/TeacherForm";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { notFound, redirect } from "next/navigation";
-import TeacherForm from "../../components/TeacherForm";
 
 interface EditTeacherPageProps {
   params: { id: string };
