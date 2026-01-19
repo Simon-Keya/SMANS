@@ -1,9 +1,7 @@
-// app/layout.tsx          ← remains a Server Component (no "use client")
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 
-import ClientWrapper from "@/components/layout/ClientWrapper"; // ← new file
 import Footer from "@/components/layout/Footer";
 import Header from "@/components/layout/Header";
 import AuthSessionProvider from "@/components/providers/AuthSessionProviders";
@@ -27,11 +25,9 @@ export default function RootLayout({
       <body className={cn("min-h-screen flex flex-col bg-base-100 font-sans antialiased", inter.className)}>
         <AuthSessionProvider>
           <ToastProvider>
-            <ClientWrapper>
-              <Header />
-              <main className="flex-1">{children}</main>
-              <Footer />
-            </ClientWrapper>
+            <Header />
+            <main className="flex-1">{children}</main>
+            <Footer />
             <ToastViewport />
           </ToastProvider>
         </AuthSessionProvider>
