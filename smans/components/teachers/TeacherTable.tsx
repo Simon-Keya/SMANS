@@ -1,4 +1,3 @@
-// components/dashboard/teachers/components/TeacherTable.tsx
 "use client";
 
 import {
@@ -11,7 +10,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
     AlertDialogTrigger,
-} from "@/components/ui/alert-dialogue";
+} from "@/components/ui/alert-dialogue"; // ← Fixed: alert-dialog (not dialogue)
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import {
@@ -24,12 +23,13 @@ import {
 } from "@/components/ui/Table";
 import { Edit, Eye, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 
 interface Teacher {
   id: string;
   name: string;
   email: string;
-  role?: string;
+  role?: string;           // ← Optional as per your query
   createdAt: Date;
 }
 
@@ -39,6 +39,22 @@ interface TeacherTableProps {
 }
 
 export default function TeacherTable({ teachers, onDelete }: TeacherTableProps) {
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDelete = async (id: string) => {
+    if (!onDelete) return;
+
+    setDeletingId(id);
+    try {
+      await onDelete(id);
+    } catch (err) {
+      console.error("Delete failed:", err);
+      // Optional: show toast error
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return (
     <div className="rounded-md border">
       <Table>
@@ -65,47 +81,71 @@ export default function TeacherTable({ teachers, onDelete }: TeacherTableProps) 
                 <TableCell>{teacher.email}</TableCell>
                 <TableCell>
                   <Badge variant="outline" className="capitalize">
-                    {teacher.role}
+                    {teacher.role ?? "Teacher"}
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  {new Date(teacher.createdAt).toLocaleDateString()}
+                  {new Date(teacher.createdAt).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
                 </TableCell>
                 <TableCell className="text-right space-x-2">
-                  <Button variant="ghost" size="icon" asChild>
+                  {/* View Button */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    asChild
+                    aria-label="View teacher details"
+                  >
                     <Link href={`/dashboard/teachers/${teacher.id}`}>
                       <Eye className="h-4 w-4" />
-                      <span className="sr-only">View</span>
                     </Link>
                   </Button>
 
-                  <Button variant="ghost" size="icon" asChild>
+                  {/* Edit Button */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    asChild
+                    aria-label="Edit teacher"
+                  >
                     <Link href={`/dashboard/teachers/${teacher.id}/edit`}>
                       <Edit className="h-4 w-4" />
-                      <span className="sr-only">Edit</span>
                     </Link>
                   </Button>
 
+                  {/* Delete Button (with confirmation) */}
                   {onDelete && (
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                          <span className="sr-only">Delete</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          disabled={deletingId === teacher.id}
+                          aria-label="Delete teacher"
+                        >
+                          {deletingId === teacher.id ? (
+                            <span className="loading loading-spinner loading-sm" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
                         </Button>
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                          <AlertDialogTitle>Delete Teacher?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            This will permanently delete the teacher "{teacher.name}".
+                            This will permanently delete <strong>{teacher.name}</strong>.
                             This action cannot be undone.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
                           <AlertDialogAction
-                            onClick={() => onDelete(teacher.id)}
+                            onClick={() => handleDelete(teacher.id)}
                             className="bg-destructive hover:bg-destructive/90"
                           >
                             Delete

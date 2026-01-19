@@ -6,21 +6,26 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
 const teacherSchema = z.object({
-  name: z.string().min(2, "Name is required"),
-  email: z.string().email("Invalid email"),
+  name: z.string().min(2, "Name must be at least 2 characters").trim(),
+  email: z.string().email("Invalid email address").trim().toLowerCase(),
   password: z.string().min(8, "Password must be at least 8 characters").optional(),
 });
 
 type TeacherFormData = z.infer<typeof teacherSchema> & { id?: string };
 
 interface TeacherFormProps {
-  teacher?: { id: string; name: string; email: string };
+  teacher?: {
+    id: string;
+    name: string | null;     // ← Fixed: allow null from Prisma
+    email: string;
+  };
   onSuccess?: () => void;
 }
 
@@ -32,79 +37,129 @@ export default function TeacherForm({ teacher, onSuccess }: TeacherFormProps = {
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<TeacherFormData>({
     resolver: zodResolver(teacherSchema),
-    defaultValues: teacher
-      ? { name: teacher.name, email: teacher.email }
-      : { name: "", email: "", password: "" },
+    defaultValues: {
+      name: teacher?.name ?? "",          // ← Safe null fallback
+      email: teacher?.email ?? "",
+      password: "",
+    },
   });
 
   const onSubmit = async (data: TeacherFormData) => {
     startTransition(async () => {
       try {
+        let res: Response;
+
         if (isEdit) {
-          // Update teacher
-          const res = await fetch(`/api/teachers/${teacher?.id}`, {
+          // Update existing teacher
+          res = await fetch(`/api/teachers/${teacher?.id}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(data),
           });
-
-          if (!res.ok) throw new Error("Failed to update");
         } else {
           // Create new teacher
-          const res = await fetch("/api/teachers", {
+          res = await fetch("/api/teachers", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(data),
           });
+        }
 
-          if (!res.ok) throw new Error("Failed to create");
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.error || "Operation failed");
         }
 
         router.push("/dashboard/teachers");
-        router.refresh();
+        router.refresh(); // Refresh server data
         onSuccess?.();
-      } catch (err) {
-        console.error(err);
-        alert("Operation failed. Please try again.");
+      } catch (err: any) {
+        console.error("Teacher save error:", err);
+        alert(err.message || "Failed to save teacher. Please try again.");
       }
     });
   };
 
   return (
-    <Card>
+    <Card className="border-border/50 shadow-sm">
       <CardContent className="pt-6">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-6 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
-              <Input id="name" {...register("name")} />
-              {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
+              <Label htmlFor="name">Full Name *</Label>
+              <Input
+                id="name"
+                placeholder="John Doe"
+                {...register("name")}
+                className={errors.name ? "border-destructive" : ""}
+                disabled={isPending}
+              />
+              {errors.name && (
+                <p className="text-sm text-destructive">{errors.name.message}</p>
+              )}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" {...register("email")} />
-              {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
+              <Label htmlFor="email">Email Address *</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="teacher@smans.ac.ke"
+                {...register("email")}
+                className={errors.email ? "border-destructive" : ""}
+                disabled={isPending}
+              />
+              {errors.email && (
+                <p className="text-sm text-destructive">{errors.email.message}</p>
+              )}
             </div>
 
             {!isEdit && (
               <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="password">Initial Password</Label>
-                <Input id="password" type="password" {...register("password")} />
-                {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
+                <Label htmlFor="password">Initial Password *</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="At least 8 characters"
+                  {...register("password")}
+                  className={errors.password ? "border-destructive" : ""}
+                  disabled={isPending}
+                />
+                {errors.password && (
+                  <p className="text-sm text-destructive">{errors.password.message}</p>
+                )}
               </div>
             )}
           </div>
 
-          <div className="flex justify-end gap-4">
-            <Button type="button" variant="outline" onClick={() => router.back()}>
+          <div className="flex justify-end gap-4 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.back()}
+              disabled={isPending}
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={isPending}>
-              {isPending ? "Saving..." : isEdit ? "Update Teacher" : "Create Teacher"}
+
+            <Button
+              type="submit"
+              className="btn-primary"
+              disabled={isPending}
+            >
+              {isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : isEdit ? (
+                "Update Teacher"
+              ) : (
+                "Create Teacher"
+              )}
             </Button>
           </div>
         </form>

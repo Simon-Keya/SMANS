@@ -19,7 +19,7 @@ export default async function EditTeacherPage({ params }: EditTeacherPageProps) 
     where: { id: params.id, role: "teacher" },
     select: {
       id: true,
-      name: true,
+      name: true,        // ← can be string | null
       email: true,
       role: true,
     },
@@ -31,7 +31,9 @@ export default async function EditTeacherPage({ params }: EditTeacherPageProps) 
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold">Edit Teacher: {teacher.name}</h1>
+      <h1 className="text-3xl font-bold">
+        Edit Teacher: {teacher.name ?? "Unnamed Teacher"}
+      </h1>
       <TeacherForm teacher={teacher} />
     </div>
   );
