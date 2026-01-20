@@ -78,7 +78,7 @@ export default async function DashboardHome() {
 
   return (
     <div className="space-y-8">
-      {/* Greeting Header - reverted to dark emerald style */}
+      {/* Greeting Header - dark emerald gradient */}
       <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-8 rounded-2xl text-white shadow-2xl">
         <h1 className="text-4xl md:text-5xl font-bold mb-3">
           {data.greeting}, {userName}!
@@ -113,7 +113,7 @@ export default async function DashboardHome() {
         })}
       </div>
 
-      {/* Role Message - reverted to slate style */}
+      {/* Role Message - light slate */}
       <div className="bg-slate-100 border border-slate-200 rounded-lg p-6 text-slate-700">
         <span>
           {userRole === "admin" && "Full access: manage students, teachers, and reports."}
