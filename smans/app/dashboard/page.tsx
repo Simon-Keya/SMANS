@@ -14,7 +14,7 @@ export default async function DashboardHome() {
   const userRole = (session.user.role as string)?.toLowerCase() || "student";
   const userName = session.user.name || "User";
 
-  // Real DB queries (cached by Next.js in production)
+  // Real DB queries
   const totalStudents = await prisma.student.count();
   const totalTeachers = await prisma.user.count({ where: { role: "teacher" } });
 
@@ -39,37 +39,37 @@ export default async function DashboardHome() {
     admin: {
       greeting: "Welcome back, Administrator",
       stats: [
-        { label: "Total Students", value: totalStudents, icon: Users, color: "text-primary" },
-        { label: "Active Teachers", value: totalTeachers, icon: GraduationCap, color: "text-secondary" },
-        { label: "Today's Attendance", value: `${attendanceRate}%`, icon: CalendarCheck, color: "text-success" },
-        { label: "System Alerts", value: "3", icon: BellRing, color: "text-warning" },
+        { label: "Total Students", value: totalStudents, icon: Users, color: "text-emerald-600" },
+        { label: "Active Teachers", value: totalTeachers, icon: GraduationCap, color: "text-emerald-600" },
+        { label: "Today's Attendance", value: `${attendanceRate}%`, icon: CalendarCheck, color: "text-emerald-600" },
+        { label: "System Alerts", value: "3", icon: BellRing, color: "text-red-600" },
       ],
     },
     teacher: {
       greeting: "Good to see you, Teacher",
       stats: [
-        { label: "Your Classes Today", value: "4", icon: CalendarCheck, color: "text-primary" },
-        { label: "Students in Class", value: "145", icon: Users, color: "text-secondary" },
-        { label: "Today's Attendance", value: `${attendanceRate}%`, icon: BarChart3, color: "text-success" },
-        { label: "Pending Grades", value: "18", icon: GraduationCap, color: "text-accent" },
+        { label: "Your Classes Today", value: "4", icon: CalendarCheck, color: "text-emerald-600" },
+        { label: "Students in Class", value: "145", icon: Users, color: "text-emerald-600" },
+        { label: "Today's Attendance", value: `${attendanceRate}%`, icon: BarChart3, color: "text-emerald-600" },
+        { label: "Pending Grades", value: "18", icon: GraduationCap, color: "text-amber-600" },
       ],
     },
     student: {
       greeting: "Welcome back!",
       stats: [
-        { label: "Your Classes", value: "7", icon: CalendarCheck, color: "text-primary" },
-        { label: "Current Average", value: "A-", icon: GraduationCap, color: "text-success" },
-        { label: "Attendance Rate", value: "97%", icon: CalendarCheck, color: "text-success" },
-        { label: "Upcoming Assignments", value: "4", icon: BellRing, color: "text-warning" },
+        { label: "Your Classes", value: "7", icon: CalendarCheck, color: "text-emerald-600" },
+        { label: "Current Average", value: "A-", icon: GraduationCap, color: "text-emerald-600" },
+        { label: "Attendance Rate", value: "97%", icon: CalendarCheck, color: "text-emerald-600" },
+        { label: "Upcoming Assignments", value: "4", icon: BellRing, color: "text-amber-600" },
       ],
     },
     parent: {
       greeting: "Hello Parent",
       stats: [
-        { label: "Your Children", value: "2", icon: Users, color: "text-primary" },
-        { label: "Overall Average", value: "B+", icon: GraduationCap, color: "text-success" },
-        { label: "Attendance This Month", value: "96%", icon: CalendarCheck, color: "text-success" },
-        { label: "School Notices", value: "5", icon: BellRing, color: "text-accent" },
+        { label: "Your Children", value: "2", icon: Users, color: "text-emerald-600" },
+        { label: "Overall Average", value: "B+", icon: GraduationCap, color: "text-emerald-600" },
+        { label: "Attendance This Month", value: "96%", icon: CalendarCheck, color: "text-emerald-600" },
+        { label: "School Notices", value: "5", icon: BellRing, color: "text-amber-600" },
       ],
     },
   };
@@ -78,8 +78,8 @@ export default async function DashboardHome() {
 
   return (
     <div className="space-y-8">
-      {/* Greeting Header */}
-      <div className="bg-gradient-to-r from-primary to-secondary p-8 rounded-2xl text-primary-content shadow-xl">
+      {/* Greeting Header - reverted to dark emerald style */}
+      <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-8 rounded-2xl text-white shadow-2xl">
         <h1 className="text-4xl md:text-5xl font-bold mb-3">
           {data.greeting}, {userName}!
         </h1>
@@ -95,14 +95,14 @@ export default async function DashboardHome() {
           return (
             <Card
               key={index}
-              className="card bg-base-100 shadow-xl hover:shadow-2xl transition-all duration-300 border border-primary/10 hover:border-primary"
+              className="border border-slate-200 bg-white shadow-lg hover:shadow-xl transition-all duration-300"
             >
               <CardHeader className="flex flex-row items-center gap-4">
-                <div className={`w-14 h-14 rounded-xl ${stat.color}/10 flex items-center justify-center`}>
+                <div className="w-14 h-14 rounded-xl bg-emerald-50 flex items-center justify-center">
                   <Icon className={`w-8 h-8 ${stat.color}`} />
                 </div>
                 <div>
-                  <p className="text-sm text-base-content/60">{stat.label}</p>
+                  <p className="text-sm text-slate-600">{stat.label}</p>
                   <CardTitle className={`text-3xl font-bold ${stat.color} mt-1`}>
                     {stat.value}
                   </CardTitle>
@@ -113,8 +113,8 @@ export default async function DashboardHome() {
         })}
       </div>
 
-      {/* Role Message */}
-      <div className="alert alert-info mt-8">
+      {/* Role Message - reverted to slate style */}
+      <div className="bg-slate-100 border border-slate-200 rounded-lg p-6 text-slate-700">
         <span>
           {userRole === "admin" && "Full access: manage students, teachers, and reports."}
           {userRole === "teacher" && "Focus on teaching: mark attendance and enter grades."}
