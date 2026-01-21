@@ -1,4 +1,4 @@
-import SubjectForm from "@/components/dashboard/subjects/SubjectForm";
+import SubjectForm from "@/components/subjects/SubjectForm";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";

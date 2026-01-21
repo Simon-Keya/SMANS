@@ -1,17 +1,6 @@
-// components/exams/ExamTable.tsx
+// components/subjects/SubjectTable.tsx
 "use client";
 
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import {
@@ -26,22 +15,33 @@ import { Edit, Eye, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
-interface Exam {
+interface Subject {
   id: string;
-  title: string;
-  subject: { name: string };
-  class: { name: string };
-  date: Date;
-  status: string;
+  name: string;
+  code: string;
+  teacherName?: string | null;
+  classCount?: number;
+  createdAt: Date;
 }
 
-interface ExamTableProps {
-  exams: Exam[];
+interface SubjectTableProps {
+  subjects: Subject[];
   onDelete?: (id: string) => Promise<void>;
 }
 
-export default function ExamTable({ exams, onDelete }: ExamTableProps) {
+export default function SubjectTable({ subjects, onDelete }: SubjectTableProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const handleDelete = async (id: string) => {
@@ -50,7 +50,7 @@ export default function ExamTable({ exams, onDelete }: ExamTableProps) {
     try {
       await onDelete(id);
     } catch (err) {
-      console.error(err);
+      console.error("Delete failed:", err);
     } finally {
       setDeletingId(null);
     }
@@ -61,45 +61,42 @@ export default function ExamTable({ exams, onDelete }: ExamTableProps) {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Title</TableHead>
-            <TableHead>Subject</TableHead>
-            <TableHead>Class</TableHead>
-            <TableHead>Date</TableHead>
-            <TableHead>Status</TableHead>
+            <TableHead>Subject Name</TableHead>
+            <TableHead>Code</TableHead>
+            <TableHead>Teacher</TableHead>
+            <TableHead>Classes</TableHead>
+            <TableHead>Added</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {exams.length === 0 ? (
+          {subjects.length === 0 ? (
             <TableRow>
               <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                No exams scheduled.
+                No subjects found.
               </TableCell>
             </TableRow>
           ) : (
-            exams.map((exam) => (
-              <TableRow key={exam.id}>
-                <TableCell className="font-medium">{exam.title}</TableCell>
-                <TableCell>{exam.subject?.name ?? "—"}</TableCell>
-                <TableCell>{exam.class?.name ?? "—"}</TableCell>
-                <TableCell>{new Date(exam.date).toLocaleDateString()}</TableCell>
+            subjects.map((subject) => (
+              <TableRow key={subject.id}>
+                <TableCell className="font-medium">{subject.name}</TableCell>
                 <TableCell>
-                  <Badge
-                    variant={exam.status === "upcoming" ? "default" : "secondary"}
-                    className="capitalize"
-                  >
-                    {exam.status}
-                  </Badge>
+                  <Badge variant="outline">{subject.code}</Badge>
+                </TableCell>
+                <TableCell>{subject.teacherName ?? "—"}</TableCell>
+                <TableCell>{subject.classCount ?? 0}</TableCell>
+                <TableCell>
+                  {new Date(subject.createdAt).toLocaleDateString()}
                 </TableCell>
                 <TableCell className="text-right space-x-2">
-                  <Button variant="ghost" size="icon" asChild aria-label="View exam">
-                    <Link href={`/dashboard/exams/${exam.id}`}>
+                  <Button variant="ghost" size="icon" asChild aria-label="View">
+                    <Link href={`/dashboard/subjects/${subject.id}`}>
                       <Eye className="h-4 w-4" />
                     </Link>
                   </Button>
 
-                  <Button variant="ghost" size="icon" asChild aria-label="Edit exam">
-                    <Link href={`/dashboard/exams/${exam.id}/edit`}>
+                  <Button variant="ghost" size="icon" asChild aria-label="Edit">
+                    <Link href={`/dashboard/subjects/${subject.id}/edit`}>
                       <Edit className="h-4 w-4" />
                     </Link>
                   </Button>
@@ -110,11 +107,11 @@ export default function ExamTable({ exams, onDelete }: ExamTableProps) {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="text-destructive hover:text-destructive"
-                          disabled={deletingId === exam.id}
-                          aria-label="Delete exam"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          disabled={deletingId === subject.id}
+                          aria-label="Delete subject"
                         >
-                          {deletingId === exam.id ? (
+                          {deletingId === subject.id ? (
                             <span className="loading loading-spinner loading-sm" />
                           ) : (
                             <Trash2 className="h-4 w-4" />
@@ -123,16 +120,16 @@ export default function ExamTable({ exams, onDelete }: ExamTableProps) {
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>Delete Exam?</AlertDialogTitle>
+                          <AlertDialogTitle>Delete Subject?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            This will permanently delete <strong>{exam.title}</strong>.
+                            This will permanently delete <strong>{subject.name}</strong> ({subject.code}).
                             This action cannot be undone.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
                           <AlertDialogAction
-                            onClick={() => handleDelete(exam.id)}
+                            onClick={() => handleDelete(subject.id)}
                             className="bg-destructive hover:bg-destructive/90"
                           >
                             Delete

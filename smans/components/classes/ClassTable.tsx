@@ -15,6 +15,19 @@ import { Edit, Eye, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
+// ─── Import ALL AlertDialog components ────────
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+
 interface Class {
   id: string;
   name: string;
@@ -33,11 +46,12 @@ export default function ClassTable({ classes, onDelete }: ClassTableProps) {
 
   const handleDelete = async (id: string) => {
     if (!onDelete) return;
+
     setDeletingId(id);
     try {
       await onDelete(id);
     } catch (err) {
-      console.error(err);
+      console.error("Delete failed:", err);
     } finally {
       setDeletingId(null);
     }
@@ -90,7 +104,7 @@ export default function ClassTable({ classes, onDelete }: ClassTableProps) {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="text-destructive hover:text-destructive"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
                           disabled={deletingId === cls.id}
                           aria-label="Delete class"
                         >

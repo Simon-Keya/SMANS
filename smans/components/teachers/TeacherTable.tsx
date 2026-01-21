@@ -10,7 +10,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
     AlertDialogTrigger,
-} from "@/components/ui/alert-dialogue"; // ← Fixed: alert-dialog (not dialogue)
+} from "@/components/ui/alert-dialog"; // ← Fixed: alert-dialog (not dialogue)
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import {

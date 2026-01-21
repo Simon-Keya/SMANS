@@ -1,14 +1,14 @@
 // components/exams/ExamSubjectsSelector.tsx
 "use client";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/Button";
 import {
     Command,
     CommandEmpty,
     CommandGroup,
     CommandInput,
     CommandItem,
-} from "@/components/ui/command";
+} from "@/components/ui/Command";
 import {
     Popover,
     PopoverContent,

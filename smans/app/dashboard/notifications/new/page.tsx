@@ -1,4 +1,4 @@
-import NotificationForm from "@/components/dashboard/notifications/NotificationForm";
+import NotificationForm from "@/components/notifications/NotificationForm";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
