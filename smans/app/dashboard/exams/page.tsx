@@ -1,4 +1,4 @@
-import ExamTable from "@/components/dashboard/exams/ExamTable";
+import ExamTable from "@/components/exams/ExamTable";
 import { Button } from "@/components/ui/Button";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";

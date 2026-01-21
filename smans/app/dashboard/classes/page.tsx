@@ -1,4 +1,4 @@
-import ClassTable from "@/components/dashboard/classes/ClassTable";
+import ClassTable from "@/components/classes/ClassTable";
 import { Button } from "@/components/ui/Button";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";

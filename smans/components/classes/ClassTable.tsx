@@ -1,4 +1,4 @@
-// components/exams/ExamTable.tsx
+// components/classes/ClassTable.tsx
 "use client";
 
 import { Badge } from "@/components/ui/Badge";
@@ -15,21 +15,20 @@ import { Edit, Eye, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
-interface Exam {
+interface Class {
   id: string;
-  title: string;
-  subject: { name: string };
-  class: { name: string };
-  date: Date;
-  status: string;
+  name: string;
+  level: string;
+  teacher?: { name: string } | null;
+  studentCount: number;
 }
 
-interface ExamTableProps {
-  exams: Exam[];
+interface ClassTableProps {
+  classes: Class[];
   onDelete?: (id: string) => Promise<void>;
 }
 
-export default function ExamTable({ exams, onDelete }: ExamTableProps) {
+export default function ClassTable({ classes, onDelete }: ClassTableProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const handleDelete = async (id: string) => {
@@ -49,45 +48,38 @@ export default function ExamTable({ exams, onDelete }: ExamTableProps) {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Title</TableHead>
-            <TableHead>Subject</TableHead>
-            <TableHead>Class</TableHead>
-            <TableHead>Date</TableHead>
-            <TableHead>Status</TableHead>
+            <TableHead>Class Name</TableHead>
+            <TableHead>Level</TableHead>
+            <TableHead>Class Teacher</TableHead>
+            <TableHead>Students</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {exams.length === 0 ? (
+          {classes.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                No exams scheduled.
+              <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                No classes found.
               </TableCell>
             </TableRow>
           ) : (
-            exams.map((exam) => (
-              <TableRow key={exam.id}>
-                <TableCell className="font-medium">{exam.title}</TableCell>
-                <TableCell>{exam.subject?.name ?? "—"}</TableCell>
-                <TableCell>{exam.class?.name ?? "—"}</TableCell>
-                <TableCell>{new Date(exam.date).toLocaleDateString()}</TableCell>
+            classes.map((cls) => (
+              <TableRow key={cls.id}>
+                <TableCell className="font-medium">{cls.name}</TableCell>
+                <TableCell>{cls.level}</TableCell>
+                <TableCell>{cls.teacher?.name ?? "Not assigned"}</TableCell>
                 <TableCell>
-                  <Badge
-                    variant={exam.status === "upcoming" ? "default" : "secondary"}
-                    className="capitalize"
-                  >
-                    {exam.status}
-                  </Badge>
+                  <Badge variant="secondary">{cls.studentCount}</Badge>
                 </TableCell>
                 <TableCell className="text-right space-x-2">
-                  <Button variant="ghost" size="icon" asChild aria-label="View exam">
-                    <Link href={`/dashboard/exams/${exam.id}`}>
+                  <Button variant="ghost" size="icon" asChild aria-label="View class">
+                    <Link href={`/dashboard/classes/${cls.id}`}>
                       <Eye className="h-4 w-4" />
                     </Link>
                   </Button>
 
-                  <Button variant="ghost" size="icon" asChild aria-label="Edit exam">
-                    <Link href={`/dashboard/exams/${exam.id}/edit`}>
+                  <Button variant="ghost" size="icon" asChild aria-label="Edit class">
+                    <Link href={`/dashboard/classes/${cls.id}/edit`}>
                       <Edit className="h-4 w-4" />
                     </Link>
                   </Button>
@@ -99,10 +91,10 @@ export default function ExamTable({ exams, onDelete }: ExamTableProps) {
                           variant="ghost"
                           size="icon"
                           className="text-destructive hover:text-destructive"
-                          disabled={deletingId === exam.id}
-                          aria-label="Delete exam"
+                          disabled={deletingId === cls.id}
+                          aria-label="Delete class"
                         >
-                          {deletingId === exam.id ? (
+                          {deletingId === cls.id ? (
                             <span className="loading loading-spinner loading-sm" />
                           ) : (
                             <Trash2 className="h-4 w-4" />
@@ -111,16 +103,16 @@ export default function ExamTable({ exams, onDelete }: ExamTableProps) {
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>Delete Exam?</AlertDialogTitle>
+                          <AlertDialogTitle>Delete Class?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            This will permanently delete <strong>{exam.title}</strong>.
+                            This will permanently delete <strong>{cls.name}</strong>.
                             This action cannot be undone.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
                           <AlertDialogAction
-                            onClick={() => handleDelete(exam.id)}
+                            onClick={() => handleDelete(cls.id)}
                             className="bg-destructive hover:bg-destructive/90"
                           >
                             Delete
