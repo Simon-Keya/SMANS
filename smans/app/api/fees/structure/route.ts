@@ -1,15 +1,14 @@
-// app/api/teachers/route.ts
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import * as z from "zod";
 
-// Validation schema for creating a teacher
-const createTeacherSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+const createFeeItemSchema = z.object({
+  name: z.string().min(3, "Name must be at least 3 characters").trim(),
+  amount: z.number().min(1, "Amount must be greater than 0"),
+  frequency: z.enum(["once", "monthly", "termly", "yearly"]),
+  description: z.string().optional(),
 });
 
 export async function GET() {
@@ -20,21 +19,13 @@ export async function GET() {
   }
 
   try {
-    const teachers = await prisma.user.findMany({
-      where: { role: "teacher" },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        createdAt: true,
-      },
+    const items = await prisma.feeItem.findMany({
       orderBy: { name: "asc" },
     });
 
-    return NextResponse.json(teachers);
+    return NextResponse.json({ success: true, data: items });
   } catch (error) {
-    console.error("[GET_TEACHERS_ERROR]", error);
+    console.error("[GET_FEE_STRUCTURE]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -48,7 +39,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const parsed = createTeacherSchema.safeParse(body);
+    const parsed = createFeeItemSchema.safeParse(body);
 
     if (!parsed.success) {
       return NextResponse.json(
@@ -57,43 +48,13 @@ export async function POST(request: Request) {
       );
     }
 
-    const { name, email, password } = parsed.data;
-
-    // Check for duplicate email
-    const existing = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
+    const newItem = await prisma.feeItem.create({
+      data: parsed.data,
     });
 
-    if (existing) {
-      return NextResponse.json(
-        { error: "Email already exists" },
-        { status: 409 }
-      );
-    }
-
-    // Hash password (you can move bcrypt to authActions if preferred)
-    const bcrypt = await import("bcryptjs");
-    const hashedPassword = await bcrypt.hash(password, 12);
-
-    const newTeacher = await prisma.user.create({
-      data: {
-        name,
-        email: email.toLowerCase(),
-        password: hashedPassword,
-        role: "teacher",
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        createdAt: true,
-      },
-    });
-
-    return NextResponse.json(newTeacher, { status: 201 });
+    return NextResponse.json({ success: true, data: newItem }, { status: 201 });
   } catch (error) {
-    console.error("[CREATE_TEACHER_ERROR]", error);
+    console.error("[CREATE_FEE_ITEM]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

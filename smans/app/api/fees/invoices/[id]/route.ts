@@ -1,8 +1,14 @@
-// app/api/teachers/[id]/route.ts
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
+import * as z from "zod";
+
+const updateInvoiceSchema = z.object({
+  amount: z.number().min(1).optional(),
+  dueDate: z.string().optional(),
+  status: z.enum(["pending", "paid", "partial", "overdue"]).optional(),
+});
 
 export async function GET(
   request: Request,
@@ -15,24 +21,22 @@ export async function GET(
   }
 
   try {
-    const teacher = await prisma.user.findUnique({
-      where: { id: params.id, role: "teacher" },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        createdAt: true,
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: params.id },
+      include: {
+        student: { select: { name: true } },
+        feeItem: { select: { name: true } },
+        payments: true,
       },
     });
 
-    if (!teacher) {
-      return NextResponse.json({ error: "Teacher not found" }, { status: 404 });
+    if (!invoice) {
+      return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
     }
 
-    return NextResponse.json(teacher);
+    return NextResponse.json({ success: true, data: invoice });
   } catch (error) {
-    console.error("[GET_TEACHER_ERROR]", error);
+    console.error("[GET_INVOICE]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -49,49 +53,26 @@ export async function PUT(
 
   try {
     const body = await request.json();
-    const { name, email } = body; // password update not allowed here
+    const parsed = updateInvoiceSchema.safeParse(body);
 
-    // Validate basic input
-    if (!name || !email) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Name and email are required" },
+        { error: parsed.error.errors[0].message },
         { status: 400 }
       );
     }
 
-    const existing = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
-    });
-
-    if (existing && existing.id !== params.id) {
-      return NextResponse.json(
-        { error: "Email already in use by another user" },
-        { status: 409 }
-      );
-    }
-
-    const updatedTeacher = await prisma.user.update({
-      where: { id: params.id, role: "teacher" },
+    const updated = await prisma.invoice.update({
+      where: { id: params.id },
       data: {
-        name,
-        email: email.toLowerCase(),
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        createdAt: true,
+        ...parsed.data,
+        dueDate: parsed.data.dueDate ? new Date(parsed.data.dueDate) : undefined,
       },
     });
 
-    if (!updatedTeacher) {
-      return NextResponse.json({ error: "Teacher not found" }, { status: 404 });
-    }
-
-    return NextResponse.json(updatedTeacher);
+    return NextResponse.json({ success: true, data: updated });
   } catch (error) {
-    console.error("[UPDATE_TEACHER_ERROR]", error);
+    console.error("[UPDATE_INVOICE]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -107,21 +88,21 @@ export async function DELETE(
   }
 
   try {
-    const teacher = await prisma.user.findUnique({
-      where: { id: params.id, role: "teacher" },
-    });
-
-    if (!teacher) {
-      return NextResponse.json({ error: "Teacher not found" }, { status: 404 });
-    }
-
-    await prisma.user.delete({
+    const invoice = await prisma.invoice.findUnique({
       where: { id: params.id },
     });
 
-    return new NextResponse(null, { status: 204 });
+    if (!invoice) {
+      return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+    }
+
+    await prisma.invoice.delete({
+      where: { id: params.id },
+    });
+
+    return NextResponse.json({ success: true, message: "Invoice deleted" });
   } catch (error) {
-    console.error("[DELETE_TEACHER_ERROR]", error);
+    console.error("[DELETE_INVOICE]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

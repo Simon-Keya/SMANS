@@ -1,15 +1,16 @@
-// app/api/teachers/route.ts
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import * as z from "zod";
 
-// Validation schema for creating a teacher
-const createTeacherSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+const createInvoiceSchema = z.object({
+  studentId: z.string().min(1, "Student is required"),
+  feeItemId: z.string().optional(),
+  amount: z.number().min(1, "Amount must be greater than 0"),
+  dueDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
+    message: "Invalid due date",
+  }),
 });
 
 export async function GET() {
@@ -20,21 +21,17 @@ export async function GET() {
   }
 
   try {
-    const teachers = await prisma.user.findMany({
-      where: { role: "teacher" },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        createdAt: true,
+    const invoices = await prisma.invoice.findMany({
+      include: {
+        student: { select: { name: true } },
+        feeItem: { select: { name: true } },
       },
-      orderBy: { name: "asc" },
+      orderBy: { dueDate: "desc" },
     });
 
-    return NextResponse.json(teachers);
+    return NextResponse.json({ success: true, data: invoices });
   } catch (error) {
-    console.error("[GET_TEACHERS_ERROR]", error);
+    console.error("[GET_INVOICES]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -48,7 +45,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const parsed = createTeacherSchema.safeParse(body);
+    const parsed = createInvoiceSchema.safeParse(body);
 
     if (!parsed.success) {
       return NextResponse.json(
@@ -57,43 +54,21 @@ export async function POST(request: Request) {
       );
     }
 
-    const { name, email, password } = parsed.data;
+    const { studentId, feeItemId, amount, dueDate } = parsed.data;
 
-    // Check for duplicate email
-    const existing = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
-    });
-
-    if (existing) {
-      return NextResponse.json(
-        { error: "Email already exists" },
-        { status: 409 }
-      );
-    }
-
-    // Hash password (you can move bcrypt to authActions if preferred)
-    const bcrypt = await import("bcryptjs");
-    const hashedPassword = await bcrypt.hash(password, 12);
-
-    const newTeacher = await prisma.user.create({
+    const invoice = await prisma.invoice.create({
       data: {
-        name,
-        email: email.toLowerCase(),
-        password: hashedPassword,
-        role: "teacher",
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        createdAt: true,
+        studentId,
+        feeItemId: feeItemId || null,
+        amount,
+        dueDate: new Date(dueDate),
+        status: "pending",
       },
     });
 
-    return NextResponse.json(newTeacher, { status: 201 });
+    return NextResponse.json({ success: true, data: invoice }, { status: 201 });
   } catch (error) {
-    console.error("[CREATE_TEACHER_ERROR]", error);
+    console.error("[CREATE_INVOICE]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

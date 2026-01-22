@@ -1,40 +1,32 @@
-// app/api/teachers/route.ts
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import * as z from "zod";
 
-// Validation schema for creating a teacher
-const createTeacherSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+const createNotificationSchema = z.object({
+  title: z.string().min(3, "Title must be at least 3 characters").trim(),
+  message: z.string().min(10, "Message must be at least 10 characters").trim(),
+  recipientIds: z.array(z.string()).optional(), // if not provided, send to all
 });
 
 export async function GET() {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const teachers = await prisma.user.findMany({
-      where: { role: "teacher" },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        createdAt: true,
-      },
-      orderBy: { name: "asc" },
+    const notifications = await prisma.notification.findMany({
+      where: { userId: session.user.id },
+      orderBy: { createdAt: "desc" },
+      take: 20,
     });
 
-    return NextResponse.json(teachers);
+    return NextResponse.json({ success: true, data: notifications });
   } catch (error) {
-    console.error("[GET_TEACHERS_ERROR]", error);
+    console.error("[GET_NOTIFICATIONS]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -48,7 +40,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const parsed = createTeacherSchema.safeParse(body);
+    const parsed = createNotificationSchema.safeParse(body);
 
     if (!parsed.success) {
       return NextResponse.json(
@@ -57,43 +49,36 @@ export async function POST(request: Request) {
       );
     }
 
-    const { name, email, password } = parsed.data;
+    const { title, message, recipientIds } = parsed.data;
 
-    // Check for duplicate email
-    const existing = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
-    });
+    let recipients;
 
-    if (existing) {
-      return NextResponse.json(
-        { error: "Email already exists" },
-        { status: 409 }
-      );
+    if (recipientIds && recipientIds.length > 0) {
+      recipients = recipientIds;
+    } else {
+      // Send to all users (or filter by role if needed)
+      const allUsers = await prisma.user.findMany({
+        select: { id: true },
+      });
+      recipients = allUsers.map(u => u.id);
     }
 
-    // Hash password (you can move bcrypt to authActions if preferred)
-    const bcrypt = await import("bcryptjs");
-    const hashedPassword = await bcrypt.hash(password, 12);
+    // Create notifications for each recipient
+    const notifications = await prisma.$transaction(
+      recipients.map(recipientId =>
+        prisma.notification.create({
+          data: {
+            title,
+            message,
+            userId: recipientId,
+          },
+        })
+      )
+    );
 
-    const newTeacher = await prisma.user.create({
-      data: {
-        name,
-        email: email.toLowerCase(),
-        password: hashedPassword,
-        role: "teacher",
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        createdAt: true,
-      },
-    });
-
-    return NextResponse.json(newTeacher, { status: 201 });
+    return NextResponse.json({ success: true, data: notifications }, { status: 201 });
   } catch (error) {
-    console.error("[CREATE_TEACHER_ERROR]", error);
+    console.error("[SEND_NOTIFICATION]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

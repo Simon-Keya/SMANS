@@ -1,4 +1,4 @@
-import SubjectTable from "@/components/dashboard/subjects/SubjectTable";
+import SubjectTable from "@/components/subjects/SubjectTable";
 import { Button } from "@/components/ui/Button";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
