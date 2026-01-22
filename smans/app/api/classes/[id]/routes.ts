@@ -4,10 +4,10 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import * as z from "zod";
 
-const createSubjectSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters").trim(),
-  code: z.string().min(2, "Code must be at least 2 characters").trim().toUpperCase(),
-  description: z.string().optional(),
+const createClassSchema = z.object({
+  name: z.string().min(3, "Name must be at least 3 characters").trim(),
+  level: z.string().min(1, "Level/Grade is required").trim(),
+  teacherId: z.string().optional(),
 });
 
 export async function GET() {
@@ -18,23 +18,23 @@ export async function GET() {
   }
 
   try {
-    const subjects = await prisma.subject.findMany({
+    const classes = await prisma.class.findMany({
       include: {
-        classes: { select: { name: true } },
-        _count: { select: { classes: true } },
+        teacher: { select: { name: true } },
+        _count: { select: { students: true } },
       },
       orderBy: { name: "asc" },
     });
 
     return NextResponse.json({
       success: true,
-      data: subjects.map(s => ({
-        ...s,
-        classCount: s._count.classes,
+      data: classes.map(cls => ({
+        ...cls,
+        studentCount: cls._count.students,
       })),
     });
   } catch (error) {
-    console.error("[GET_SUBJECTS]", error);
+    console.error("[GET_CLASSES]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const parsed = createSubjectSchema.safeParse(body);
+    const parsed = createClassSchema.safeParse(body);
 
     if (!parsed.success) {
       return NextResponse.json(
@@ -57,13 +57,13 @@ export async function POST(request: Request) {
       );
     }
 
-    const newSubject = await prisma.subject.create({
+    const newClass = await prisma.class.create({
       data: parsed.data,
     });
 
-    return NextResponse.json({ success: true, data: newSubject }, { status: 201 });
+    return NextResponse.json({ success: true, data: newClass }, { status: 201 });
   } catch (error) {
-    console.error("[CREATE_SUBJECT]", error);
+    console.error("[CREATE_CLASS]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

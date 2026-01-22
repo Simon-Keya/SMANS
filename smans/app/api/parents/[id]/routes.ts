@@ -4,10 +4,10 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import * as z from "zod";
 
-const updateSubjectSchema = z.object({
+const updateParentSchema = z.object({
   name: z.string().min(2).trim().optional(),
-  code: z.string().min(2).trim().toUpperCase().optional(),
-  description: z.string().optional().nullable(),
+  email: z.string().email().trim().toLowerCase().optional(),
+  phone: z.string().min(9).trim().optional(),
 });
 
 export async function GET(
@@ -16,32 +16,27 @@ export async function GET(
 ) {
   const session = await getServerSession(authOptions);
 
-  if (!session) {
+  if (!session || session.user.role !== "admin") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const subject = await prisma.subject.findUnique({
+    const parent = await prisma.parent.findUnique({
       where: { id: params.id },
       include: {
-        classes: { select: { name: true } },
-        _count: { select: { classes: true } },
+        students: {
+          select: { id: true, name: true, rollNumber: true },
+        },
       },
     });
 
-    if (!subject) {
-      return NextResponse.json({ error: "Subject not found" }, { status: 404 });
+    if (!parent) {
+      return NextResponse.json({ error: "Parent not found" }, { status: 404 });
     }
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        ...subject,
-        classCount: subject._count.classes,
-      },
-    });
+    return NextResponse.json({ success: true, data: parent });
   } catch (error) {
-    console.error("[GET_SUBJECT]", error);
+    console.error("[GET_PARENT]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -58,7 +53,7 @@ export async function PUT(
 
   try {
     const body = await request.json();
-    const parsed = updateSubjectSchema.safeParse(body);
+    const parsed = updateParentSchema.safeParse(body);
 
     if (!parsed.success) {
       return NextResponse.json(
@@ -67,14 +62,14 @@ export async function PUT(
       );
     }
 
-    const updated = await prisma.subject.update({
+    const updated = await prisma.parent.update({
       where: { id: params.id },
       data: parsed.data,
     });
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
-    console.error("[UPDATE_SUBJECT]", error);
+    console.error("[UPDATE_PARENT]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -90,21 +85,22 @@ export async function DELETE(
   }
 
   try {
-    const subject = await prisma.subject.findUnique({
+    const parent = await prisma.parent.findUnique({
       where: { id: params.id },
     });
 
-    if (!subject) {
-      return NextResponse.json({ error: "Subject not found" }, { status: 404 });
+    if (!parent) {
+      return NextResponse.json({ error: "Parent not found" }, { status: 404 });
     }
 
-    await prisma.subject.delete({
+    // Optional: delete related students or unlink them first
+    await prisma.parent.delete({
       where: { id: params.id },
     });
 
-    return NextResponse.json({ success: true, message: "Subject deleted" });
+    return NextResponse.json({ success: true, message: "Parent deleted" });
   } catch (error) {
-    console.error("[DELETE_SUBJECT]", error);
+    console.error("[DELETE_PARENT]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
