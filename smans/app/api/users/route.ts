@@ -1,27 +1,27 @@
-// app/api/teachers/route.ts
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import bcrypt from "bcryptjs";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import * as z from "zod";
 
-// Validation schema for creating a teacher
-const createTeacherSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
-  email: z.string().email("Invalid email address"),
+// Validation schema for creating a user
+const createUserSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters").trim(),
+  email: z.string().email("Invalid email address").trim().toLowerCase(),
   password: z.string().min(8, "Password must be at least 8 characters"),
+  role: z.enum(["ADMIN", "TEACHER", "STUDENT", "PARENT"]),
 });
 
 export async function GET() {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
+  if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const teachers = await prisma.user.findMany({
-      where: { role: "teacher" },
+    const users = await prisma.user.findMany({
       select: {
         id: true,
         name: true,
@@ -32,9 +32,9 @@ export async function GET() {
       orderBy: { name: "asc" },
     });
 
-    return NextResponse.json(teachers);
+    return NextResponse.json({ success: true, data: users });
   } catch (error) {
-    console.error("[GET_TEACHERS_ERROR]", error);
+    console.error("[GET_USERS]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -42,13 +42,13 @@ export async function GET() {
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
+  if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     const body = await request.json();
-    const parsed = createTeacherSchema.safeParse(body);
+    const parsed = createUserSchema.safeParse(body);
 
     if (!parsed.success) {
       return NextResponse.json(
@@ -57,30 +57,26 @@ export async function POST(request: Request) {
       );
     }
 
-    const { name, email, password } = parsed.data;
+    const { name, email, password, role } = parsed.data;
 
     // Check for duplicate email
     const existing = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
+      where: { email },
     });
 
     if (existing) {
-      return NextResponse.json(
-        { error: "Email already exists" },
-        { status: 409 }
-      );
+      return NextResponse.json({ error: "Email already exists" }, { status: 409 });
     }
 
-    // Hash password (you can move bcrypt to authActions if preferred)
-    const bcrypt = await import("bcryptjs");
+    // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    const newTeacher = await prisma.user.create({
+    const newUser = await prisma.user.create({
       data: {
         name,
-        email: email.toLowerCase(),
+        email,
         password: hashedPassword,
-        role: "teacher",
+        role,
       },
       select: {
         id: true,
@@ -91,9 +87,9 @@ export async function POST(request: Request) {
       },
     });
 
-    return NextResponse.json(newTeacher, { status: 201 });
+    return NextResponse.json({ success: true, data: newUser }, { status: 201 });
   } catch (error) {
-    console.error("[CREATE_TEACHER_ERROR]", error);
+    console.error("[CREATE_USER]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

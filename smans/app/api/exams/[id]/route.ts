@@ -1,8 +1,17 @@
-// app/api/teachers/[id]/route.ts
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
+import * as z from "zod";
+
+const updateExamSchema = z.object({
+  title: z.string().min(3).trim().optional(),
+  subjectId: z.string().optional(),
+  classId: z.string().optional(),
+  date: z.string().optional(),
+  duration: z.number().min(15).optional(),
+  maxScore: z.number().min(1).optional(),
+});
 
 export async function GET(
   request: Request,
@@ -10,29 +19,26 @@ export async function GET(
 ) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
+  if (!session || !["admin", "teacher"].includes(session.user.role?.toLowerCase() ?? "")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const teacher = await prisma.user.findUnique({
-      where: { id: params.id, role: "teacher" },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        createdAt: true,
+    const exam = await prisma.exam.findUnique({
+      where: { id: params.id },
+      include: {
+        subject: { select: { name: true } },
+        class: { select: { name: true } },
       },
     });
 
-    if (!teacher) {
-      return NextResponse.json({ error: "Teacher not found" }, { status: 404 });
+    if (!exam) {
+      return NextResponse.json({ error: "Exam not found" }, { status: 404 });
     }
 
-    return NextResponse.json(teacher);
+    return NextResponse.json({ success: true, data: exam });
   } catch (error) {
-    console.error("[GET_TEACHER_ERROR]", error);
+    console.error("[GET_EXAM]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -43,55 +49,34 @@ export async function PUT(
 ) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
+  if (!session || !["admin", "teacher"].includes(session.user.role?.toLowerCase() ?? "")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     const body = await request.json();
-    const { name, email } = body; // password update not allowed here
+    const parsed = updateExamSchema.safeParse(body);
 
-    // Validate basic input
-    if (!name || !email) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Name and email are required" },
+        { error: parsed.error.errors[0].message },
         { status: 400 }
       );
     }
 
-    const existing = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
-    });
+    const { date, ...rest } = parsed.data;
 
-    if (existing && existing.id !== params.id) {
-      return NextResponse.json(
-        { error: "Email already in use by another user" },
-        { status: 409 }
-      );
-    }
-
-    const updatedTeacher = await prisma.user.update({
-      where: { id: params.id, role: "teacher" },
+    const updated = await prisma.exam.update({
+      where: { id: params.id },
       data: {
-        name,
-        email: email.toLowerCase(),
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        createdAt: true,
+        ...rest,
+        date: date ? new Date(date) : undefined,
       },
     });
 
-    if (!updatedTeacher) {
-      return NextResponse.json({ error: "Teacher not found" }, { status: 404 });
-    }
-
-    return NextResponse.json(updatedTeacher);
+    return NextResponse.json({ success: true, data: updated });
   } catch (error) {
-    console.error("[UPDATE_TEACHER_ERROR]", error);
+    console.error("[UPDATE_EXAM]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -102,26 +87,26 @@ export async function DELETE(
 ) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
+  if (!session || !["admin", "teacher"].includes(session.user.role?.toLowerCase() ?? "")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const teacher = await prisma.user.findUnique({
-      where: { id: params.id, role: "teacher" },
-    });
-
-    if (!teacher) {
-      return NextResponse.json({ error: "Teacher not found" }, { status: 404 });
-    }
-
-    await prisma.user.delete({
+    const exam = await prisma.exam.findUnique({
       where: { id: params.id },
     });
 
-    return new NextResponse(null, { status: 204 });
+    if (!exam) {
+      return NextResponse.json({ error: "Exam not found" }, { status: 404 });
+    }
+
+    await prisma.exam.delete({
+      where: { id: params.id },
+    });
+
+    return NextResponse.json({ success: true, message: "Exam deleted" });
   } catch (error) {
-    console.error("[DELETE_TEACHER_ERROR]", error);
+    console.error("[DELETE_EXAM]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

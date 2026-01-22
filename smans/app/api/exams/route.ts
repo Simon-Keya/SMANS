@@ -1,40 +1,39 @@
-// app/api/teachers/route.ts
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import * as z from "zod";
 
-// Validation schema for creating a teacher
-const createTeacherSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+const createExamSchema = z.object({
+  title: z.string().min(3, "Title must be at least 3 characters").trim(),
+  subjectId: z.string().min(1, "Subject is required"),
+  classId: z.string().min(1, "Class is required"),
+  date: z.string().refine((val) => !isNaN(Date.parse(val)), {
+    message: "Invalid date format",
+  }),
+  duration: z.number().min(15, "Duration must be at least 15 minutes"),
+  maxScore: z.number().min(1, "Max score must be greater than 0"),
 });
 
 export async function GET() {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
+  if (!session || !["admin", "teacher"].includes(session.user.role?.toLowerCase() ?? "")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const teachers = await prisma.user.findMany({
-      where: { role: "teacher" },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        createdAt: true,
+    const exams = await prisma.exam.findMany({
+      include: {
+        subject: { select: { name: true } },
+        class: { select: { name: true } },
       },
-      orderBy: { name: "asc" },
+      orderBy: { date: "desc" },
     });
 
-    return NextResponse.json(teachers);
+    return NextResponse.json({ success: true, data: exams });
   } catch (error) {
-    console.error("[GET_TEACHERS_ERROR]", error);
+    console.error("[GET_EXAMS]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -42,13 +41,13 @@ export async function GET() {
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
+  if (!session || !["admin", "teacher"].includes(session.user.role?.toLowerCase() ?? "")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     const body = await request.json();
-    const parsed = createTeacherSchema.safeParse(body);
+    const parsed = createExamSchema.safeParse(body);
 
     if (!parsed.success) {
       return NextResponse.json(
@@ -57,43 +56,30 @@ export async function POST(request: Request) {
       );
     }
 
-    const { name, email, password } = parsed.data;
+    const { title, subjectId, classId, date, duration, maxScore } = parsed.data;
 
-    // Check for duplicate email
-    const existing = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
-    });
+    // Verify subject and class exist
+    const subject = await prisma.subject.findUnique({ where: { id: subjectId } });
+    const cls = await prisma.class.findUnique({ where: { id: classId } });
 
-    if (existing) {
-      return NextResponse.json(
-        { error: "Email already exists" },
-        { status: 409 }
-      );
+    if (!subject || !cls) {
+      return NextResponse.json({ error: "Subject or class not found" }, { status: 404 });
     }
 
-    // Hash password (you can move bcrypt to authActions if preferred)
-    const bcrypt = await import("bcryptjs");
-    const hashedPassword = await bcrypt.hash(password, 12);
-
-    const newTeacher = await prisma.user.create({
+    const exam = await prisma.exam.create({
       data: {
-        name,
-        email: email.toLowerCase(),
-        password: hashedPassword,
-        role: "teacher",
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        createdAt: true,
+        title,
+        subjectId,
+        classId,
+        date: new Date(date),
+        duration,
+        maxScore,
       },
     });
 
-    return NextResponse.json(newTeacher, { status: 201 });
+    return NextResponse.json({ success: true, data: exam }, { status: 201 });
   } catch (error) {
-    console.error("[CREATE_TEACHER_ERROR]", error);
+    console.error("[CREATE_EXAM]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
