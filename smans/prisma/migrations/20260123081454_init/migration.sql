@@ -1,28 +1,3 @@
-/*
-  Warnings:
-
-  - You are about to drop the column `present` on the `attendance` table. All the data in the column will be lost.
-  - You are about to drop the column `examName` on the `grades` table. All the data in the column will be lost.
-  - You are about to drop the column `subject` on the `grades` table. All the data in the column will be lost.
-  - You are about to drop the column `class` on the `students` table. All the data in the column will be lost.
-  - You are about to drop the column `parentName` on the `students` table. All the data in the column will be lost.
-  - You are about to drop the column `parentPhone` on the `students` table. All the data in the column will be lost.
-  - You are about to drop the column `class` on the `timetable` table. All the data in the column will be lost.
-  - You are about to drop the column `subject` on the `timetable` table. All the data in the column will be lost.
-  - You are about to drop the column `teacher` on the `timetable` table. All the data in the column will be lost.
-  - You are about to drop the column `time` on the `timetable` table. All the data in the column will be lost.
-  - The `role` column on the `users` table would be dropped and recreated. This will lead to data loss if there is data in the column.
-  - A unique constraint covering the columns `[studentId,subjectId,examId]` on the table `grades` will be added. If there are existing duplicate values, this will fail.
-  - A unique constraint covering the columns `[classId,day,startTime]` on the table `timetable` will be added. If there are existing duplicate values, this will fail.
-  - Added the required column `examId` to the `grades` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `subjectId` to the `grades` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `classId` to the `students` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `classId` to the `timetable` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `endTime` to the `timetable` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `startTime` to the `timetable` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `subjectId` to the `timetable` table without a default value. This is not possible if the table is not empty.
-
-*/
 -- CreateEnum
 CREATE TYPE "Role" AS ENUM ('ADMIN', 'TEACHER', 'STUDENT', 'PARENT');
 
@@ -35,42 +10,18 @@ CREATE TYPE "InvoiceStatus" AS ENUM ('PENDING', 'PAID', 'PARTIAL', 'OVERDUE');
 -- CreateEnum
 CREATE TYPE "PaymentStatus" AS ENUM ('PENDING', 'COMPLETED', 'FAILED');
 
--- DropIndex
-DROP INDEX "grades_studentId_examName_subject_key";
+-- CreateTable
+CREATE TABLE "users" (
+    "id" TEXT NOT NULL,
+    "name" TEXT,
+    "email" TEXT NOT NULL,
+    "password" TEXT,
+    "role" "Role" NOT NULL DEFAULT 'TEACHER',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
--- DropIndex
-DROP INDEX "timetable_class_day_time_key";
-
--- AlterTable
-ALTER TABLE "attendance" DROP COLUMN "present",
-ADD COLUMN     "status" "AttendanceStatus" NOT NULL DEFAULT 'PRESENT';
-
--- AlterTable
-ALTER TABLE "grades" DROP COLUMN "examName",
-DROP COLUMN "subject",
-ADD COLUMN     "examId" TEXT NOT NULL,
-ADD COLUMN     "subjectId" TEXT NOT NULL;
-
--- AlterTable
-ALTER TABLE "students" DROP COLUMN "class",
-DROP COLUMN "parentName",
-DROP COLUMN "parentPhone",
-ADD COLUMN     "classId" TEXT NOT NULL,
-ADD COLUMN     "parentId" TEXT;
-
--- AlterTable
-ALTER TABLE "timetable" DROP COLUMN "class",
-DROP COLUMN "subject",
-DROP COLUMN "teacher",
-DROP COLUMN "time",
-ADD COLUMN     "classId" TEXT NOT NULL,
-ADD COLUMN     "endTime" TEXT NOT NULL,
-ADD COLUMN     "startTime" TEXT NOT NULL,
-ADD COLUMN     "subjectId" TEXT NOT NULL;
-
--- AlterTable
-ALTER TABLE "users" DROP COLUMN "role",
-ADD COLUMN     "role" "Role" NOT NULL DEFAULT 'TEACHER';
+    CONSTRAINT "users_pkey" PRIMARY KEY ("id")
+);
 
 -- CreateTable
 CREATE TABLE "classes" (
@@ -109,6 +60,31 @@ CREATE TABLE "parents" (
 );
 
 -- CreateTable
+CREATE TABLE "students" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "rollNumber" TEXT NOT NULL,
+    "email" TEXT,
+    "phone" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "classId" TEXT NOT NULL,
+    "parentId" TEXT,
+
+    CONSTRAINT "students_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "attendance" (
+    "id" TEXT NOT NULL,
+    "date" TIMESTAMP(3) NOT NULL,
+    "status" "AttendanceStatus" NOT NULL DEFAULT 'PRESENT',
+    "studentId" TEXT NOT NULL,
+
+    CONSTRAINT "attendance_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "exams" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -118,6 +94,31 @@ CREATE TABLE "exams" (
     "classId" TEXT NOT NULL,
 
     CONSTRAINT "exams_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "grades" (
+    "id" TEXT NOT NULL,
+    "marks" INTEGER NOT NULL,
+    "maxMarks" INTEGER NOT NULL DEFAULT 100,
+    "studentId" TEXT NOT NULL,
+    "subjectId" TEXT NOT NULL,
+    "examId" TEXT NOT NULL,
+
+    CONSTRAINT "grades_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "timetable" (
+    "id" TEXT NOT NULL,
+    "day" TEXT NOT NULL,
+    "startTime" TEXT NOT NULL,
+    "endTime" TEXT NOT NULL,
+    "room" TEXT,
+    "classId" TEXT NOT NULL,
+    "subjectId" TEXT NOT NULL,
+
+    CONSTRAINT "timetable_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -194,19 +195,28 @@ CREATE TABLE "_ClassSubjects" (
 );
 
 -- CreateIndex
+CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "subjects_code_key" ON "subjects"("code");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "_ClassSubjects_AB_unique" ON "_ClassSubjects"("A", "B");
+CREATE UNIQUE INDEX "students_rollNumber_key" ON "students"("rollNumber");
 
 -- CreateIndex
-CREATE INDEX "_ClassSubjects_B_index" ON "_ClassSubjects"("B");
+CREATE UNIQUE INDEX "attendance_studentId_date_key" ON "attendance"("studentId", "date");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "grades_studentId_subjectId_examId_key" ON "grades"("studentId", "subjectId", "examId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "timetable_classId_day_startTime_key" ON "timetable"("classId", "day", "startTime");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "_ClassSubjects_AB_unique" ON "_ClassSubjects"("A", "B");
+
+-- CreateIndex
+CREATE INDEX "_ClassSubjects_B_index" ON "_ClassSubjects"("B");
 
 -- AddForeignKey
 ALTER TABLE "classes" ADD CONSTRAINT "classes_teacherId_fkey" FOREIGN KEY ("teacherId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -218,7 +228,13 @@ ALTER TABLE "students" ADD CONSTRAINT "students_classId_fkey" FOREIGN KEY ("clas
 ALTER TABLE "students" ADD CONSTRAINT "students_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "parents"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "attendance" ADD CONSTRAINT "attendance_studentId_fkey" FOREIGN KEY ("studentId") REFERENCES "students"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "exams" ADD CONSTRAINT "exams_classId_fkey" FOREIGN KEY ("classId") REFERENCES "classes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "grades" ADD CONSTRAINT "grades_studentId_fkey" FOREIGN KEY ("studentId") REFERENCES "students"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "grades" ADD CONSTRAINT "grades_subjectId_fkey" FOREIGN KEY ("subjectId") REFERENCES "subjects"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
