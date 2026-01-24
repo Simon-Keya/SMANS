@@ -8,7 +8,7 @@ export default async function DashboardHome() {
   const session = await getServerSession(authOptions);
 
   if (!session?.user) {
-    return null; // Layout should redirect anyway
+    return null; 
   }
 
   const userRole = (session.user.role as string)?.toLowerCase() || "student";
