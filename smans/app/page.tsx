@@ -14,7 +14,7 @@ export default async function DashboardHome() {
   const userRole = (session.user.role as string)?.toLowerCase() || "student";
   const userName = session.user.name || "User";
 
-  // Real DB queries
+  
   const totalStudents = await prisma.student.count();
   const totalTeachers = await prisma.user.count({ where: { role: "teacher" } });
 
