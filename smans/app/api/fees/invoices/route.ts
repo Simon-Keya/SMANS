@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import * as z from "zod";
 
+// Validation schema
 const createInvoiceSchema = z.object({
   studentId: z.string().min(1, "Student is required"),
   feeItemId: z.string().optional(),
@@ -49,12 +50,21 @@ export async function POST(request: Request) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: parsed.error.errors[0].message },
+        { error: parsed.error.errors[0].message || "Invalid input" },
         { status: 400 }
       );
     }
 
     const { studentId, feeItemId, amount, dueDate } = parsed.data;
+
+    // Optional: verify student exists
+    const studentExists = await prisma.student.findUnique({
+      where: { id: studentId },
+    });
+
+    if (!studentExists) {
+      return NextResponse.json({ error: "Student not found" }, { status: 404 });
+    }
 
     const invoice = await prisma.invoice.create({
       data: {
@@ -62,7 +72,7 @@ export async function POST(request: Request) {
         feeItemId: feeItemId || null,
         amount,
         dueDate: new Date(dueDate),
-        status: "pending",
+        status: "PENDING",  // ← FIXED: uppercase to match enum
       },
     });
 

@@ -159,11 +159,13 @@ model Grade {
   subject   Subject  @relation(fields: [subjectId], references: [id])
   examId    String
   exam      Exam     @relation(fields: [examId], references: [id])
+  
+  createdAt DateTime @default(now())       // ← Add this
+  updatedAt DateTime @updatedAt             // ← Add this (optional but good practice)
 
   @@unique([studentId, subjectId, examId])
   @@map("grades")
 }
-
 // ================================================
 // TIMETABLE
 // ================================================
