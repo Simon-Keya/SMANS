@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role?.toLowerCase() !== "admin") {
+  if (!session || session.user.role !== "admin") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -20,14 +20,14 @@ export async function GET(request: Request) {
 
     // Pending fees
     const pendingFees = await prisma.invoice.aggregate({
-      where: { status: "pending" },
+      where: { status: "PENDING" }, // ← FIXED: uppercase
       _sum: { amount: true },
     });
 
     // Overdue invoices
     const overdue = await prisma.invoice.count({
       where: {
-        status: "overdue",
+        status: "OVERDUE", // ← FIXED: uppercase
         dueDate: { lt: new Date() },
       },
     });
@@ -40,12 +40,12 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.json({
-      thisMonthCollected: totalCollected._sum.amount || 0,
-      pendingFees: pendingFees._sum.amount || 0,
+      thisMonthCollected: totalCollected._sum.amount ?? 0,
+      pendingFees: pendingFees._sum.amount ?? 0,
       overdueInvoices: overdue,
       paymentMethods: methodBreakdown.map(m => ({
         method: m.method,
-        amount: m._sum.amount || 0,
+        amount: m._sum.amount ?? 0,
         count: m._count._all,
       })),
     });

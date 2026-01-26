@@ -40,28 +40,82 @@ export async function GET(request: Request) {
 
     const monthRate = totalThisMonth > 0 ? Math.round((presentThisMonth / totalThisMonth) * 100) : 0;
 
-    // Class-wise breakdown (example - last 30 days)
-    const classStats = await prisma.attendance.groupBy({
-      by: ["classId"],
+    // Class-wise breakdown (last 30 days)
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    // Step 1: Get total records per student
+    const studentTotalStats = await prisma.attendance.groupBy({
+      by: ["studentId"],
       where: {
-        date: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
+        date: { gte: thirtyDaysAgo },
       },
-      _count: { _all: true },
-      _sum: { present: true },
+      _count: {
+        _all: true,  // Total attendance records per student
+      },
     });
 
-    const classAttendance = await Promise.all(
-      classStats.map(async (stat) => {
-        const classInfo = await prisma.class.findUnique({
-          where: { id: stat.classId! },
-          select: { name: true },
+    // Step 2: Get present records per student (separate query - can't sum boolean in groupBy)
+    const studentPresentStats = await prisma.attendance.groupBy({
+      by: ["studentId"],
+      where: {
+        date: { gte: thirtyDaysAgo },
+        present: true,
+      },
+      _count: {
+        _all: true,  // Count of present days per student
+      },
+    });
+
+    // Combine totals and presents into a map
+    const studentStatsMap = new Map<string, { total: number; present: number }>();
+
+    studentTotalStats.forEach((stat) => {
+      const studentId = stat.studentId!;
+      studentStatsMap.set(studentId, {
+        total: stat._count._all,
+        present: 0,
+      });
+    });
+
+    studentPresentStats.forEach((stat) => {
+      const studentId = stat.studentId!;
+      if (studentStatsMap.has(studentId)) {
+        studentStatsMap.get(studentId)!.present = stat._count._all;
+      }
+    });
+
+    // Step 3: Map to class names
+    const classAttendance: { className: string; total: number; present: number; rate: number }[] = [];
+
+    for (const [studentId, stats] of studentStatsMap) {
+      const student = await prisma.student.findUnique({
+        where: { id: studentId },
+        select: {
+          class: {
+            select: { name: true },
+          },
+        },
+      });
+
+      const className = student?.class?.name || "Unknown";
+
+      const rate = stats.total > 0 ? Math.round((stats.present / stats.total) * 100) : 0;
+
+      // Aggregate per class
+      const existing = classAttendance.find(c => c.className === className);
+      if (existing) {
+        existing.total += stats.total;
+        existing.present += stats.present;
+        existing.rate = existing.total > 0 ? Math.round((existing.present / existing.total) * 100) : 0;
+      } else {
+        classAttendance.push({
+          className,
+          total: stats.total,
+          present: stats.present,
+          rate,
         });
-        return {
-          className: classInfo?.name || "Unknown",
-          rate: stat._count._all > 0 ? Math.round((stat._sum.present || 0) / stat._count._all * 100) : 0,
-        };
-      })
-    );
+      }
+    }
 
     return NextResponse.json({
       today: { present: presentToday, total: totalToday, rate: todayRate },
