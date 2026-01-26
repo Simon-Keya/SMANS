@@ -4,10 +4,11 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import * as z from "zod";
 
+// Validation schema — use UPPERCASE to match Prisma enum
 const updatePaymentSchema = z.object({
-  amount: z.number().min(1).optional(),
-  method: z.string().optional(),
-  status: z.enum(["pending", "completed", "failed"]).optional(),
+  amount: z.number().min(1, "Amount must be greater than 0").optional(),
+  method: z.string().min(1, "Method is required").optional(),
+  status: z.enum(["PENDING", "COMPLETED", "FAILED"]).optional(), // ← FIXED: uppercase
 });
 
 export async function GET(
@@ -59,14 +60,29 @@ export async function PUT(
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: parsed.error.errors[0].message },
+        { error: parsed.error.errors[0].message || "Invalid input" },
         { status: 400 }
       );
     }
 
+    const { amount, method, status } = parsed.data;
+
+    // Optional: check if payment exists first
+    const existing = await prisma.payment.findUnique({
+      where: { id: params.id },
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: "Payment not found" }, { status: 404 });
+    }
+
     const updated = await prisma.payment.update({
       where: { id: params.id },
-      data: parsed.data,
+      data: {
+        amount,
+        method,
+        status,  // Now uppercase values only — matches Prisma enum
+      },
     });
 
     return NextResponse.json({ success: true, data: updated });

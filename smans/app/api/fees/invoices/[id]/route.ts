@@ -4,10 +4,13 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import * as z from "zod";
 
+// Validation schema with uppercase enum values to match Prisma
 const updateInvoiceSchema = z.object({
-  amount: z.number().min(1).optional(),
-  dueDate: z.string().optional(),
-  status: z.enum(["pending", "paid", "partial", "overdue"]).optional(),
+  amount: z.number().min(1, "Amount must be greater than 0").optional(),
+  dueDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
+    message: "Invalid due date format",
+  }).optional(),
+  status: z.enum(["PENDING", "PAID", "PARTIAL", "OVERDUE"]).optional(),
 });
 
 export async function GET(
@@ -57,16 +60,28 @@ export async function PUT(
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: parsed.error.errors[0].message },
+        { error: parsed.error.errors[0].message || "Invalid input" },
         { status: 400 }
       );
+    }
+
+    const { amount, dueDate, status } = parsed.data;
+
+    // Optional: verify invoice exists first
+    const existing = await prisma.invoice.findUnique({
+      where: { id: params.id },
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
     }
 
     const updated = await prisma.invoice.update({
       where: { id: params.id },
       data: {
-        ...parsed.data,
-        dueDate: parsed.data.dueDate ? new Date(parsed.data.dueDate) : undefined,
+        amount,
+        dueDate: dueDate ? new Date(dueDate) : undefined,
+        status,  // Now uppercase values only
       },
     });
 

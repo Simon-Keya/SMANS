@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import * as z from "zod";
 
+// Validation schema for creating payments
 const createPaymentSchema = z.object({
   invoiceId: z.string().min(1, "Invoice is required"),
   amount: z.number().min(1, "Amount must be greater than 0"),
@@ -52,7 +53,7 @@ export async function POST(request: Request) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: parsed.error.errors[0].message },
+        { error: parsed.error.errors[0].message || "Invalid input" },
         { status: 400 }
       );
     }
@@ -74,15 +75,15 @@ export async function POST(request: Request) {
         amount,
         method,
         paymentDate: paymentDate ? new Date(paymentDate) : new Date(),
-        status: "completed",
+        status: "COMPLETED",  // ← FIXED: uppercase to match enum
       },
     });
 
-    // Update invoice status if needed (simplified)
+    // Update invoice status if fully paid (simplified logic)
     if (amount >= invoice.amount) {
       await prisma.invoice.update({
         where: { id: invoiceId },
-        data: { status: "paid" },
+        data: { status: "PAID" },  // ← FIXED: uppercase to match enum
       });
     }
 
