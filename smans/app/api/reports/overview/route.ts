@@ -36,16 +36,16 @@ export async function GET(request: Request) {
       _sum: { amount: true },
     });
 
-    // Pending tasks / alerts (example)
+    // Pending invoices (fixed: uppercase enum value)
     const pendingInvoices = await prisma.invoice.count({
-      where: { status: "pending" },
+      where: { status: "PENDING" }, // ← FIXED: uppercase to match enum
     });
 
     return NextResponse.json({
       totalStudents,
       totalTeachers,
       averageAttendance30Days: avgAttendance,
-      revenueThisMonth: revenueThisMonth._sum.amount || 0,
+      revenueThisMonth: revenueThisMonth._sum.amount ?? 0,
       pendingInvoices,
       alerts: pendingInvoices > 50 ? "High pending fees" : "All good",
     });

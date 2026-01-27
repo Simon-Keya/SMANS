@@ -11,23 +11,21 @@ export async function GET(request: Request) {
   }
 
   try {
-    // Overall average grade (last 30 days example)
-    const recentGrades = await prisma.grade.findMany({
-      where: {
-        createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
-      },
+    // Overall average (all time - no createdAt filter)
+    const allGrades = await prisma.grade.findMany({
       select: { marks: true, maxMarks: true },
+      take: 100, // limit for performance
     });
 
-    const totalMarks = recentGrades.reduce((sum, g) => sum + g.marks, 0);
-    const totalMax = recentGrades.reduce((sum, g) => sum + g.maxMarks, 0);
+    const totalMarks = allGrades.reduce((sum, g) => sum + g.marks, 0);
+    const totalMax = allGrades.reduce((sum, g) => sum + g.maxMarks, 0);
     const overallAvg = totalMax > 0 ? Math.round((totalMarks / totalMax) * 100) : 0;
 
-    // Subject-wise average
+    // Subject-wise average (top 5)
     const subjectAverages = await prisma.grade.groupBy({
       by: ["subjectId"],
       _avg: { marks: true },
-      _count: { marks: true },
+      _count: { _all: true },
       orderBy: { _avg: { marks: "desc" } },
       take: 5,
     });
@@ -41,28 +39,28 @@ export async function GET(request: Request) {
         return {
           subjectName: subject?.name || "Unknown",
           average: stat._avg.marks ? Math.round(stat._avg.marks) : 0,
-          count: stat._count.marks,
+          count: stat._count._all ?? 0,
         };
       })
     );
 
-    // Class-wise average (example)
-    const classAverages = await prisma.grade.groupBy({
-      by: ["classId"],
+    // Class-wise average — via student join (no classId in Grade)
+    const gradesByStudent = await prisma.grade.groupBy({
+      by: ["studentId"],
       _avg: { marks: true },
-      _count: { marks: true },
+      _count: { _all: true },
     });
 
     const classPerformance = await Promise.all(
-      classAverages.map(async (stat) => {
-        const cls = await prisma.class.findUnique({
-          where: { id: stat.classId! },
-          select: { name: true },
+      gradesByStudent.map(async (stat) => {
+        const student = await prisma.student.findUnique({
+          where: { id: stat.studentId! },
+          select: { class: { select: { name: true } } },
         });
         return {
-          className: cls?.name || "Unknown",
+          className: student?.class?.name || "Unknown",
           average: stat._avg.marks ? Math.round(stat._avg.marks) : 0,
-          studentCount: stat._count.marks,
+          studentCount: stat._count._all ?? 0,
         };
       })
     );
