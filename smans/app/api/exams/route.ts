@@ -4,8 +4,9 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import * as z from "zod";
 
+// Validation schema — use 'name' instead of 'title'
 const createExamSchema = z.object({
-  title: z.string().min(3, "Title must be at least 3 characters").trim(),
+  name: z.string().min(3, "Name must be at least 3 characters").trim(), // ← FIXED: name
   subjectId: z.string().min(1, "Subject is required"),
   classId: z.string().min(1, "Class is required"),
   date: z.string().refine((val) => !isNaN(Date.parse(val)), {
@@ -51,12 +52,12 @@ export async function POST(request: Request) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: parsed.error.errors[0].message },
+        { error: parsed.error.errors[0].message || "Invalid input" },
         { status: 400 }
       );
     }
 
-    const { title, subjectId, classId, date, duration, maxScore } = parsed.data;
+    const { name, subjectId, classId, date, duration, maxScore } = parsed.data;
 
     // Verify subject and class exist
     const subject = await prisma.subject.findUnique({ where: { id: subjectId } });
@@ -68,7 +69,7 @@ export async function POST(request: Request) {
 
     const exam = await prisma.exam.create({
       data: {
-        title,
+        name,                  // ← FIXED: use 'name' instead of 'title'
         subjectId,
         classId,
         date: new Date(date),
