@@ -288,3 +288,31 @@ model NotificationLog {
 
   @@map("notification_logs")
 }
+
+model Transcript {
+  id        String   @id @default(cuid())
+  studentId String
+  term      String
+  year      Int
+  gpa       Float
+  createdAt DateTime @default(now())
+
+  student Student @relation(fields: [studentId], references: [id])
+  grades  Grade[]
+
+  @@unique([studentId, term, year])
+}
+
+model Class {
+  id    String @id @default(cuid())
+  name  String
+  level Int
+}
+
+model PromotionLog {
+  id        String   @id @default(cuid())
+  studentId String
+  fromClass String
+  toClass   String
+  date      DateTime @default(now())
+}
