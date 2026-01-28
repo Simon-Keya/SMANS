@@ -7,25 +7,9 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ================================================
-// USER & AUTH
-// ================================================
-
-model User {
-  id        String   @id @default(cuid())
-  name      String?
-  email     String   @unique
-  password  String?
-  role      Role     @default(TEACHER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  teacherClasses Class[] @relation("ClassTeacher")
-  notifications  Notification[]
-  notificationLogs NotificationLog[]
-
-  @@map("users")
-}
+/////////////////////////////////////////////////
+// ENUMS
+/////////////////////////////////////////////////
 
 enum Role {
   ADMIN
@@ -34,24 +18,67 @@ enum Role {
   PARENT
 }
 
-// ================================================
-// CORE ACADEMIC
-// ================================================
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  PARTIAL
+  OVERDUE
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+/////////////////////////////////////////////////
+// USERS & AUTH
+/////////////////////////////////////////////////
+
+model User {
+  id        String   @id @default(cuid())
+  name      String?
+  email     String   @unique
+  password  String?
+  role      Role     @default(TEACHER)
+
+  teacherClasses Class[] @relation("ClassTeacher")
+  notifications  Notification[]
+  notificationLogs NotificationLog[]
+  auditLogs AuditLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+/////////////////////////////////////////////////
+// ACADEMIC STRUCTURE
+/////////////////////////////////////////////////
 
 model Class {
   id        String   @id @default(cuid())
   name      String
-  level     String   // e.g. "Form 1", "Grade 7"
+  level     String
   teacherId String?
-  teacher   User?    @relation("ClassTeacher", fields: [teacherId], references: [id])
 
+  teacher   User?    @relation("ClassTeacher", fields: [teacherId], references: [id])
   students  Student[]
   subjects  Subject[] @relation("ClassSubjects")
   exams     Exam[]
   timetable Timetable[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([name, level])
   @@map("classes")
 }
 
@@ -61,62 +88,68 @@ model Subject {
   code        String   @unique
   description String?
 
-  classes     Class[]  @relation("ClassSubjects")
-  grades      Grade[]
-  timetable   Timetable[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  classes   Class[]  @relation("ClassSubjects")
+  grades    Grade[]
+  timetable Timetable[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("subjects")
 }
 
-// ================================================
+/////////////////////////////////////////////////
 // STUDENTS & PARENTS
-// ================================================
+/////////////////////////////////////////////////
 
 model Parent {
   id        String   @id @default(cuid())
   name      String
   phone     String
   email     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 
   students  Student[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("parents")
 }
 
 model Student {
-  id        String   @id @default(cuid())
-  name      String
+  id         String   @id @default(cuid())
+  name       String
   rollNumber String   @unique
-  email     String?
-  phone     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  email      String?
+  phone      String?
 
-  classId   String
-  class     Class    @relation(fields: [classId], references: [id])
+  classId    String
+  class      Class    @relation(fields: [classId], references: [id])
 
-  parentId  String?
-  parent    Parent?  @relation(fields: [parentId], references: [id])
+  parentId   String?
+  parent     Parent?  @relation(fields: [parentId], references: [id])
 
   attendance Attendance[]
   grades     Grade[]
   invoices   Invoice[]
+  promotions PromotionLog[]
+  transcripts Transcript[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("students")
 }
 
-// ================================================
+/////////////////////////////////////////////////
 // ATTENDANCE
-// ================================================
+/////////////////////////////////////////////////
 
 model Attendance {
   id        String            @id @default(cuid())
   date      DateTime
   status    AttendanceStatus  @default(PRESENT)
+
   studentId String
   student   Student           @relation(fields: [studentId], references: [id])
 
@@ -124,27 +157,22 @@ model Attendance {
   @@map("attendance")
 }
 
-enum AttendanceStatus {
-  PRESENT
-  ABSENT
-  LATE
-}
-
-// ================================================
+/////////////////////////////////////////////////
 // EXAMS & GRADES
-// ================================================
+/////////////////////////////////////////////////
 
 model Exam {
   id        String   @id @default(cuid())
   name      String
   term      String?
   date      DateTime
-  createdAt DateTime @default(now())
 
   classId   String
   class     Class    @relation(fields: [classId], references: [id])
 
   grades    Grade[]
+
+  createdAt DateTime @default(now())
 
   @@map("exams")
 }
@@ -153,22 +181,26 @@ model Grade {
   id        String   @id @default(cuid())
   marks     Int
   maxMarks  Int      @default(100)
+
   studentId String
   student   Student  @relation(fields: [studentId], references: [id])
+
   subjectId String
   subject   Subject  @relation(fields: [subjectId], references: [id])
+
   examId    String
   exam      Exam     @relation(fields: [examId], references: [id])
-  
-  createdAt DateTime @default(now())       // ← Add this
-  updatedAt DateTime @updatedAt             // ← Add this (optional but good practice)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([studentId, subjectId, examId])
   @@map("grades")
 }
-// ================================================
+
+/////////////////////////////////////////////////
 // TIMETABLE
-// ================================================
+/////////////////////////////////////////////////
 
 model Timetable {
   id        String   @id @default(cuid())
@@ -187,39 +219,41 @@ model Timetable {
   @@map("timetable")
 }
 
-// ================================================
+/////////////////////////////////////////////////
 // FEES & FINANCE
-// ================================================
+/////////////////////////////////////////////////
 
 model FeeItem {
   id          String   @id @default(cuid())
   name        String
   amount      Float
-  frequency   String   // once, monthly, termly, yearly
+  frequency   String
   description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
 
   invoices    Invoice[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("fee_items")
 }
 
 model Invoice {
-  id          String        @id @default(cuid())
-  studentId   String
-  student     Student       @relation(fields: [studentId], references: [id])
+  id        String        @id @default(cuid())
+  studentId String
+  student   Student       @relation(fields: [studentId], references: [id])
 
-  feeItemId   String?
-  feeItem     FeeItem?      @relation(fields: [feeItemId], references: [id])
+  feeItemId String?
+  feeItem   FeeItem?      @relation(fields: [feeItemId], references: [id])
 
-  amount      Float
-  dueDate     DateTime
-  status      InvoiceStatus @default(PENDING)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  amount    Float
+  dueDate   DateTime
+  status    InvoiceStatus @default(PENDING)
 
-  payments    Payment[]
+  payments  Payment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("invoices")
 }
@@ -230,43 +264,32 @@ model Payment {
   invoice     Invoice       @relation(fields: [invoiceId], references: [id])
 
   amount      Float
-  paymentDate DateTime      @default(now())
-  method      String        // mpesa, cash, bank, etc.
+  method      String
   status      PaymentStatus @default(COMPLETED)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  paymentDate DateTime      @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("payments")
 }
 
-enum InvoiceStatus {
-  PENDING
-  PAID
-  PARTIAL
-  OVERDUE
-}
-
-enum PaymentStatus {
-  PENDING
-  COMPLETED
-  FAILED
-}
-
-// ================================================
+/////////////////////////////////////////////////
 // NOTIFICATIONS
-// ================================================
+/////////////////////////////////////////////////
 
 model Notification {
   id        String   @id @default(cuid())
   title     String
   message   String
-  createdAt DateTime @default(now())
   read      Boolean  @default(false)
 
   userId    String
   user      User     @relation(fields: [userId], references: [id])
 
   logs      NotificationLog[]
+
+  createdAt DateTime @default(now())
 
   @@map("notifications")
 }
@@ -279,15 +302,19 @@ model NotificationLog {
   recipientId    String
   recipient      User         @relation(fields: [recipientId], references: [id])
 
-  sentAt         DateTime     @default(now())
-  status         String       // success, failed, pending
+  status         String
   errorMessage   String?
 
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  sentAt         DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@map("notification_logs")
 }
+
+/////////////////////////////////////////////////
+// TRANSCRIPTS & PROMOTION
+/////////////////////////////////////////////////
 
 model Transcript {
   id        String   @id @default(cuid())
@@ -295,18 +322,13 @@ model Transcript {
   term      String
   year      Int
   gpa       Float
+
+  student   Student @relation(fields: [studentId], references: [id])
+
   createdAt DateTime @default(now())
 
-  student Student @relation(fields: [studentId], references: [id])
-  grades  Grade[]
-
   @@unique([studentId, term, year])
-}
-
-model Class {
-  id    String @id @default(cuid())
-  name  String
-  level Int
+  @@map("transcripts")
 }
 
 model PromotionLog {
@@ -314,30 +336,51 @@ model PromotionLog {
   studentId String
   fromClass String
   toClass   String
+
+  student   Student @relation(fields: [studentId], references: [id])
+
   date      DateTime @default(now())
+
+  @@map("promotion_logs")
 }
+
+/////////////////////////////////////////////////
+// AUDIT LOGS
+/////////////////////////////////////////////////
 
 model AuditLog {
   id        String   @id @default(cuid())
   userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+
   action    String
   entity    String
   entityId  String?
   metadata  Json?
+
   createdAt DateTime @default(now())
+
+  @@map("audit_logs")
 }
 
-model Role {
-  id    String @id @default(cuid())
-  name  String @unique
-}
+/////////////////////////////////////////////////
+// RBAC PERMISSIONS
+/////////////////////////////////////////////////
 
 model Permission {
   id   String @id @default(cuid())
   code String @unique
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
 }
 
 model RolePermission {
-  roleId       String
+  role        Role
   permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([role, permissionId])
+  @@map("role_permissions")
 }
