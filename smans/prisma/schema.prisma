@@ -316,3 +316,28 @@ model PromotionLog {
   toClass   String
   date      DateTime @default(now())
 }
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+}
+
+model Role {
+  id    String @id @default(cuid())
+  name  String @unique
+}
+
+model Permission {
+  id   String @id @default(cuid())
+  code String @unique
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+}
