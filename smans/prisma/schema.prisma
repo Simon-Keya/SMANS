@@ -48,17 +48,22 @@ model User {
   password  String?
   role      Role     @default(TEACHER)
 
-  teacherClasses Class[] @relation("ClassTeacher")
-  notifications  Notification[]
+  staffNo   String?  @unique   // ← NEW: teacher staff number (optional)
+
+  teacherClasses   Class[]               @relation("ClassTeacher")
+  notifications    Notification[]
   notificationLogs NotificationLog[]
-  auditLogs AuditLog[]
+  auditLogs        AuditLog[]
+  parent           Parent?               @relation("UserParent", fields: [parentId], references: [id])
+  parentId         String?               @unique
+  student          Student?              @relation("UserStudent", fields: [studentId], references: [id])
+  studentId        String?               @unique
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("users")
 }
-
 /////////////////////////////////////////////////
 // ACADEMIC STRUCTURE
 /////////////////////////////////////////////////
@@ -74,6 +79,7 @@ model Class {
   subjects  Subject[] @relation("ClassSubjects")
   exams     Exam[]
   timetable Timetable[]
+  attendance Attendance[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -88,9 +94,9 @@ model Subject {
   code        String   @unique
   description String?
 
-  classes   Class[]  @relation("ClassSubjects")
-  grades    Grade[]
-  timetable Timetable[]
+  classes     Class[]  @relation("ClassSubjects")
+  grades      Grade[]
+  timetable   Timetable[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -105,8 +111,11 @@ model Subject {
 model Parent {
   id        String   @id @default(cuid())
   name      String
-  phone     String
+  phone     String?
   email     String?
+
+  user      User?    @relation("UserParent", fields: [userId], references: [id])
+  userId    String?  @unique
 
   students  Student[]
 
@@ -128,6 +137,9 @@ model Student {
 
   parentId   String?
   parent     Parent?  @relation(fields: [parentId], references: [id])
+
+  user       User?    @relation("UserStudent", fields: [userId], references: [id])
+  userId     String?  @unique
 
   attendance Attendance[]
   grades     Grade[]
@@ -153,6 +165,9 @@ model Attendance {
   studentId String
   student   Student           @relation(fields: [studentId], references: [id])
 
+  classId   String
+  class     Class             @relation(fields: [classId], references: [id])
+
   @@unique([studentId, date])
   @@map("attendance")
 }
@@ -173,6 +188,7 @@ model Exam {
   grades    Grade[]
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("exams")
 }
@@ -290,6 +306,7 @@ model Notification {
   logs      NotificationLog[]
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("notifications")
 }
@@ -326,6 +343,7 @@ model Transcript {
   student   Student @relation(fields: [studentId], references: [id])
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([studentId, term, year])
   @@map("transcripts")
@@ -341,6 +359,9 @@ model PromotionLog {
 
   date      DateTime @default(now())
 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@map("promotion_logs")
 }
 
@@ -352,13 +373,18 @@ model AuditLog {
   id        String   @id @default(cuid())
   userId    String?
   user      User?    @relation(fields: [userId], references: [id])
+
   action    String
   entity    String
   entityId  String?
   metadata  Json?
+
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@map("audit_logs")
 }
+
 /////////////////////////////////////////////////
 // RBAC PERMISSIONS
 /////////////////////////////////////////////////
@@ -369,11 +395,14 @@ model Permission {
 
   rolePermissions RolePermission[]
 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@map("permissions")
 }
 
 model RolePermission {
-  role        Role
+  role         Role
   permissionId String
   permission   Permission @relation(fields: [permissionId], references: [id])
 

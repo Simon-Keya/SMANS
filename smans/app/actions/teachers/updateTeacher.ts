@@ -6,7 +6,8 @@ export async function updateTeacher(
   teacherId: string,
   data: { staffNo?: string }
 ) {
-  return prisma.teacher.update({
+  // Teachers are Users with role TEACHER
+  return prisma.user.update({
     where: { id: teacherId },
     data,
   });

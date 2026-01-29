@@ -8,7 +8,7 @@ export async function updateUser(
   userId: string,
   data: {
     name?: string;
-    role?: "admin" | "teacher" | "student" | "parent";
+    role?: "ADMIN" | "TEACHER" | "STUDENT" | "PARENT";  // ← FIXED: uppercase to match enum
   }
 ) {
   const session = await getServerSession(authOptions);
@@ -19,10 +19,15 @@ export async function updateUser(
 
   // Admin can update anyone, users can update themselves (name only)
   if (
-    session.user.role !== "admin" &&
+    session.user.role !== "ADMIN" &&                    // ← FIXED: uppercase
     session.user.id !== userId
   ) {
     throw new Error("Forbidden");
+  }
+
+  // Optional: prevent non-admins from changing role
+  if (data.role && session.user.role !== "ADMIN") {
+    throw new Error("Only admins can change roles");
   }
 
   await prisma.user.update({

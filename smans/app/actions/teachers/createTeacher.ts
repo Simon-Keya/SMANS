@@ -11,17 +11,16 @@ export async function createTeacher(data: {
 }) {
   const hashedPassword = await bcrypt.hash(data.password, 10);
 
-  return prisma.teacher.create({
+  // Create a User with role TEACHER
+  const teacherUser = await prisma.user.create({
     data: {
-      staffNo: data.staffNo,
-      user: {
-        create: {
-          email: data.email,
-          password: hashedPassword,
-          name: data.name,
-          role: "teacher",
-        },
-      },
+      email: data.email,
+      password: hashedPassword,
+      name: data.name,
+      role: "TEACHER",
+      staffNo: data.staffNo,  // If you add this field to User model (see below)
     },
   });
+
+  return teacherUser;
 }
