@@ -1,10 +1,10 @@
 // lib/auth/auth.ts
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import NextAuth from "next-auth";
+import NextAuth, { NextAuthOptions, User } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 
-export const authOptions = {
+export const authOptions: NextAuthOptions = {
   providers: [
     Credentials({
       name: "Credentials",
@@ -31,10 +31,10 @@ export const authOptions = {
           return null;
         }
 
-        // Return user object for session/jwt
+        // Return user object (NextAuth will use this for JWT/session)
         return {
           id: user.id,
-          name: user.name,
+          name: user.name ?? "",
           email: user.email,
           role: user.role,
         };
@@ -43,20 +43,20 @@ export const authOptions = {
   ],
 
   session: {
-    strategy: "jwt",
+    strategy: "jwt" as const,  // ← FIXED: literal type "jwt" (not just string)
   },
 
   callbacks: {
-    async jwt({ token, user }) {
-      // Pass role to token when user signs in
+    async jwt({ token, user }: { token: any; user?: User }) {
+      // When user signs in, add role to token
       if (user) {
         token.role = user.role;
       }
       return token;
     },
 
-    async session({ session, token }) {
-      // Add user ID and role to session
+    async session({ session, token }: { session: any; token: any }) {
+      // Add user ID and role to session from token
       if (session.user) {
         session.user.id = token.sub as string;
         session.user.role = token.role as string;
@@ -70,7 +70,6 @@ export const authOptions = {
   },
 };
 
-// Export handler for Next.js API route
 const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST };
