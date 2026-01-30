@@ -1,24 +1,35 @@
 "use server";
 
-import { AuthError } from "next-auth";
+import { AuthError } from "next-auth/errors"; // ← correct for v5
 import { signIn } from "next-auth/react";
 
 export async function signInAction(
   email: string,
   password: string
 ) {
+  if (!email.trim() || !password.trim()) {
+    return { success: false, error: "Email and password are required" };
+  }
+
   try {
-    await signIn("credentials", {
+    const result = await signIn("credentials", {
       email,
       password,
       redirect: false,
     });
 
-    return { success: true };
-  } catch (error) {
-    if (error instanceof AuthError) {
-      return { error: "Invalid email or password" };
+    if (result?.error) {
+      return { success: false, error: "Invalid email or password" };
     }
-    return { error: "Something went wrong" };
+
+    return { success: true, message: "Signed in successfully" };
+  } catch (error) {
+    console.error("[SIGN_IN_ERROR]", error);
+
+    if (error instanceof AuthError) {
+      return { success: false, error: "Authentication failed" };
+    }
+
+    return { success: false, error: "An unexpected error occurred" };
   }
 }
