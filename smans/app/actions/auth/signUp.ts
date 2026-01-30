@@ -9,24 +9,33 @@ export async function signUpAction(data: {
   name?: string;
   email: string;
   password: string;
-  role: "admin" | "teacher" | "student" | "parent";
+  role: "ADMIN" | "TEACHER" | "STUDENT" | "PARENT";  // ← FIXED: uppercase literals
 }) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
-    throw new Error("Unauthorized");
+  if (!session || session.user.role !== "ADMIN") {  // ← FIXED: uppercase comparison
+    throw new Error("Unauthorized - admin access required");
+  }
+
+  // Optional: prevent duplicate email
+  const existingUser = await prisma.user.findUnique({
+    where: { email: data.email },
+  });
+
+  if (existingUser) {
+    throw new Error("Email already in use");
   }
 
   const hashedPassword = await bcrypt.hash(data.password, 10);
 
-  await prisma.user.create({
+  const newUser = await prisma.user.create({
     data: {
-      name: data.name,
-      email: data.email,
+      name: data.name?.trim() || null,
+      email: data.email.trim(),
       password: hashedPassword,
-      role: data.role,
+      role: data.role,  // now safe
     },
   });
 
-  return { success: true };
+  return { success: true, userId: newUser.id };
 }
