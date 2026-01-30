@@ -9,11 +9,11 @@ export async function createUser(data: {
   name?: string;
   email: string;
   password: string;
-  role: "admin" | "teacher" | "student" | "parent";
+  role: "ADMIN" | "TEACHER" | "STUDENT" | "PARENT";  // ← FIXED: uppercase to match enum
 }) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
+  if (!session || session.user.role !== "ADMIN") {  // ← FIXED: uppercase
     throw new Error("Unauthorized");
   }
 

@@ -1,7 +1,6 @@
-// app/actions/audit/logAction.ts
 "use server";
 
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma"; // ← important: import Prisma
 
 export async function logAction(
   action: string,
@@ -16,7 +15,6 @@ export async function logAction(
         action,
         entity,
         entityId,
-        metadata: metadata ? JSON.stringify(metadata) : null, // Prisma Json needs string or object
         userId,
       },
     });
