@@ -4,10 +4,15 @@ import { prisma } from "@/lib/prisma";
 
 export async function updateAttendance(
   attendanceId: string,
-  present: boolean
+  isPresent: boolean   // ← rename for clarity (true = present, false = absent)
 ) {
+  // Map boolean → enum value
+  const newStatus = isPresent ? "PRESENT" : "ABSENT";
+
   return prisma.attendance.update({
     where: { id: attendanceId },
-    data: { present },
+    data: { 
+      status: newStatus 
+    },
   });
 }

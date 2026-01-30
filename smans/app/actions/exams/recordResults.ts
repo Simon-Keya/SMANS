@@ -8,21 +8,31 @@ export async function recordResults(
     studentId: string;
     subjectId: string;
     marks: number;
-    maxMarks: number;
+    maxMarks?: number;
   }[]
 ) {
   return prisma.$transaction(
     results.map(r =>
       prisma.grade.upsert({
         where: {
-          studentId_examId_subjectId: {
+          // ← This is the correct unique constraint name
+          studentId_subjectId_examId: {
             studentId: r.studentId,
-            examId,
             subjectId: r.subjectId,
+            examId,
           },
         },
-        update: { marks: r.marks, maxMarks: r.maxMarks },
-        create: { ...r, examId },
+        update: {
+          marks: r.marks,
+          maxMarks: r.maxMarks ?? 100,
+        },
+        create: {
+          studentId: r.studentId,
+          subjectId: r.subjectId,
+          examId,
+          marks: r.marks,
+          maxMarks: r.maxMarks ?? 100,
+        },
       })
     )
   );
