@@ -9,7 +9,7 @@ export async function createParent(data: {
   name: string;
   phone?: string;
 }) {
-  // First create the User
+  
   const hashedPassword = await bcrypt.hash(data.password, 10);
 
   const user = await prisma.user.create({
@@ -25,10 +25,10 @@ export async function createParent(data: {
   const parent = await prisma.parent.create({
     data: {
       name: data.name,
-      phone: data.phone ?? null,
+      phone: data.phone ?? null,     // Safe after making phone nullable
       email: data.email,
       user: {
-        connect: { id: user.id },  // ← Connect to existing user
+        connect: { id: user.id },
       },
     },
   });
