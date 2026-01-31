@@ -17,6 +17,7 @@ CREATE TABLE "users" (
     "email" TEXT NOT NULL,
     "password" TEXT,
     "role" "Role" NOT NULL DEFAULT 'TEACHER',
+    "staffNo" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -51,8 +52,9 @@ CREATE TABLE "subjects" (
 CREATE TABLE "parents" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
-    "phone" TEXT NOT NULL,
+    "phone" TEXT,
     "email" TEXT,
+    "userId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -68,6 +70,7 @@ CREATE TABLE "students" (
     "phone" TEXT,
     "classId" TEXT NOT NULL,
     "parentId" TEXT,
+    "userId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -80,6 +83,7 @@ CREATE TABLE "attendance" (
     "date" TIMESTAMP(3) NOT NULL,
     "status" "AttendanceStatus" NOT NULL DEFAULT 'PRESENT',
     "studentId" TEXT NOT NULL,
+    "classId" TEXT NOT NULL,
 
     CONSTRAINT "attendance_pkey" PRIMARY KEY ("id")
 );
@@ -92,6 +96,7 @@ CREATE TABLE "exams" (
     "date" TIMESTAMP(3) NOT NULL,
     "classId" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "exams_pkey" PRIMARY KEY ("id")
 );
@@ -172,6 +177,7 @@ CREATE TABLE "notifications" (
     "read" BOOLEAN NOT NULL DEFAULT false,
     "userId" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "notifications_pkey" PRIMARY KEY ("id")
 );
@@ -198,6 +204,7 @@ CREATE TABLE "transcripts" (
     "year" INTEGER NOT NULL,
     "gpa" DOUBLE PRECISION NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "transcripts_pkey" PRIMARY KEY ("id")
 );
@@ -209,6 +216,8 @@ CREATE TABLE "promotion_logs" (
     "fromClass" TEXT NOT NULL,
     "toClass" TEXT NOT NULL,
     "date" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "promotion_logs_pkey" PRIMARY KEY ("id")
 );
@@ -222,6 +231,7 @@ CREATE TABLE "audit_logs" (
     "entityId" TEXT,
     "metadata" JSONB,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "audit_logs_pkey" PRIMARY KEY ("id")
 );
@@ -230,6 +240,8 @@ CREATE TABLE "audit_logs" (
 CREATE TABLE "permissions" (
     "id" TEXT NOT NULL,
     "code" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "permissions_pkey" PRIMARY KEY ("id")
 );
@@ -252,13 +264,22 @@ CREATE TABLE "_ClassSubjects" (
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "users_staffNo_key" ON "users"("staffNo");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "classes_name_level_key" ON "classes"("name", "level");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "subjects_code_key" ON "subjects"("code");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "parents_userId_key" ON "parents"("userId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "students_rollNumber_key" ON "students"("rollNumber");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "students_userId_key" ON "students"("userId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "attendance_studentId_date_key" ON "attendance"("studentId", "date");
@@ -285,13 +306,22 @@ CREATE INDEX "_ClassSubjects_B_index" ON "_ClassSubjects"("B");
 ALTER TABLE "classes" ADD CONSTRAINT "classes_teacherId_fkey" FOREIGN KEY ("teacherId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "parents" ADD CONSTRAINT "parents_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "students" ADD CONSTRAINT "students_classId_fkey" FOREIGN KEY ("classId") REFERENCES "classes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "students" ADD CONSTRAINT "students_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "parents"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "students" ADD CONSTRAINT "students_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "attendance" ADD CONSTRAINT "attendance_studentId_fkey" FOREIGN KEY ("studentId") REFERENCES "students"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "attendance" ADD CONSTRAINT "attendance_classId_fkey" FOREIGN KEY ("classId") REFERENCES "classes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "exams" ADD CONSTRAINT "exams_classId_fkey" FOREIGN KEY ("classId") REFERENCES "classes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

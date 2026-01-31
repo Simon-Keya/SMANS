@@ -25,7 +25,7 @@ export async function createParent(data: {
   const parent = await prisma.parent.create({
     data: {
       name: data.name,
-      phone: data.phone ?? null,     // Safe after making phone nullable
+      phone: data.phone ?? null,     
       email: data.email,
       user: {
         connect: { id: user.id },

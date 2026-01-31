@@ -47,23 +47,25 @@ model User {
   email     String   @unique
   password  String?
   role      Role     @default(TEACHER)
-
-  staffNo   String?  @unique   // ← NEW: teacher staff number (optional)
+  staffNo   String?  @unique   // teacher staff number (optional)
 
   teacherClasses   Class[]               @relation("ClassTeacher")
   notifications    Notification[]
   notificationLogs NotificationLog[]
   auditLogs        AuditLog[]
-  parent           Parent?               @relation("UserParent", fields: [parentId], references: [id])
-  parentId         String?               @unique
-  student          Student?              @relation("UserStudent", fields: [studentId], references: [id])
-  studentId        String?               @unique
+
+  // Parent relation – back-relation only (no fields/references here)
+  parent           Parent?               @relation("UserParent")
+
+  // Student relation – back-relation only
+  student          Student?              @relation("UserStudent")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("users")
 }
+
 /////////////////////////////////////////////////
 // ACADEMIC STRUCTURE
 /////////////////////////////////////////////////
@@ -114,6 +116,7 @@ model Parent {
   phone     String?
   email     String?
 
+  // Foreign key + relation definition goes HERE
   user      User?    @relation("UserParent", fields: [userId], references: [id])
   userId    String?  @unique
 
@@ -138,6 +141,7 @@ model Student {
   parentId   String?
   parent     Parent?  @relation(fields: [parentId], references: [id])
 
+  // Foreign key + relation definition goes HERE
   user       User?    @relation("UserStudent", fields: [userId], references: [id])
   userId     String?  @unique
 
