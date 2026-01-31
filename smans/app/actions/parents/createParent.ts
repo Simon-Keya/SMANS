@@ -9,29 +9,43 @@ export async function createParent(data: {
   name: string;
   phone?: string;
 }) {
-  
-  const hashedPassword = await bcrypt.hash(data.password, 10);
+  try {
+    // Optional: check if email already exists
+    const existing = await prisma.user.findUnique({
+      where: { email: data.email },
+    });
+    if (existing) {
+      throw new Error("Email already in use");
+    }
 
-  const user = await prisma.user.create({
-    data: {
-      email: data.email,
-      password: hashedPassword,
-      name: data.name,
-      role: "PARENT",
-    },
-  });
+    const hashedPassword = await bcrypt.hash(data.password, 10);
 
-  // Then create Parent and connect to the new User
-  const parent = await prisma.parent.create({
-    data: {
-      name: data.name,
-      phone: data.phone ?? null,     
-      email: data.email,
-      user: {
-        connect: { id: user.id },
+    const user = await prisma.user.create({
+      data: {
+        email: data.email.trim(),
+        password: hashedPassword,
+        name: data.name.trim(),
+        role: "PARENT",
       },
-    },
-  });
+    });
 
-  return parent;
+    const parent = await prisma.parent.create({
+      data: {
+        name: data.name.trim(),
+        phone: data.phone?.trim() ?? null,
+        email: data.email.trim(),
+        user: {
+          connect: { id: user.id },
+        },
+      },
+    });
+
+    return { success: true, parent };
+  } catch (error) {
+    console.error("[CREATE_PARENT_ERROR]", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to create parent",
+    };
+  }
 }
