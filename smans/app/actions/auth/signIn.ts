@@ -1,6 +1,6 @@
 "use server";
 
-import { AuthError } from "next-auth/errors"; // ← correct for v5
+import { AuthError } from "next-auth/errors"; // ← official v5 path
 import { signIn } from "next-auth/react";
 
 export async function signInAction(
@@ -19,7 +19,7 @@ export async function signInAction(
     });
 
     if (result?.error) {
-      return { success: false, error: "Invalid email or password" };
+      return { success: false, error: result.error };
     }
 
     return { success: true, message: "Signed in successfully" };
