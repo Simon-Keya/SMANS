@@ -4,10 +4,14 @@ import { prisma } from "@/lib/prisma";
 
 export async function markAttendance(
   date: Date,
-  records: { studentId: string; present: boolean }[]
+  records: {
+    studentId: string;
+    classId: string;      // ← required: add this
+    present: boolean;
+  }[]
 ) {
   return prisma.$transaction(
-    records.map(r =>
+    records.map(r => 
       prisma.attendance.upsert({
         where: {
           studentId_date: {
@@ -15,8 +19,15 @@ export async function markAttendance(
             date,
           },
         },
-        update: { present: r.present },
-        create: { ...r, date },
+        update: {
+          status: r.present ? "PRESENT" : "ABSENT",  // ← use enum, not boolean
+        },
+        create: {
+          studentId: r.studentId,
+          classId: r.classId,                        // ← required field
+          date,
+          status: r.present ? "PRESENT" : "ABSENT",
+        },
       })
     )
   );

@@ -1,6 +1,6 @@
 "use server";
 
-import { signIn } from "next-auth";
+import { signIn } from "next-auth/react";
 
 export async function signInAction(email: string, password: string) {
   if (!email.trim() || !password.trim()) {
