@@ -1,34 +1,44 @@
 "use server";
 
-import { authOptions } from "@/lib/auth";
+import { authOptions } from "@/lib/auth"; // ← import the config
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth"; // ← FIXED for v5
+import { getServerSession } from "next-auth"; // ← this is the correct import
 
-export async function assignTeacherToClass(classId: string, teacherId: string | null) {
-  const session = await getServerSession(authOptions);
+export async function assignTeacherToClass(
+  classId: string,
+  teacherId: string | null
+) {
+  const session = await getServerSession(authOptions); // ← use getServerSession
 
   if (!session || session.user.role !== "ADMIN") {
     return { success: false, error: "Unauthorized - admin only" };
   }
 
   try {
-    // Optional: validate teacher exists (if provided)
     if (teacherId) {
-      const teacher = await prisma.user.findUnique({
-        where: { id: teacherId, role: "TEACHER" },
+      const teacher = await prisma.user.findFirst({
+        where: {
+          id: teacherId,
+          role: "TEACHER",
+        },
       });
       if (!teacher) {
-        return { success: false, error: "Teacher not found or not a teacher" };
+        return {
+          success: false,
+          error: "Teacher not found or not a teacher",
+        };
       }
     }
 
     const updatedClass = await prisma.class.update({
       where: { id: classId },
       data: {
-        teacherId: teacherId || null,
+        teacherId: teacherId ?? null,
       },
       include: {
-        teacher: { select: { name: true, email: true } },
+        teacher: {
+          select: { id: true, name: true, email: true },
+        },
       },
     });
 
