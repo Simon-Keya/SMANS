@@ -1,10 +1,37 @@
 // lib/auth/auth.ts
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import NextAuth, { NextAuthOptions, User } from "next-auth";
+import type { NextAuthConfig, User } from "next-auth"; // ← FIXED: import User type here
+import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 
-export const authOptions: NextAuthOptions = {
+// Extend NextAuth types (highly recommended)
+declare module "next-auth" {
+  interface User {
+    id: string;
+    name?: string | null;
+    email?: string | null;
+    role: "ADMIN" | "TEACHER" | "STUDENT" | "PARENT";
+  }
+
+  interface Session {
+    user: {
+      id: string;
+      name?: string | null;
+      email?: string | null;
+      role: "ADMIN" | "TEACHER" | "STUDENT" | "PARENT";
+    };
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    id: string;
+    role: "ADMIN" | "TEACHER" | "STUDENT" | "PARENT";
+  }
+}
+
+export const authConfig: NextAuthConfig = {
   providers: [
     Credentials({
       name: "Credentials",
@@ -12,26 +39,22 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials.password) {
-          return null;
-        }
+
+      async authorize(credentials): Promise<User | null> {
+        if (!credentials?.email || !credentials.password) return null;
+
+        const email = credentials.email as string;
+        const password = credentials.password as string;
 
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
+          where: { email: email.toLowerCase() },
         });
 
-        if (!user || !user.password) {
-          return null;
-        }
+        if (!user || !user.password) return null;
 
-        const isValid = await bcrypt.compare(credentials.password, user.password);
+        const isValid = await bcrypt.compare(password, user.password);
+        if (!isValid) return null;
 
-        if (!isValid) {
-          return null;
-        }
-
-        // Return user object (NextAuth will use this for JWT/session)
         return {
           id: user.id,
           name: user.name ?? "",
@@ -43,23 +66,22 @@ export const authOptions: NextAuthOptions = {
   ],
 
   session: {
-    strategy: "jwt" as const,  // ← FIXED: literal type "jwt" (not just string)
+    strategy: "jwt",
   },
 
   callbacks: {
-    async jwt({ token, user }: { token: any; user?: User }) {
-      // When user signs in, add role to token
+    async jwt({ token, user }) {
       if (user) {
+        token.id = user.id;
         token.role = user.role;
       }
       return token;
     },
 
-    async session({ session, token }: { session: any; token: any }) {
-      // Add user ID and role to session from token
-      if (session.user) {
-        session.user.id = token.sub as string;
-        session.user.role = token.role as string;
+    async session({ session, token }) {
+      if (session.user && token) {
+        session.user.id = token.id as string;
+        session.user.role = token.role as "ADMIN" | "TEACHER" | "STUDENT" | "PARENT";
       }
       return session;
     },
@@ -68,8 +90,9 @@ export const authOptions: NextAuthOptions = {
   pages: {
     signIn: "/auth/login",
   },
+
+  secret: process.env.NEXTAUTH_SECRET,
 };
 
-const handler = NextAuth(authOptions);
-
+const handler = NextAuth(authConfig);
 export { handler as GET, handler as POST };
