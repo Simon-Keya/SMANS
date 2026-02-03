@@ -1,20 +1,21 @@
 "use server";
 
-import { authOptions } from "@/lib/auth"; // ← import the config
+import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth"; // ← this is the correct import
+import { getServerSession } from "next-auth"; // ← this is the correct line for v5
 
 export async function assignTeacherToClass(
   classId: string,
   teacherId: string | null
 ) {
-  const session = await getServerSession(authOptions); // ← use getServerSession
+  const session = await getServerSession(authOptions);
 
   if (!session || session.user.role !== "ADMIN") {
     return { success: false, error: "Unauthorized - admin only" };
   }
 
   try {
+    // Optional: validate teacher exists if provided
     if (teacherId) {
       const teacher = await prisma.user.findFirst({
         where: {
@@ -22,6 +23,7 @@ export async function assignTeacherToClass(
           role: "TEACHER",
         },
       });
+
       if (!teacher) {
         return {
           success: false,
