@@ -8,8 +8,7 @@ import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 import * as z from "zod";
 
-// ────────────────────────────────────────────────
-// Validation Schemas
+// ─────────────────────────────────────────
 // ────────────────────────────────────────────────
 
 const createTeacherSchema = z.object({
