@@ -15,7 +15,6 @@ export async function assignTeacherToClass(
   }
 
   try {
-    // Optional: validate teacher exists if provided
     if (teacherId) {
       const teacher = await prisma.user.findFirst({
         where: {

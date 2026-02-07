@@ -16,7 +16,7 @@ export default async function DashboardHome() {
 
   
   const totalStudents = await prisma.student.count();
-  const totalTeachers = await prisma.user.count({ where: { role: "teacher" } });
+  const totalTeachers = await prisma.user.count({ where: { role: "TEACHER" } });
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
