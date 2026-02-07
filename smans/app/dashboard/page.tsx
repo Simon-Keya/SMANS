@@ -1,3 +1,5 @@
+"use server";
+
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -7,22 +9,26 @@ import { getServerSession } from "next-auth";
 export default async function DashboardHome() {
   const session = await getServerSession(authOptions);
 
+  // Early return if not logged in (layout should redirect anyway)
   if (!session?.user) {
-    return null; // Layout should redirect anyway
+    return null;
   }
 
+  // Now TypeScript knows session.user exists
   const userRole = (session.user.role as string)?.toLowerCase() || "student";
   const userName = session.user.name || "User";
 
   // Real DB queries
   const totalStudents = await prisma.student.count();
-  const totalTeachers = await prisma.user.count({ where: { role: "teacher" } });
+  const totalTeachers = await prisma.user.count({
+    where: { role: "TEACHER" }, // ← FIXED: uppercase "TEACHER"
+  });
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   const presentToday = await prisma.attendance.count({
-    where: { date: today, present: true },
+    where: { date: today, status: "PRESENT" }, // ← FIXED: use status enum
   });
 
   const totalAttendanceToday = await prisma.attendance.count({
@@ -78,7 +84,7 @@ export default async function DashboardHome() {
 
   return (
     <div className="space-y-8">
-      {/* Greeting Header - dark emerald gradient */}
+      {/* Greeting Header */}
       <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-8 rounded-2xl text-white shadow-2xl">
         <h1 className="text-4xl md:text-5xl font-bold mb-3">
           {data.greeting}, {userName}!
@@ -113,7 +119,7 @@ export default async function DashboardHome() {
         })}
       </div>
 
-      {/* Role Message - light slate */}
+      {/* Role Message */}
       <div className="bg-slate-100 border border-slate-200 rounded-lg p-6 text-slate-700">
         <span>
           {userRole === "admin" && "Full access: manage students, teachers, and reports."}
