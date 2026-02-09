@@ -1,11 +1,10 @@
+// lib/auth/auth.ts
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import type { NextAuthConfig } from "next-auth";
+import type { JWT, NextAuthConfig, Session, User } from "next-auth";
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-
-// ───────────────────────────────────────────────
-// Type augmentation
+// Type augmentation (adds role to User, Session, JWT)
 declare module "next-auth" {
   interface User {
     id: string;
@@ -32,8 +31,8 @@ declare module "next-auth/jwt" {
 }
 
 // ───────────────────────────────────────────────
-// Auth config (v5)
-export const authOptions: NextAuthConfig = {
+// Auth configuration
+export const authConfig: NextAuthConfig = {
   providers: [
     Credentials({
       name: "Credentials",
@@ -43,21 +42,25 @@ export const authOptions: NextAuthConfig = {
       },
 
       async authorize(credentials) {
-        if (!credentials) return null;
+        if (!credentials?.email || !credentials.password) {
+          return null;
+        }
 
-        const { email, password } = credentials as {
-          email: string;
-          password: string;
-        };
+        const email = credentials.email as string;
+        const password = credentials.password as string;
 
         const user = await prisma.user.findUnique({
           where: { email: email.toLowerCase() },
         });
 
-        if (!user || !user.password) return null;
+        if (!user || !user.password) {
+          return null;
+        }
 
         const isValid = await bcrypt.compare(password, user.password);
-        if (!isValid) return null;
+        if (!isValid) {
+          return null;
+        }
 
         return {
           id: user.id,
@@ -69,38 +72,34 @@ export const authOptions: NextAuthConfig = {
     }),
   ],
 
+  pages: {
+    signIn: "/auth/login",
+  },
+
   session: {
-    strategy: "jwt",
+    strategy: "jwt" as const,
   },
 
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user }: { token: JWT; user?: User }) {
       if (user) {
         token.id = user.id;
-        token.role = (user as any).role;
+        token.role = user.role;
       }
       return token;
     },
 
-    async session({ session, token }) {
-      if (session.user) {
+    async session({ session, token }: { session: Session; token: JWT }) {
+      if (session.user && token) {
         session.user.id = token.id as string;
-        session.user.role = token.role as
-          | "ADMIN"
-          | "TEACHER"
-          | "STUDENT"
-          | "PARENT";
+        session.user.role = token.role as "ADMIN" | "TEACHER" | "STUDENT" | "PARENT";
       }
       return session;
     },
   },
 
-  pages: {
-    signIn: "/auth/login",
-  },
-
   secret: process.env.NEXTAUTH_SECRET,
 };
 
-const handler = NextAuth(authOptions);
+const handler = NextAuth(authConfig);
 export { handler as GET, handler as POST };
