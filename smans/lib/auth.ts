@@ -1,10 +1,18 @@
 // lib/auth/auth.ts
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import type { JWT, NextAuthConfig, Session, User } from "next-auth";
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-// Type augmentation (adds role to User, Session, JWT)
+
+// ───────────────────────────────────────────────
+// Correct type imports for NextAuth v5 (this is the official way)
+import type { NextAuthConfig } from "next-auth";
+import type { User } from "next-auth";
+import type { Session } from "next-auth";
+import type { JWT } from "next-auth/jwt";
+
+// ───────────────────────────────────────────────
+// Extend the types so role is recognized everywhere
 declare module "next-auth" {
   interface User {
     id: string;
