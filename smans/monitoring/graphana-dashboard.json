@@ -1,0 +1,31 @@
+{
+    "title": "SMANS Application Overview",
+    "uid": "smans-overview",
+    "panels": [
+      {
+        "type": "graph",
+        "title": "HTTP Requests",
+        "datasource": "Prometheus",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total[5m])",
+            "legendFormat": "{{handler}}"
+          }
+        ]
+      },
+      {
+        "type": "stat",
+        "title": "Active Users",
+        "datasource": "Prometheus",
+        "targets": [
+          {
+            "expr": "sum(active_users)"
+          }
+        ]
+      }
+    ],
+    "time": {
+      "from": "now-6h",
+      "to": "now"
+    }
+  }
