@@ -1,6 +1,6 @@
 // jobs/cleanup.job.ts
-import { prisma } from "@/lib/db/prisma";
 import { logger } from "@/lib/logger";
+import { prisma } from "@/lib/prisma";
 
 interface CleanupJobData {
   daysOld: number; // e.g. 30

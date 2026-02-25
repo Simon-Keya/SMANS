@@ -7,9 +7,9 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/////////////////////////////////////////////////
+// ───────────────────────────────────────────────
 // ENUMS
-/////////////////////////////////////////////////
+// ───────────────────────────────────────────────
 
 enum Role {
   ADMIN
@@ -37,27 +37,24 @@ enum PaymentStatus {
   FAILED
 }
 
-/////////////////////////////////////////////////
+// ───────────────────────────────────────────────
 // USERS & AUTH
-/////////////////////////////////////////////////
+// ───────────────────────────────────────────────
 
 model User {
   id        String   @id @default(cuid())
   name      String?
   email     String   @unique
-  password  String?
+  password  String?  // hashed
   role      Role     @default(TEACHER)
-  staffNo   String?  @unique   // teacher staff number (optional)
+  staffNo   String?  @unique
 
   teacherClasses   Class[]               @relation("ClassTeacher")
   notifications    Notification[]
   notificationLogs NotificationLog[]
   auditLogs        AuditLog[]
 
-  // Parent relation – back-relation only (no fields/references here)
   parent           Parent?               @relation("UserParent")
-
-  // Student relation – back-relation only
   student          Student?              @relation("UserStudent")
 
   createdAt DateTime @default(now())
@@ -66,9 +63,9 @@ model User {
   @@map("users")
 }
 
-/////////////////////////////////////////////////
+// ───────────────────────────────────────────────
 // ACADEMIC STRUCTURE
-/////////////////////////////////////////////////
+// ───────────────────────────────────────────────
 
 model Class {
   id        String   @id @default(cuid())
@@ -106,9 +103,9 @@ model Subject {
   @@map("subjects")
 }
 
-/////////////////////////////////////////////////
+// ───────────────────────────────────────────────
 // STUDENTS & PARENTS
-/////////////////////////////////////////////////
+// ───────────────────────────────────────────────
 
 model Parent {
   id        String   @id @default(cuid())
@@ -116,7 +113,6 @@ model Parent {
   phone     String?
   email     String?
 
-  // Foreign key + relation definition goes HERE
   user      User?    @relation("UserParent", fields: [userId], references: [id])
   userId    String?  @unique
 
@@ -141,7 +137,6 @@ model Student {
   parentId   String?
   parent     Parent?  @relation(fields: [parentId], references: [id])
 
-  // Foreign key + relation definition goes HERE
   user       User?    @relation("UserStudent", fields: [userId], references: [id])
   userId     String?  @unique
 
@@ -157,9 +152,9 @@ model Student {
   @@map("students")
 }
 
-/////////////////////////////////////////////////
+// ───────────────────────────────────────────────
 // ATTENDANCE
-/////////////////////////////////////////////////
+// ───────────────────────────────────────────────
 
 model Attendance {
   id        String            @id @default(cuid())
@@ -176,9 +171,9 @@ model Attendance {
   @@map("attendance")
 }
 
-/////////////////////////////////////////////////
+// ───────────────────────────────────────────────
 // EXAMS & GRADES
-/////////////////////////////////////////////////
+// ───────────────────────────────────────────────
 
 model Exam {
   id        String   @id @default(cuid())
@@ -214,13 +209,13 @@ model Grade {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([studentId, subjectId, examId])
+  @@unique([studentId, subjectId, examId])   // ← important composite key
   @@map("grades")
 }
 
-/////////////////////////////////////////////////
+// ───────────────────────────────────────────────
 // TIMETABLE
-/////////////////////////////////////////////////
+// ───────────────────────────────────────────────
 
 model Timetable {
   id        String   @id @default(cuid())
@@ -239,9 +234,9 @@ model Timetable {
   @@map("timetable")
 }
 
-/////////////////////////////////////////////////
+// ───────────────────────────────────────────────
 // FEES & FINANCE
-/////////////////////////////////////////////////
+// ───────────────────────────────────────────────
 
 model FeeItem {
   id          String   @id @default(cuid())
@@ -294,9 +289,9 @@ model Payment {
   @@map("payments")
 }
 
-/////////////////////////////////////////////////
+// ───────────────────────────────────────────────
 // NOTIFICATIONS
-/////////////////////////////////////////////////
+// ───────────────────────────────────────────────
 
 model Notification {
   id        String   @id @default(cuid())
@@ -333,9 +328,9 @@ model NotificationLog {
   @@map("notification_logs")
 }
 
-/////////////////////////////////////////////////
+// ───────────────────────────────────────────────
 // TRANSCRIPTS & PROMOTION
-/////////////////////////////////////////////////
+// ───────────────────────────────────────────────
 
 model Transcript {
   id        String   @id @default(cuid())
@@ -369,9 +364,9 @@ model PromotionLog {
   @@map("promotion_logs")
 }
 
-/////////////////////////////////////////////////
+// ───────────────────────────────────────────────
 // AUDIT LOGS
-/////////////////////////////////////////////////
+// ───────────────────────────────────────────────
 
 model AuditLog {
   id        String   @id @default(cuid())
@@ -389,9 +384,9 @@ model AuditLog {
   @@map("audit_logs")
 }
 
-/////////////////////////////////////////////////
-// RBAC PERMISSIONS
-/////////////////////////////////////////////////
+// ───────────────────────────────────────────────
+// RBAC PERMISSIONS (optional but good to have)
+// ───────────────────────────────────────────────
 
 model Permission {
   id   String @id @default(cuid())
