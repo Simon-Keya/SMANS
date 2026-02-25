@@ -35,7 +35,6 @@
     "lucide-react": "^0.563.0",
     "next": "^16.1.6",
     "next-auth": "^4.24.13",
-    "nodemailer": "^7.0.13",
     "react": "^19.2.4",
     "react-day-picker": "^9.13.0",
     "react-dom": "^19.2.4",
@@ -46,17 +45,31 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@sentry/nextjs": "^10.40.0",
+    "@testing-library/jest-dom": "^6.9.1",
     "@types/bcryptjs": "^2.4.6",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20.16.10",
     "@types/nodemailer": "^7.0.9",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.0",
+    "@types/uuid": "^11.0.0",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.36.2",
     "autoprefixer": "^10.4.24",
+    "bullmq": "^5.70.1",
     "eslint": "^10.0.0",
     "eslint-config-next": "^16.1.6",
+    "jest": "^30.2.0",
+    "nodemailer": "^8.0.1",
     "postcss": "^8.5.6",
     "prisma": "^5.20.0",
+    "stripe": "^20.3.1",
+    "supertest": "^7.2.2",
     "tailwindcss": "^4.1.18",
-    "typescript": "^5.9.3"
+    "ts-jest": "^29.4.6",
+    "typescript": "^5.9.3",
+    "uuid": "^13.0.0"
   }
 }
