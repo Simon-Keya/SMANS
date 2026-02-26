@@ -23,43 +23,52 @@ export async function gradePublishJob(data: GradePublishJobData) {
       include: { class: true },
     });
 
-    if (!exam) throw new Error("Exam not found");
+    if (!exam) throw new Error(`Exam with ID ${examId} not found`);
 
     // Fetch all grades for this exam
     const grades = await prisma.grade.findMany({
       where: { examId },
       include: {
-        student: { select: { name: true, email: true, parent: { select: { email: true } } } },
+        student: {
+          select: {
+            name: true,
+            email: true,
+            parent: { select: { email: true } },
+          },
+        },
         subject: { select: { name: true } },
       },
     });
 
     if (grades.length === 0) {
-      logger.info(`No grades to publish for exam ${examId}`);
-      return { success: true, message: "No grades found" };
+      logger.info(`No grades found for exam ${examId} – nothing to publish`);
+      return { success: true, message: "No grades to publish" };
     }
 
-    // Update exam status to published (add status field if needed)
+    // Mark exam as published
     await prisma.exam.update({
       where: { id: examId },
-      data: { published: true }, // assume you have a published boolean field
+      data: { published: true },
     });
 
-    // Send email to teacher (confirmation)
+    logger.info(`Exam ${exam.name} marked as published`);
+
+    // Send confirmation to teacher
     await EmailService.send(
       teacherEmail,
       `Grades Published - ${exam.name}`,
       `
-        <h2>Grades Published</h2>
+        <h2>Grades Published Successfully</h2>
         <p>Dear ${teacherName},</p>
-        <p>You have successfully published grades for <strong>${exam.name}</strong> (${exam.class.name}).</p>
+        <p>You have published grades for <strong>${exam.name}</strong> (${exam.class.name}).</p>
         <p>Total students graded: ${grades.length}</p>
         <p>Students and parents have been notified.</p>
+        <p>View details in your dashboard.</p>
         <p>SMANS System</p>
       `
     );
 
-    // Notify students & parents (in real app, batch this)
+    // Notify students and parents (loop – in production batch this)
     for (const grade of grades) {
       const studentEmail = grade.student.email;
       const parentEmail = grade.student.parent?.email;
@@ -73,6 +82,7 @@ export async function gradePublishJob(data: GradePublishJobData) {
         <a href="${process.env.NEXTAUTH_URL}/dashboard/student/results" style="display:inline-block; background:#10b981; color:white; padding:12px 24px; text-decoration:none; border-radius:6px;">
           View Results
         </a>
+        <p>Best regards,<br/>SMANS Team</p>
       `;
 
       if (studentEmail) {
@@ -84,11 +94,18 @@ export async function gradePublishJob(data: GradePublishJobData) {
       }
     }
 
-    logger.info(`Grades published and notifications sent for exam ${examId}`);
+    logger.info(`Grades published and notifications sent for exam ${examId}`, {
+      studentCount: grades.length,
+    });
 
     return { success: true };
   } catch (error) {
-    logger.error("Grade publish job failed", { error, examId });
-    throw error;
+    logger.error("Grade publish job failed", {
+      error: error instanceof Error ? error.message : String(error),
+      examId,
+      classId,
+    });
+
+    throw error; // Let BullMQ retry if configured
   }
 }
