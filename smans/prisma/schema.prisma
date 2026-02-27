@@ -205,6 +205,8 @@ model Grade {
 
   examId    String
   exam      Exam     @relation(fields: [examId], references: [id])
+  
+  published Boolean  @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
