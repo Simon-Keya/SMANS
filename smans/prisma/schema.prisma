@@ -152,6 +152,26 @@ model Student {
   @@map("students")
 }
 
+model Assignment {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  dueDate     DateTime
+
+  classId     String
+  class       Class    @relation(fields: [classId], references: [id])
+
+  subjectId   String
+  subject     Subject  @relation(fields: [subjectId], references: [id])
+
+  createdBy   String   // teacher/user ID who created it
+  createdByUser User?  @relation(fields: [createdBy], references: [id])
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("assignments")
+}
 // ───────────────────────────────────────────────
 // ATTENDANCE
 // ───────────────────────────────────────────────
