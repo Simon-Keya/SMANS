@@ -1,45 +1,19 @@
 // types/index.ts
-export type Role = "admin" | "teacher" | "student" | "parent";
+// Re-export all types cleanly — use 'type' for .d.ts files
 
-export interface Student {
-  id: string;
-  name: string;
-  rollNumber: string;
-  class: string;
-  email?: string;
-  phone?: string;
-  parentName?: string;
-  parentPhone?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+export * from './api';
+export * from './assignment';
+export * from './attendance';
+export * from './class';
+export * from './common';
+export * from './fee';
+export * from './grade';
+export * from './notification';
+export * from './student';
+export * from './teacher';
+export * from './user';
 
-export interface AttendanceRecord {
-  id: string;
-  studentId: string;
-  date: string;
-  present: boolean;
-  student: {
-    name: string;
-    rollNumber: string;
-  };
-}
+// For .d.ts files (declaration files), use type re-export
+export type * from './next-auth.d.ts';
+export type * from './prisma.d.ts';
 
-export interface Grade {
-  id: string;
-  studentId: string;
-  examName: string;
-  subject: string;
-  marks: number;
-  maxMarks: number;
-}
-
-export interface TimetablePeriod {
-  id: string;
-  class: string;
-  day: string;
-  time: string;
-  subject: string;
-  teacher?: string;
-  room?: string;
-}
