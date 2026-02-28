@@ -1,30 +1,30 @@
-import { authOptions } from "@/lib/auth";
+// app/api/invoices/route.ts
+import { authOptions } from "@/lib/auth/auth"; // FIXED: correct path
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
-import { NextResponse } from "next/server";
-import * as z from "zod";
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
-// Validation schema
 const createInvoiceSchema = z.object({
   studentId: z.string().min(1, "Student is required"),
   feeItemId: z.string().optional(),
   amount: z.number().min(1, "Amount must be greater than 0"),
   dueDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
-    message: "Invalid due date",
+    message: "Invalid due date format",
   }),
 });
 
 export async function GET() {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
+  if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     const invoices = await prisma.invoice.findMany({
       include: {
-        student: { select: { name: true } },
+        student: { select: { name: true, rollNumber: true } },
         feeItem: { select: { name: true } },
       },
       orderBy: { dueDate: "desc" },
@@ -37,10 +37,10 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
+  if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -49,21 +49,33 @@ export async function POST(request: Request) {
     const parsed = createInvoiceSchema.safeParse(body);
 
     if (!parsed.success) {
+      // FIXED: proper Zod error handling
+      const firstIssue = parsed.error.issues[0];
       return NextResponse.json(
-        { error: parsed.error.errors[0].message || "Invalid input" },
+        { error: firstIssue?.message || "Invalid input" },
         { status: 400 }
       );
     }
 
     const { studentId, feeItemId, amount, dueDate } = parsed.data;
 
-    // Optional: verify student exists
-    const studentExists = await prisma.student.findUnique({
+    // Verify student exists
+    const student = await prisma.student.findUnique({
       where: { id: studentId },
     });
 
-    if (!studentExists) {
+    if (!student) {
       return NextResponse.json({ error: "Student not found" }, { status: 404 });
+    }
+
+    // Optional: verify fee item exists if provided
+    if (feeItemId) {
+      const feeItem = await prisma.feeItem.findUnique({
+        where: { id: feeItemId },
+      });
+      if (!feeItem) {
+        return NextResponse.json({ error: "Fee item not found" }, { status: 404 });
+      }
     }
 
     const invoice = await prisma.invoice.create({
@@ -72,7 +84,11 @@ export async function POST(request: Request) {
         feeItemId: feeItemId || null,
         amount,
         dueDate: new Date(dueDate),
-        status: "PENDING",  // ← FIXED: uppercase to match enum
+        status: "PENDING",
+      },
+      include: {
+        student: { select: { name: true } },
+        feeItem: { select: { name: true } },
       },
     });
 

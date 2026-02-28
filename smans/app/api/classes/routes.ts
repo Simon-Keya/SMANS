@@ -1,8 +1,9 @@
-import { authOptions } from "@/lib/auth";
+// app/api/classes/route.ts
+import { authOptions } from "@/lib/auth/auth"; // FIXED: correct path
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
-import { NextResponse } from "next/server";
-import * as z from "zod";
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
 const createClassSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters").trim(),
@@ -39,10 +40,10 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
+  if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -51,8 +52,10 @@ export async function POST(request: Request) {
     const parsed = createClassSchema.safeParse(body);
 
     if (!parsed.success) {
+      // FIXED: proper Zod error handling
+      const firstError = parsed.error.issues[0];
       return NextResponse.json(
-        { error: parsed.error.errors[0].message },
+        { error: firstError?.message || "Validation failed" },
         { status: 400 }
       );
     }

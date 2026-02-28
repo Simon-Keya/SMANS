@@ -1,10 +1,11 @@
-import { authOptions } from "@/lib/auth";
+// app/api/attendance/[id]/route.ts
+import { authOptions } from "@/lib/auth/auth"; // ← FIXED: correct path
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);
@@ -15,33 +16,53 @@ export async function GET(
 
   const record = await prisma.attendance.findUnique({
     where: { id: params.id },
-    include: { student: true },
+    include: {
+      student: {
+        select: { name: true, rollNumber: true, class: { select: { name: true } } },
+      },
+    },
   });
 
   if (!record) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ error: "Attendance record not found" }, { status: 404 });
   }
 
   return NextResponse.json(record);
 }
 
 export async function PUT(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);
   const userRole = session?.user?.role as string | undefined;
 
-  if (!session || !userRole || !["admin", "teacher"].includes(userRole)) {
+  if (!session || !userRole || !["ADMIN", "TEACHER"].includes(userRole)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const data = await request.json();
+  try {
+    const data = await request.json();
 
-  const updated = await prisma.attendance.update({
-    where: { id: params.id },
-    data,
-  });
+    // Only allow updating status (or other allowed fields)
+    const allowedFields = ["status"];
+    const updateData = Object.fromEntries(
+      Object.entries(data).filter(([key]) => allowedFields.includes(key))
+    );
 
-  return NextResponse.json(updated);
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
+    }
+
+    const updated = await prisma.attendance.update({
+      where: { id: params.id },
+      data: updateData,
+      include: { student: true },
+    });
+
+    return NextResponse.json(updated);
+  } catch (error) {
+    console.error("Attendance update error:", error);
+    return NextResponse.json({ error: "Failed to update attendance" }, { status: 500 });
+  }
 }

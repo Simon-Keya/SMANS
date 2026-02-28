@@ -1,8 +1,9 @@
-import { authOptions } from "@/lib/auth";
+// app/api/parents/route.ts
+import { authOptions } from "@/lib/auth/auth"; // FIXED: correct path
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
-import { NextResponse } from "next/server";
-import * as z from "zod";
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
 const createParentSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").trim(),
@@ -14,7 +15,7 @@ const createParentSchema = z.object({
 export async function GET() {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
+  if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -27,7 +28,7 @@ export async function GET() {
         phone: true,
         createdAt: true,
         students: {
-          select: { name: true },
+          select: { id: true, name: true, rollNumber: true },
         },
       },
       orderBy: { name: "asc" },
@@ -40,10 +41,10 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
+  if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -52,29 +53,51 @@ export async function POST(request: Request) {
     const parsed = createParentSchema.safeParse(body);
 
     if (!parsed.success) {
+      const firstIssue = parsed.error.issues[0];
       return NextResponse.json(
-        { error: parsed.error.errors[0].message },
+        { error: firstIssue?.message || "Invalid input" },
         { status: 400 }
       );
     }
 
     const { name, email, phone, password } = parsed.data;
 
-    // Optional: check if email already exists in User model too
+    // Check if email already exists (in User or Parent)
     if (email) {
       const existingUser = await prisma.user.findUnique({ where: { email } });
-      if (existingUser) {
+      const existingParent = await prisma.parent.findFirst({ where: { email } }); // FIXED: findFirst
+      if (existingUser || existingParent) {
         return NextResponse.json({ error: "Email already in use" }, { status: 409 });
       }
     }
+
+    let userId: string | undefined;
+
+    // Optional: auto-create User account for parent (uncomment if needed)
+    /*
+    if (email && password) {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const newUser = await prisma.user.create({
+        data: {
+          email,
+          name,
+          password: hashedPassword,
+          role: "PARENT",
+        },
+      });
+      userId = newUser.id;
+    }
+    */
 
     const parent = await prisma.parent.create({
       data: {
         name,
         email,
         phone,
-        // If you want to auto-create a User account too, do it here
-        // For now, just create Parent record
+        userId,
+      },
+      include: {
+        students: { select: { name: true } },
       },
     });
 

@@ -1,10 +1,10 @@
-import { authOptions } from "@/lib/auth";
+// app/api/invoices/[id]/route.ts
+import { authOptions } from "@/lib/auth/auth"; // FIXED: correct path
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
-import { NextResponse } from "next/server";
-import * as z from "zod";
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
-// Validation schema with uppercase enum values to match Prisma
 const updateInvoiceSchema = z.object({
   amount: z.number().min(1, "Amount must be greater than 0").optional(),
   dueDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
@@ -14,12 +14,12 @@ const updateInvoiceSchema = z.object({
 });
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
+  if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -27,7 +27,7 @@ export async function GET(
     const invoice = await prisma.invoice.findUnique({
       where: { id: params.id },
       include: {
-        student: { select: { name: true } },
+        student: { select: { name: true, rollNumber: true } },
         feeItem: { select: { name: true } },
         payments: true,
       },
@@ -45,12 +45,12 @@ export async function GET(
 }
 
 export async function PUT(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
+  if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -59,15 +59,16 @@ export async function PUT(
     const parsed = updateInvoiceSchema.safeParse(body);
 
     if (!parsed.success) {
+      // FIXED: proper Zod error handling
+      const firstIssue = parsed.error.issues[0];
       return NextResponse.json(
-        { error: parsed.error.errors[0].message || "Invalid input" },
+        { error: firstIssue?.message || "Validation failed" },
         { status: 400 }
       );
     }
 
     const { amount, dueDate, status } = parsed.data;
 
-    // Optional: verify invoice exists first
     const existing = await prisma.invoice.findUnique({
       where: { id: params.id },
     });
@@ -81,7 +82,11 @@ export async function PUT(
       data: {
         amount,
         dueDate: dueDate ? new Date(dueDate) : undefined,
-        status,  // Now uppercase values only
+        status,
+      },
+      include: {
+        student: { select: { name: true } },
+        feeItem: { select: { name: true } },
       },
     });
 
@@ -93,22 +98,31 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
+  if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     const invoice = await prisma.invoice.findUnique({
       where: { id: params.id },
+      include: { payments: true },
     });
 
     if (!invoice) {
       return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+    }
+
+    // Optional: prevent delete if payments exist
+    if (invoice.payments.length > 0) {
+      return NextResponse.json(
+        { error: "Cannot delete invoice with existing payments" },
+        { status: 409 }
+      );
     }
 
     await prisma.invoice.delete({

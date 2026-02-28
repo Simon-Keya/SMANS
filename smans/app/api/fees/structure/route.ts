@@ -1,8 +1,9 @@
-import { authOptions } from "@/lib/auth";
+// app/api/structure/route.ts
+import { authOptions } from "@/lib/auth/auth"; // FIXED: correct path
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
-import { NextResponse } from "next/server";
-import * as z from "zod";
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
 const createFeeItemSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters").trim(),
@@ -14,7 +15,7 @@ const createFeeItemSchema = z.object({
 export async function GET() {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
+  if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -25,15 +26,15 @@ export async function GET() {
 
     return NextResponse.json({ success: true, data: items });
   } catch (error) {
-    console.error("[GET_FEE_STRUCTURE]", error);
+    console.error("[GET_FEE_ITEMS]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
+  if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -42,8 +43,10 @@ export async function POST(request: Request) {
     const parsed = createFeeItemSchema.safeParse(body);
 
     if (!parsed.success) {
+      // FIXED: proper Zod error handling
+      const firstIssue = parsed.error.issues[0];
       return NextResponse.json(
-        { error: parsed.error.errors[0].message },
+        { error: firstIssue?.message || "Invalid input" },
         { status: 400 }
       );
     }

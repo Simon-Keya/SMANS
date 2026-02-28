@@ -1,10 +1,10 @@
-import { authOptions } from "@/lib/auth";
+// app/api/grades/route.ts
+import { authOptions } from "@/lib/auth/auth"; // FIXED: correct path
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
-import { NextResponse } from "next/server";
-import * as z from "zod";
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
-// Validation for creating grades
 const createGradeSchema = z.object({
   studentId: z.string().min(1, "Student ID is required"),
   examId: z.string().min(1, "Exam ID is required"),
@@ -20,18 +20,18 @@ const createGradeSchema = z.object({
 export async function GET() {
   const session = await getServerSession(authOptions);
 
-  if (!session || !["admin", "teacher"].includes(session.user?.role?.toLowerCase() ?? "")) {
+  if (!session || !["ADMIN", "TEACHER"].includes(session.user.role as string)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     const grades = await prisma.grade.findMany({
       include: {
-        student: { select: { name: true } },
-        subject: { select: { name: true } },
-        exam: { select: { name: true } },
+        student: { select: { name: true, rollNumber: true } },
+        subject: { select: { name: true, code: true } },
+        exam: { select: { name: true, date: true } },
       },
-      orderBy: { createdAt: "desc" },  // Now valid after adding field
+      orderBy: { createdAt: "desc" },
       take: 50,
     });
 
@@ -42,10 +42,10 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
-  if (!session || !["admin", "teacher"].includes(session.user?.role?.toLowerCase() ?? "")) {
+  if (!session || !["ADMIN", "TEACHER"].includes(session.user.role as string)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -54,22 +54,53 @@ export async function POST(request: Request) {
     const parsed = createGradeSchema.safeParse(body);
 
     if (!parsed.success) {
+      const firstIssue = parsed.error.issues[0];
       return NextResponse.json(
-        { error: parsed.error.errors[0].message },
+        { error: firstIssue?.message || "Invalid input" },
         { status: 400 }
       );
     }
 
     const { studentId, examId, grades } = parsed.data;
 
+    // Verify student exists
+    const student = await prisma.student.findUnique({
+      where: { id: studentId },
+    });
+
+    if (!student) {
+      return NextResponse.json({ error: "Student not found" }, { status: 404 });
+    }
+
     // Verify exam exists
-    const exam = await prisma.exam.findUnique({ where: { id: examId } });
+    const exam = await prisma.exam.findUnique({
+      where: { id: examId },
+    });
+
     if (!exam) {
       return NextResponse.json({ error: "Exam not found" }, { status: 404 });
     }
 
+    // Verify all subjects exist and belong to the class
+    const subjectIds = grades.map(g => g.subjectId);
+    const validSubjects = await prisma.subject.findMany({
+      where: {
+        id: { in: subjectIds },
+        classes: { some: { id: student.classId } },
+      },
+      select: { id: true },
+    });
+
+    const validSubjectIds = new Set(validSubjects.map(s => s.id));
+
+    const validGrades = grades.filter(g => validSubjectIds.has(g.subjectId));
+
+    if (validGrades.length === 0) {
+      return NextResponse.json({ error: "No valid subjects found for this class" }, { status: 400 });
+    }
+
     const createdGrades = await prisma.$transaction(
-      grades.map((g) =>
+      validGrades.map(g =>
         prisma.grade.create({
           data: {
             studentId,
@@ -77,6 +108,11 @@ export async function POST(request: Request) {
             subjectId: g.subjectId,
             marks: g.marks,
             maxMarks: g.maxMarks || 100,
+          },
+          include: {
+            student: { select: { name: true } },
+            subject: { select: { name: true } },
+            exam: { select: { name: true } },
           },
         })
       )

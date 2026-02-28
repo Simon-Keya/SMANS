@@ -1,23 +1,23 @@
-import { authOptions } from "@/lib/auth";
+// app/api/payments/[id]/route.ts
+import { authOptions } from "@/lib/auth/auth"; // FIXED: correct path
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
-import { NextResponse } from "next/server";
-import * as z from "zod";
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
-// Validation schema — use UPPERCASE to match Prisma enum
 const updatePaymentSchema = z.object({
   amount: z.number().min(1, "Amount must be greater than 0").optional(),
   method: z.string().min(1, "Method is required").optional(),
-  status: z.enum(["PENDING", "COMPLETED", "FAILED"]).optional(), // ← FIXED: uppercase
+  status: z.enum(["PENDING", "COMPLETED", "FAILED"]).optional(),
 });
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
+  if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -27,7 +27,7 @@ export async function GET(
       include: {
         invoice: {
           include: {
-            student: { select: { name: true } },
+            student: { select: { name: true, rollNumber: true } },
           },
         },
       },
@@ -45,12 +45,12 @@ export async function GET(
 }
 
 export async function PUT(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
+  if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -59,15 +59,16 @@ export async function PUT(
     const parsed = updatePaymentSchema.safeParse(body);
 
     if (!parsed.success) {
+      // FIXED: proper Zod error handling
+      const firstIssue = parsed.error.issues[0];
       return NextResponse.json(
-        { error: parsed.error.errors[0].message || "Invalid input" },
+        { error: firstIssue?.message || "Validation failed" },
         { status: 400 }
       );
     }
 
     const { amount, method, status } = parsed.data;
 
-    // Optional: check if payment exists first
     const existing = await prisma.payment.findUnique({
       where: { id: params.id },
     });
@@ -81,7 +82,14 @@ export async function PUT(
       data: {
         amount,
         method,
-        status,  // Now uppercase values only — matches Prisma enum
+        status,
+      },
+      include: {
+        invoice: {
+          include: {
+            student: { select: { name: true } },
+          },
+        },
       },
     });
 
@@ -93,12 +101,12 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
+  if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

@@ -1,12 +1,13 @@
-import { authOptions } from "@/lib/auth";
+// app/api/reports/attendance/route.ts
+import { authOptions } from "@/lib/auth/auth"; // FIXED: correct path
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
-export async function GET(request: Request) {
+export async function GET() {
   const session = await getServerSession(authOptions);
 
-  if (!session || !["admin", "teacher"].includes(session.user.role?.toLowerCase() ?? "")) {
+  if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -16,7 +17,7 @@ export async function GET(request: Request) {
 
     // Today's attendance
     const presentToday = await prisma.attendance.count({
-      where: { date: today, present: true },
+      where: { date: today, status: "PRESENT" },
     });
 
     const totalToday = await prisma.attendance.count({
@@ -30,7 +31,7 @@ export async function GET(request: Request) {
     const presentThisMonth = await prisma.attendance.count({
       where: {
         date: { gte: monthStart },
-        present: true,
+        status: "PRESENT",
       },
     });
 
@@ -43,87 +44,67 @@ export async function GET(request: Request) {
     // Class-wise breakdown (last 30 days)
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-    // Step 1: Get total records per student
-    const studentTotalStats = await prisma.attendance.groupBy({
-      by: ["studentId"],
-      where: {
-        date: { gte: thirtyDaysAgo },
-      },
-      _count: {
-        _all: true,  // Total attendance records per student
-      },
+    const attendanceStats = await prisma.attendance.groupBy({
+      by: ["classId"],
+      where: { date: { gte: thirtyDaysAgo } },
+      _count: { _all: true },
+      _sum: { status: { equals: "PRESENT" } }, // Prisma doesn't support sum on enum directly, so we use two queries
     });
 
-    // Step 2: Get present records per student (separate query - can't sum boolean in groupBy)
-    const studentPresentStats = await prisma.attendance.groupBy({
-      by: ["studentId"],
+    // Better: separate present count
+    const presentStats = await prisma.attendance.groupBy({
+      by: ["classId"],
       where: {
         date: { gte: thirtyDaysAgo },
-        present: true,
+        status: "PRESENT",
       },
-      _count: {
-        _all: true,  // Count of present days per student
-      },
+      _count: { _all: true },
     });
 
-    // Combine totals and presents into a map
-    const studentStatsMap = new Map<string, { total: number; present: number }>();
+    const classStatsMap = new Map<string, { total: number; present: number }>();
 
-    studentTotalStats.forEach((stat) => {
-      const studentId = stat.studentId!;
-      studentStatsMap.set(studentId, {
+    attendanceStats.forEach(stat => {
+      classStatsMap.set(stat.classId!, {
         total: stat._count._all,
         present: 0,
       });
     });
 
-    studentPresentStats.forEach((stat) => {
-      const studentId = stat.studentId!;
-      if (studentStatsMap.has(studentId)) {
-        studentStatsMap.get(studentId)!.present = stat._count._all;
+    presentStats.forEach(stat => {
+      if (classStatsMap.has(stat.classId!)) {
+        classStatsMap.get(stat.classId!)!.present = stat._count._all;
       }
     });
 
-    // Step 3: Map to class names
-    const classAttendance: { className: string; total: number; present: number; rate: number }[] = [];
+    // Map to class names
+    const classAttendance = await Promise.all(
+      Array.from(classStatsMap.entries()).map(async ([classId, stats]) => {
+        const cls = await prisma.class.findUnique({
+          where: { id: classId },
+          select: { name: true },
+        });
 
-    for (const [studentId, stats] of studentStatsMap) {
-      const student = await prisma.student.findUnique({
-        where: { id: studentId },
-        select: {
-          class: {
-            select: { name: true },
-          },
-        },
-      });
+        const rate = stats.total > 0 ? Math.round((stats.present / stats.total) * 100) : 0;
 
-      const className = student?.class?.name || "Unknown";
-
-      const rate = stats.total > 0 ? Math.round((stats.present / stats.total) * 100) : 0;
-
-      // Aggregate per class
-      const existing = classAttendance.find(c => c.className === className);
-      if (existing) {
-        existing.total += stats.total;
-        existing.present += stats.present;
-        existing.rate = existing.total > 0 ? Math.round((existing.present / existing.total) * 100) : 0;
-      } else {
-        classAttendance.push({
-          className,
+        return {
+          className: cls?.name || "Unknown",
           total: stats.total,
           present: stats.present,
           rate,
-        });
-      }
-    }
+        };
+      })
+    );
 
     return NextResponse.json({
-      today: { present: presentToday, total: totalToday, rate: todayRate },
-      thisMonth: { present: presentThisMonth, total: totalThisMonth, rate: monthRate },
-      classBreakdown: classAttendance,
+      success: true,
+      data: {
+        today: { present: presentToday, total: totalToday, rate: todayRate },
+        thisMonth: { present: presentThisMonth, total: totalThisMonth, rate: monthRate },
+        classBreakdown: classAttendance,
+      },
     });
   } catch (error) {
-    console.error("[ATTENDANCE_REPORT_ERROR]", error);
+    console.error("[ATTENDANCE_REPORT]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

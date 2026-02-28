@@ -1,8 +1,9 @@
-import { authOptions } from "@/lib/auth";
+// app/api/parents/[id]/route.ts
+import { authOptions } from "@/lib/auth/auth"; // FIXED: correct path
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
-import { NextResponse } from "next/server";
-import * as z from "zod";
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
 const updateParentSchema = z.object({
   name: z.string().min(2).trim().optional(),
@@ -11,12 +12,12 @@ const updateParentSchema = z.object({
 });
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
+  if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -27,6 +28,7 @@ export async function GET(
         students: {
           select: { id: true, name: true, rollNumber: true },
         },
+        user: { select: { email: true } }, // if linked
       },
     });
 
@@ -42,12 +44,12 @@ export async function GET(
 }
 
 export async function PUT(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
+  if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -56,15 +58,32 @@ export async function PUT(
     const parsed = updateParentSchema.safeParse(body);
 
     if (!parsed.success) {
+      const firstIssue = parsed.error.issues[0];
       return NextResponse.json(
-        { error: parsed.error.errors[0].message },
+        { error: firstIssue?.message || "Validation failed" },
         { status: 400 }
       );
+    }
+
+    const { email } = parsed.data;
+
+    // Optional: prevent email conflict with existing users/parents
+    if (email) {
+      const existingUser = await prisma.user.findUnique({ where: { email } });
+      const existingParent = await prisma.parent.findFirst({
+        where: { email, id: { not: params.id } },
+      });
+      if (existingUser || existingParent) {
+        return NextResponse.json({ error: "Email already in use" }, { status: 409 });
+      }
     }
 
     const updated = await prisma.parent.update({
       where: { id: params.id },
       data: parsed.data,
+      include: {
+        students: { select: { name: true } },
+      },
     });
 
     return NextResponse.json({ success: true, data: updated });
@@ -75,25 +94,40 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
+  if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     const parent = await prisma.parent.findUnique({
       where: { id: params.id },
+      include: { students: true },
     });
 
     if (!parent) {
       return NextResponse.json({ error: "Parent not found" }, { status: 404 });
     }
 
-    // Optional: delete related students or unlink them first
+    // Optional safety: prevent delete if linked students exist
+    if (parent.students.length > 0) {
+      return NextResponse.json(
+        { error: "Cannot delete parent with linked students" },
+        { status: 409 }
+      );
+    }
+
+    // Optional: delete linked User account if exists
+    if (parent.userId) {
+      await prisma.user.delete({
+        where: { id: parent.userId },
+      });
+    }
+
     await prisma.parent.delete({
       where: { id: params.id },
     });

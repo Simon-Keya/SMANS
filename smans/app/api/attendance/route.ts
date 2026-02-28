@@ -1,11 +1,13 @@
 // app/api/attendance/route.ts
-import { authOptions } from "@/lib/auth";
+import { authOptions } from "@/lib/auth/auth"; // correct import path
 import { prisma } from "@/lib/prisma";
+import { AttendanceStatus } from "@prisma/client"; // ← import the enum
 import { getServerSession } from "next-auth";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 type AttendanceRecordInput = {
-  studentId: string; // Must match real student ID in DB
+  studentId: string;
+  classId: string;
   present: boolean;
 };
 
@@ -13,70 +15,73 @@ export async function GET() {
   const session = await getServerSession(authOptions);
   const userRole = session?.user?.role as string | undefined;
 
-  if (!session || !userRole || !["admin", "teacher"].includes(userRole)) {
+  if (!session || !userRole || !["ADMIN", "TEACHER"].includes(userRole)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Get all attendance records with student info
   const records = await prisma.attendance.findMany({
-    include: { student: { select: { name: true, rollNumber: true } } },
+    include: {
+      student: {
+        select: { name: true, rollNumber: true, class: { select: { name: true } } },
+      },
+    },
     orderBy: { date: "desc" },
   });
 
   return NextResponse.json(records);
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   const userRole = session?.user?.role as string | undefined;
 
-  if (!session || !userRole || !["admin", "teacher"].includes(userRole)) {
+  if (!session || !userRole || !["ADMIN", "TEACHER"].includes(userRole)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { date, records }: { date: string; records: AttendanceRecordInput[] } =
-    await request.json();
+  const body = await request.json();
+  const { date, records }: { date: string; records: AttendanceRecordInput[] } = body;
 
   if (!date || !records || !Array.isArray(records)) {
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+    return NextResponse.json({ error: "Invalid payload: date and records array required" }, { status: 400 });
   }
 
-  // Fetch valid student IDs from DB
-  const studentIds = (
-    await prisma.student.findMany({
-      where: { id: { in: records.map((r) => r.studentId) } },
-      select: { id: true },
-    })
-  ).map((s) => s.id);
+  // Validate student + class combinations
+  const studentIds = records.map(r => r.studentId);
+  const classIds = records.map(r => r.classId);
 
-  if (!studentIds.length) {
-    return NextResponse.json(
-      { error: "No valid student IDs found" },
-      { status: 400 }
-    );
-  }
-
-  // Filter out invalid IDs
-  const attendanceData = records
-    .filter((r) => studentIds.includes(r.studentId))
-    .map((r) => ({
-      studentId: r.studentId,
-      date: new Date(date),
-      present: r.present,
-    }));
-
-  if (!attendanceData.length) {
-    return NextResponse.json(
-      { error: "No valid attendance records to insert" },
-      { status: 400 }
-    );
-  }
-
-  // Insert attendance records, skip duplicates
-  await prisma.attendance.createMany({
-    data: attendanceData,
-    skipDuplicates: true,
+  const validStudents = await prisma.student.findMany({
+    where: {
+      id: { in: studentIds },
+      classId: { in: classIds },
+    },
+    select: { id: true, classId: true },
   });
 
-  return NextResponse.json({ success: true }, { status: 201 });
+  const validMap = new Map(validStudents.map(s => [`${s.id}-${s.classId}`, true]));
+
+  const validRecords = records.filter(r => validMap.has(`${r.studentId}-${r.classId}`));
+
+  if (validRecords.length === 0) {
+    return NextResponse.json({ error: "No valid student-class combinations found" }, { status: 400 });
+  }
+
+  const attendanceData = validRecords.map(r => ({
+    studentId: r.studentId,
+    classId: r.classId,
+    date: new Date(date),
+    status: r.present ? AttendanceStatus.PRESENT : AttendanceStatus.ABSENT, // ← FIXED: use enum
+  }));
+
+  try {
+    await prisma.attendance.createMany({
+      data: attendanceData,
+      skipDuplicates: true,
+    });
+
+    return NextResponse.json({ success: true, count: attendanceData.length }, { status: 201 });
+  } catch (error) {
+    console.error("Attendance create error:", error);
+    return NextResponse.json({ error: "Failed to record attendance" }, { status: 500 });
+  }
 }

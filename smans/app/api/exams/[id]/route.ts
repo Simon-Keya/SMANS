@@ -1,11 +1,12 @@
-import { authOptions } from "@/lib/auth";
+// app/api/exams/[id]/route.ts
+import { authOptions } from "@/lib/auth/auth"; // FIXED: correct path
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
-import { NextResponse } from "next/server";
-import * as z from "zod";
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
 const updateExamSchema = z.object({
-  title: z.string().min(3).trim().optional(),
+  name: z.string().min(3).trim().optional(),
   subjectId: z.string().optional(),
   classId: z.string().optional(),
   date: z.string().optional(),
@@ -14,12 +15,12 @@ const updateExamSchema = z.object({
 });
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);
 
-  if (!session || !["admin", "teacher"].includes(session.user.role?.toLowerCase() ?? "")) {
+  if (!session || !["ADMIN", "TEACHER"].includes(session.user.role as string)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -44,12 +45,12 @@ export async function GET(
 }
 
 export async function PUT(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);
 
-  if (!session || !["admin", "teacher"].includes(session.user.role?.toLowerCase() ?? "")) {
+  if (!session || !["ADMIN", "TEACHER"].includes(session.user.role as string)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -58,8 +59,10 @@ export async function PUT(
     const parsed = updateExamSchema.safeParse(body);
 
     if (!parsed.success) {
+      // FIXED: proper Zod error handling
+      const firstIssue = parsed.error.issues[0];
       return NextResponse.json(
-        { error: parsed.error.errors[0].message },
+        { error: firstIssue?.message || "Validation failed" },
         { status: 400 }
       );
     }
@@ -72,6 +75,10 @@ export async function PUT(
         ...rest,
         date: date ? new Date(date) : undefined,
       },
+      include: {
+        subject: { select: { name: true } },
+        class: { select: { name: true } },
+      },
     });
 
     return NextResponse.json({ success: true, data: updated });
@@ -82,12 +89,12 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);
 
-  if (!session || !["admin", "teacher"].includes(session.user.role?.toLowerCase() ?? "")) {
+  if (!session || !["ADMIN", "TEACHER"].includes(session.user.role as string)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

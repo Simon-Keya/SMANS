@@ -1,23 +1,23 @@
-import { authOptions } from "@/lib/auth";
+// app/api/payments/route.ts
+import { authOptions } from "@/lib/auth/auth"; // FIXED: correct path
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
-import { NextResponse } from "next/server";
-import * as z from "zod";
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
-// Validation schema for creating payments
 const createPaymentSchema = z.object({
   invoiceId: z.string().min(1, "Invoice is required"),
   amount: z.number().min(1, "Amount must be greater than 0"),
   method: z.string().min(1, "Payment method is required"),
   paymentDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
-    message: "Invalid payment date",
+    message: "Invalid payment date format",
   }).optional(),
 });
 
 export async function GET() {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
+  if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -26,7 +26,7 @@ export async function GET() {
       include: {
         invoice: {
           include: {
-            student: { select: { name: true } },
+            student: { select: { name: true, rollNumber: true } },
           },
         },
       },
@@ -40,10 +40,10 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
+  if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -52,8 +52,10 @@ export async function POST(request: Request) {
     const parsed = createPaymentSchema.safeParse(body);
 
     if (!parsed.success) {
+      // FIXED: proper Zod error handling
+      const firstIssue = parsed.error.issues[0];
       return NextResponse.json(
-        { error: parsed.error.errors[0].message || "Invalid input" },
+        { error: firstIssue?.message || "Invalid input" },
         { status: 400 }
       );
     }
@@ -63,6 +65,7 @@ export async function POST(request: Request) {
     // Verify invoice exists
     const invoice = await prisma.invoice.findUnique({
       where: { id: invoiceId },
+      select: { id: true, amount: true, status: true },
     });
 
     if (!invoice) {
@@ -75,15 +78,27 @@ export async function POST(request: Request) {
         amount,
         method,
         paymentDate: paymentDate ? new Date(paymentDate) : new Date(),
-        status: "COMPLETED",  // ← FIXED: uppercase to match enum
+        status: "COMPLETED",
+      },
+      include: {
+        invoice: {
+          include: {
+            student: { select: { name: true } },
+          },
+        },
       },
     });
 
-    // Update invoice status if fully paid (simplified logic)
+    // Auto-update invoice status if fully paid
     if (amount >= invoice.amount) {
       await prisma.invoice.update({
         where: { id: invoiceId },
-        data: { status: "PAID" },  // ← FIXED: uppercase to match enum
+        data: { status: "PAID" },
+      });
+    } else if (amount > 0) {
+      await prisma.invoice.update({
+        where: { id: invoiceId },
+        data: { status: "PARTIAL" },
       });
     }
 

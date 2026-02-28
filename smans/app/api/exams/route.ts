@@ -1,12 +1,12 @@
-import { authOptions } from "@/lib/auth";
+// app/api/exams/route.ts
+import { authOptions } from "@/lib/auth/auth"; // FIXED: correct path
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
-import { NextResponse } from "next/server";
-import * as z from "zod";
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
-// Validation schema — use 'name' instead of 'title'
 const createExamSchema = z.object({
-  name: z.string().min(3, "Name must be at least 3 characters").trim(), // ← FIXED: name
+  name: z.string().min(3, "Name must be at least 3 characters").trim(),
   subjectId: z.string().min(1, "Subject is required"),
   classId: z.string().min(1, "Class is required"),
   date: z.string().refine((val) => !isNaN(Date.parse(val)), {
@@ -19,7 +19,7 @@ const createExamSchema = z.object({
 export async function GET() {
   const session = await getServerSession(authOptions);
 
-  if (!session || !["admin", "teacher"].includes(session.user.role?.toLowerCase() ?? "")) {
+  if (!session || !["ADMIN", "TEACHER"].includes(session.user.role as string)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -39,10 +39,10 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
-  if (!session || !["admin", "teacher"].includes(session.user.role?.toLowerCase() ?? "")) {
+  if (!session || !["ADMIN", "TEACHER"].includes(session.user.role as string)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -51,8 +51,10 @@ export async function POST(request: Request) {
     const parsed = createExamSchema.safeParse(body);
 
     if (!parsed.success) {
+      // FIXED: proper Zod error handling
+      const firstIssue = parsed.error.issues[0];
       return NextResponse.json(
-        { error: parsed.error.errors[0].message || "Invalid input" },
+        { error: firstIssue?.message || "Invalid input" },
         { status: 400 }
       );
     }
@@ -69,7 +71,7 @@ export async function POST(request: Request) {
 
     const exam = await prisma.exam.create({
       data: {
-        name,                  // ← FIXED: use 'name' instead of 'title'
+        name,
         subjectId,
         classId,
         date: new Date(date),

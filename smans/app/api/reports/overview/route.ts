@@ -1,12 +1,13 @@
-import { authOptions } from "@/lib/auth";
+// app/api/reports/overview/route.ts
+import { authOptions } from "@/lib/auth/auth"; // FIXED: correct path
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
-export async function GET(request: Request) {
+export async function GET() {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role?.toLowerCase() !== "admin") {
+  if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -25,7 +26,10 @@ export async function GET(request: Request) {
       where: { date: { gte: thirtyDaysAgo } },
     });
     const presentRecords = await prisma.attendance.count({
-      where: { date: { gte: thirtyDaysAgo }, present: true },
+      where: {
+        date: { gte: thirtyDaysAgo },
+        status: "PRESENT",
+      },
     });
     const avgAttendance = attendanceRecords > 0 ? Math.round((presentRecords / attendanceRecords) * 100) : 0;
 
@@ -36,21 +40,24 @@ export async function GET(request: Request) {
       _sum: { amount: true },
     });
 
-    // Pending invoices (fixed: uppercase enum value)
+    // Pending invoices
     const pendingInvoices = await prisma.invoice.count({
-      where: { status: "PENDING" }, // ← FIXED: uppercase to match enum
+      where: { status: "PENDING" },
     });
 
     return NextResponse.json({
-      totalStudents,
-      totalTeachers,
-      averageAttendance30Days: avgAttendance,
-      revenueThisMonth: revenueThisMonth._sum.amount ?? 0,
-      pendingInvoices,
-      alerts: pendingInvoices > 50 ? "High pending fees" : "All good",
+      success: true,
+      data: {
+        totalStudents,
+        totalTeachers,
+        averageAttendance30Days: avgAttendance,
+        revenueThisMonth: revenueThisMonth._sum.amount ?? 0,
+        pendingInvoices,
+        alerts: pendingInvoices > 50 ? "High pending fees" : "All good",
+      },
     });
   } catch (error) {
-    console.error("[OVERVIEW_REPORT_ERROR]", error);
+    console.error("[OVERVIEW_REPORT]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
