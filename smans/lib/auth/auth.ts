@@ -1,11 +1,17 @@
 // lib/auth/auth.ts
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import type { NextAuthConfig, User } from "next-auth"; // ← FIXED: import User type here
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 
-// Extend NextAuth types (highly recommended)
+// Correct typed imports for NextAuth v5
+import type { NextAuthConfig } from "next-auth";
+import type { User } from "next-auth";
+import type { Session } from "next-auth";
+import type { JWT } from "next-auth/jwt";
+
+// ───────────────────────────────────────────────
+// Type augmentation (adds role to User/Session/JWT)
 declare module "next-auth" {
   interface User {
     id: string;
@@ -31,6 +37,8 @@ declare module "next-auth/jwt" {
   }
 }
 
+// ───────────────────────────────────────────────
+// Auth configuration
 export const authConfig: NextAuthConfig = {
   providers: [
     Credentials({
@@ -40,7 +48,7 @@ export const authConfig: NextAuthConfig = {
         password: { label: "Password", type: "password" },
       },
 
-      async authorize(credentials): Promise<User | null> {
+      async authorize(credentials) {
         if (!credentials?.email || !credentials.password) return null;
 
         const email = credentials.email as string;
@@ -65,12 +73,16 @@ export const authConfig: NextAuthConfig = {
     }),
   ],
 
+  pages: {
+    signIn: "/auth/login",
+  },
+
   session: {
-    strategy: "jwt",
+    strategy: "jwt" as const,
   },
 
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user }: { token: JWT; user?: User }) {
       if (user) {
         token.id = user.id;
         token.role = user.role;
@@ -78,17 +90,13 @@ export const authConfig: NextAuthConfig = {
       return token;
     },
 
-    async session({ session, token }) {
+    async session({ session, token }: { session: Session; token: JWT }) {
       if (session.user && token) {
         session.user.id = token.id as string;
         session.user.role = token.role as "ADMIN" | "TEACHER" | "STUDENT" | "PARENT";
       }
       return session;
     },
-  },
-
-  pages: {
-    signIn: "/auth/login",
   },
 
   secret: process.env.NEXTAUTH_SECRET,
