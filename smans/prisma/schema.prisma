@@ -61,6 +61,32 @@ model User {
   @@map("users")
 }
 
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token], name: "token_idx")
+  @@index([userId], name: "userId_idx")
+}
+
+
 // ───────────────────────────────────────────────
 // ACADEMIC STRUCTURE
 // ───────────────────────────────────────────────

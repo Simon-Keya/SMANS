@@ -1,8 +1,9 @@
-import { authOptions } from "@/lib/auth";
+// app/api/subjects/[id]/route.ts
+import { authOptions } from "@/lib/auth/auth"; // FIXED: correct path
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
-import { NextResponse } from "next/server";
-import * as z from "zod";
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
 const updateSubjectSchema = z.object({
   name: z.string().min(2).trim().optional(),
@@ -11,12 +12,12 @@ const updateSubjectSchema = z.object({
 });
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);
 
-  if (!session) {
+  if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -47,12 +48,12 @@ export async function GET(
 }
 
 export async function PUT(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
+  if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -61,18 +62,45 @@ export async function PUT(
     const parsed = updateSubjectSchema.safeParse(body);
 
     if (!parsed.success) {
+      const firstIssue = parsed.error.issues[0];
       return NextResponse.json(
-        { error: parsed.error.errors[0].message },
+        { error: firstIssue?.message || "Validation failed" },
         { status: 400 }
       );
+    }
+
+    const { code } = parsed.data;
+
+    // Optional: prevent code conflict if changing
+    if (code) {
+      const existing = await prisma.subject.findFirst({
+        where: {
+          code,
+          id: { not: params.id },
+        },
+      });
+
+      if (existing) {
+        return NextResponse.json({ error: "Subject code already exists" }, { status: 409 });
+      }
     }
 
     const updated = await prisma.subject.update({
       where: { id: params.id },
       data: parsed.data,
+      include: {
+        classes: { select: { name: true } },
+        _count: { select: { classes: true } },
+      },
     });
 
-    return NextResponse.json({ success: true, data: updated });
+    return NextResponse.json({
+      success: true,
+      data: {
+        ...updated,
+        classCount: updated._count.classes,
+      },
+    });
   } catch (error) {
     console.error("[UPDATE_SUBJECT]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -80,22 +108,31 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
+  if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     const subject = await prisma.subject.findUnique({
       where: { id: params.id },
+      include: { _count: { select: { classes: true } } },
     });
 
     if (!subject) {
       return NextResponse.json({ error: "Subject not found" }, { status: 404 });
+    }
+
+    // Safety check: prevent delete if linked to classes
+    if (subject._count.classes > 0) {
+      return NextResponse.json(
+        { error: "Cannot delete subject linked to classes" },
+        { status: 409 }
+      );
     }
 
     await prisma.subject.delete({

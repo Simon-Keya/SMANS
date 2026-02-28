@@ -1,6 +1,7 @@
 // app/api/reports/attendance/route.ts
-import { authOptions } from "@/lib/auth/auth"; // FIXED: correct path
+import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
+import { AttendanceStatus } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
@@ -17,7 +18,7 @@ export async function GET() {
 
     // Today's attendance
     const presentToday = await prisma.attendance.count({
-      where: { date: today, status: "PRESENT" },
+      where: { date: today, status: AttendanceStatus.PRESENT },
     });
 
     const totalToday = await prisma.attendance.count({
@@ -31,7 +32,7 @@ export async function GET() {
     const presentThisMonth = await prisma.attendance.count({
       where: {
         date: { gte: monthStart },
-        status: "PRESENT",
+        status: AttendanceStatus.PRESENT,
       },
     });
 
@@ -44,39 +45,42 @@ export async function GET() {
     // Class-wise breakdown (last 30 days)
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-    const attendanceStats = await prisma.attendance.groupBy({
+    // Step 1: Get total attendance records per class
+    const totalStats = await prisma.attendance.groupBy({
       by: ["classId"],
       where: { date: { gte: thirtyDaysAgo } },
       _count: { _all: true },
-      _sum: { status: { equals: "PRESENT" } }, // Prisma doesn't support sum on enum directly, so we use two queries
     });
 
-    // Better: separate present count
+    // Step 2: Get present records per class
     const presentStats = await prisma.attendance.groupBy({
       by: ["classId"],
       where: {
         date: { gte: thirtyDaysAgo },
-        status: "PRESENT",
+        status: AttendanceStatus.PRESENT,
       },
       _count: { _all: true },
     });
 
+    // Combine into a map
     const classStatsMap = new Map<string, { total: number; present: number }>();
 
-    attendanceStats.forEach(stat => {
-      classStatsMap.set(stat.classId!, {
-        total: stat._count._all,
-        present: 0,
-      });
-    });
-
-    presentStats.forEach(stat => {
-      if (classStatsMap.has(stat.classId!)) {
-        classStatsMap.get(stat.classId!)!.present = stat._count._all;
+    totalStats.forEach(stat => {
+      if (stat.classId) {
+        classStatsMap.set(stat.classId, {
+          total: stat._count._all,
+          present: 0,
+        });
       }
     });
 
-    // Map to class names
+    presentStats.forEach(stat => {
+      if (stat.classId && classStatsMap.has(stat.classId)) {
+        classStatsMap.get(stat.classId)!.present = stat._count._all;
+      }
+    });
+
+    // Map to class names with rate
     const classAttendance = await Promise.all(
       Array.from(classStatsMap.entries()).map(async ([classId, stats]) => {
         const cls = await prisma.class.findUnique({

@@ -1,11 +1,9 @@
-// app/api/teachers/route.ts
-import { authOptions } from "@/lib/auth";
+import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import * as z from "zod";
 
-// Validation schema for creating a teacher
 const createTeacherSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
@@ -15,13 +13,13 @@ const createTeacherSchema = z.object({
 export async function GET() {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
+  if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     const teachers = await prisma.user.findMany({
-      where: { role: "teacher" },
+      where: { role: "TEACHER" },
       select: {
         id: true,
         name: true,
@@ -42,7 +40,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
+  if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -52,14 +50,13 @@ export async function POST(request: Request) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: parsed.error.errors[0].message },
+        { error: parsed.error.issues[0].message },
         { status: 400 }
       );
     }
 
     const { name, email, password } = parsed.data;
 
-    // Check for duplicate email
     const existing = await prisma.user.findUnique({
       where: { email: email.toLowerCase() },
     });
@@ -71,7 +68,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Hash password (you can move bcrypt to authActions if preferred)
     const bcrypt = await import("bcryptjs");
     const hashedPassword = await bcrypt.hash(password, 12);
 
@@ -80,7 +76,7 @@ export async function POST(request: Request) {
         name,
         email: email.toLowerCase(),
         password: hashedPassword,
-        role: "teacher",
+        role: "TEACHER",
       },
       select: {
         id: true,

@@ -1,12 +1,13 @@
-import { authOptions } from "@/lib/auth";
+// app/api/reports/grades/route.ts
+import { authOptions } from "@/lib/auth/auth"; // FIXED: correct import path
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
-export async function GET(request: Request) {
+export async function GET() {
   const session = await getServerSession(authOptions);
 
-  if (!session || !["admin", "teacher"].includes(session.user.role?.toLowerCase() ?? "")) {
+  if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
     // Overall average (all time - no createdAt filter)
     const allGrades = await prisma.grade.findMany({
       select: { marks: true, maxMarks: true },
-      take: 100, // limit for performance
+      take: 100, // limit for performance (adjust if needed)
     });
 
     const totalMarks = allGrades.reduce((sum, g) => sum + g.marks, 0);
@@ -44,7 +45,7 @@ export async function GET(request: Request) {
       })
     );
 
-    // Class-wise average — via student join (no classId in Grade)
+    // Class-wise average — via student join
     const gradesByStudent = await prisma.grade.groupBy({
       by: ["studentId"],
       _avg: { marks: true },
@@ -66,12 +67,15 @@ export async function GET(request: Request) {
     );
 
     return NextResponse.json({
-      overallAverage: overallAvg,
-      topSubjects,
-      classPerformance,
+      success: true,
+      data: {
+        overallAverage: overallAvg,
+        topSubjects,
+        classPerformance,
+      },
     });
   } catch (error) {
-    console.error("[GRADES_REPORT_ERROR]", error);
+    console.error("[GRADES_REPORT]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

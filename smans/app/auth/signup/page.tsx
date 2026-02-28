@@ -1,25 +1,23 @@
 "use client";
 
+import { signUpAction } from "@/app/actions/auth/signUp";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
-import { cn } from "@/lib/utils"; // ← Added this line
+import { cn } from "@/lib/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { signUpAction } from "../../actions/authActions";
 
 const signUpSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Please enter a valid email address"),
   password: z.string().min(8, "Password must be at least 8 characters"),
-  role: z.enum(["admin", "teacher", "student", "parent"], {
-    required_error: "Please select your role",
-  }),
+  role: z.enum(["ADMIN", "TEACHER", "STUDENT", "PARENT"]),
 });
 
 type SignUpFormData = z.infer<typeof signUpSchema>;
@@ -36,9 +34,6 @@ export default function SignUpPage() {
     formState: { errors },
   } = useForm<SignUpFormData>({
     resolver: zodResolver(signUpSchema),
-    defaultValues: {
-      role: undefined,
-    },
   });
 
   const onSubmit = async (data: SignUpFormData) => {
@@ -49,11 +44,12 @@ export default function SignUpPage() {
     try {
       await signUpAction(data);
       setSuccess(true);
+
       setTimeout(() => {
         router.push("/auth/login?success=account_created");
       }, 2000);
     } catch (err: any) {
-      setError(err.message || "Sign up failed. Please try again.");
+      setError(err.message || "Sign up failed.");
     } finally {
       setLoading(false);
     }
@@ -62,112 +58,104 @@ export default function SignUpPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-base-200 to-base-300 p-4">
       <Card className="w-full max-w-lg shadow-2xl">
-        <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-3xl font-bold text-primary">Create Your SMANS Account</CardTitle>
+        <CardHeader className="text-center">
+          <CardTitle className="text-3xl font-bold text-primary">
+            Create SMANS Account
+          </CardTitle>
           <p className="text-muted-foreground">
-            Join the school management system as an admin, teacher, student, or parent
+            Only administrators can create accounts
           </p>
         </CardHeader>
 
         <CardContent className="space-y-6">
           {success && (
-            <div className={cn(
-              "p-4 rounded-lg text-center border",
-              "bg-success/10 border-success/30 text-success"
-            )}>
-              Account created successfully! Redirecting to login...
+            <div className="p-4 rounded-lg bg-success/10 border border-success/30 text-success text-center">
+              Account created successfully! Redirecting...
+            </div>
+          )}
+
+          {error && (
+            <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-center">
+              {error}
             </div>
           )}
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
+            <div>
+              <Label>Full Name</Label>
               <Input
-                id="name"
                 placeholder="John Doe"
                 {...register("name")}
                 className={cn(errors.name && "border-destructive")}
               />
               {errors.name && (
-                <p className="text-sm text-destructive">{errors.name.message}</p>
+                <p className="text-sm text-destructive">
+                  {errors.name.message}
+                </p>
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
+            <div>
+              <Label>Email</Label>
               <Input
-                id="email"
                 type="email"
                 placeholder="john@smans.ac.ke"
                 {...register("email")}
                 className={cn(errors.email && "border-destructive")}
               />
               {errors.email && (
-                <p className="text-sm text-destructive">{errors.email.message}</p>
+                <p className="text-sm text-destructive">
+                  {errors.email.message}
+                </p>
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+            <div>
+              <Label>Password</Label>
               <Input
-                id="password"
                 type="password"
                 placeholder="At least 8 characters"
                 {...register("password")}
                 className={cn(errors.password && "border-destructive")}
               />
               {errors.password && (
-                <p className="text-sm text-destructive">{errors.password.message}</p>
+                <p className="text-sm text-destructive">
+                  {errors.password.message}
+                </p>
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="role">Your Role</Label>
+            <div>
+              <Label>Role</Label>
               <select
-                id="role"
                 {...register("role")}
                 className={cn(
                   "select select-bordered w-full",
                   errors.role && "border-destructive"
                 )}
               >
-                <option value="">Select your role</option>
-                <option value="admin">Administrator (full school management)</option>
-                <option value="teacher">Teacher (classes & grading)</option>
-                <option value="student">Student (timetable & grades)</option>
-                <option value="parent">Parent (monitor child progress)</option>
+                <option value="">Select role</option>
+                <option value="ADMIN">Administrator</option>
+                <option value="TEACHER">Teacher</option>
+                <option value="STUDENT">Student</option>
+                <option value="PARENT">Parent</option>
               </select>
               {errors.role && (
-                <p className="text-sm text-destructive">{errors.role.message}</p>
+                <p className="text-sm text-destructive">
+                  {errors.role.message}
+                </p>
               )}
             </div>
 
-            {error && (
-              <div className={cn(
-                "p-4 rounded-lg text-center border",
-                "bg-destructive/10 border-destructive/30 text-destructive"
-              )}>
-                {error}
-              </div>
-            )}
-
-            <Button
-              type="submit"
-              className="w-full btn-primary"
-              disabled={loading}
-            >
-              {loading ? (
-                <span className="loading loading-spinner loading-sm"></span>
-              ) : (
-                "Create Account"
-              )}
+            <Button type="submit" className="w-full btn-primary" disabled={loading}>
+              {loading ? "Creating..." : "Create Account"}
             </Button>
           </form>
 
-          <div className="text-center text-sm text-muted-foreground mt-6">
+          <div className="text-center text-sm text-muted-foreground">
             Already have an account?{" "}
-            <Link href="/auth/login" className="text-primary hover:underline font-medium">
-              Sign in here
+            <Link href="/auth/login" className="text-primary hover:underline">
+              Sign in
             </Link>
           </div>
         </CardContent>

@@ -1,8 +1,9 @@
-import { authOptions } from "@/lib/auth";
+// app/api/subjects/route.ts
+import { authOptions } from "@/lib/auth/auth"; // FIXED: correct path
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
-import { NextResponse } from "next/server";
-import * as z from "zod";
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
 const createSubjectSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").trim(),
@@ -13,7 +14,7 @@ const createSubjectSchema = z.object({
 export async function GET() {
   const session = await getServerSession(authOptions);
 
-  if (!session) {
+  if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -39,10 +40,10 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
+  if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -51,10 +52,20 @@ export async function POST(request: Request) {
     const parsed = createSubjectSchema.safeParse(body);
 
     if (!parsed.success) {
+      const firstIssue = parsed.error.issues[0];
       return NextResponse.json(
-        { error: parsed.error.errors[0].message },
+        { error: firstIssue?.message || "Invalid input" },
         { status: 400 }
       );
+    }
+
+    // Optional: check if code already exists (unique constraint)
+    const existing = await prisma.subject.findUnique({
+      where: { code: parsed.data.code },
+    });
+
+    if (existing) {
+      return NextResponse.json({ error: "Subject code already exists" }, { status: 409 });
     }
 
     const newSubject = await prisma.subject.create({

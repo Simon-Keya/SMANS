@@ -1,4 +1,4 @@
-import { authOptions } from "@/lib/auth";
+import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { getServerSession } from "next-auth";
@@ -61,20 +61,23 @@ export async function PUT(
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: parsed.error.errors[0].message },
+        { error: parsed.error.issues[0].message },
         { status: 400 }
       );
     }
 
     const { name, email, password, role } = parsed.data;
 
-    // Check email conflict if changing email
     if (email) {
       const existing = await prisma.user.findUnique({
         where: { email },
       });
+
       if (existing && existing.id !== params.id) {
-        return NextResponse.json({ error: "Email already in use" }, { status: 409 });
+        return NextResponse.json(
+          { error: "Email already in use" },
+          { status: 409 }
+        );
       }
     }
 
