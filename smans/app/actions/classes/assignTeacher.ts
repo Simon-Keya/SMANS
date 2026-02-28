@@ -1,6 +1,6 @@
 "use server";
 
-import { authOptions } from "@/lib/auth";
+import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth"; // ← this is the correct line for v5
 
