@@ -10,7 +10,7 @@ interface TeacherDetailPageProps {
 
 export default async function TeacherDetailPage({ params }: TeacherDetailPageProps) {
   const teacher = await prisma.user.findUnique({
-    where: { id: params.id, role: "teacher" },
+    where: { id: params.id, role: "TEACHER" },
     select: {
       id: true,
       name: true,

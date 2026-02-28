@@ -1,6 +1,7 @@
+// app/dashboard/settings/security/page.tsx
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { authOptions } from "@/lib/auth";
+import { authOptions } from "@/lib/auth/auth"; // ← FIXED: correct import path
 import { Key, Shield } from "lucide-react";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";

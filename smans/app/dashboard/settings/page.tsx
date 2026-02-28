@@ -1,5 +1,6 @@
+// app/dashboard/settings/page.tsx
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
-import { authOptions } from "@/lib/auth";
+import { authOptions } from "@/lib/auth/auth"; // ← FIXED: correct import
 import { School, Settings2, Shield, Users } from "lucide-react";
 import { getServerSession } from "next-auth";
 import Link from "next/link";
@@ -8,7 +9,7 @@ import { redirect } from "next/navigation";
 export default async function SettingsPage() {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
+  if (!session || session.user.role !== "ADMIN") {
     redirect("/dashboard");
   }
 
