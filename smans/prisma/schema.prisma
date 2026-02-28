@@ -41,12 +41,16 @@ enum PaymentStatus {
 // USERS & AUTH
 // ───────────────────────────────────────────────
 
+
 model User {
   id        String   @id @default(cuid())
   name      String?
   email     String   @unique
   password  String?  // hashed
-  role      Role     @default(TEACHER)
+
+  roleId    String?
+  role      Role?    @relation(fields: [roleId], references: [id])
+
   staffNo   String?  @unique
 
   teacherClasses   Class[]               @relation("ClassTeacher")
@@ -61,6 +65,18 @@ model User {
   updatedAt DateTime @updatedAt
 
   @@map("users")
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  permissions Json?     // or String[] if you prefer
+
+  users       User[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 // ───────────────────────────────────────────────
