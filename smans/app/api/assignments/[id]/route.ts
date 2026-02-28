@@ -1,5 +1,4 @@
-// app/api/assignments/[id]/route.ts
-import { authConfig } from "@/lib/auth/auth"; // ← FIXED: correct import
+import { authOptions } from "@/lib/auth/auth";
 import { logger } from "@/lib/logger";
 import { requireRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
@@ -11,7 +10,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authConfig); // ← use authConfig
+    const session = await getServerSession(authOptions);
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -61,9 +60,12 @@ export async function PUT(
       where: { id: params.id },
       data: {
         title: title?.trim(),
-        description: description !== undefined ? (description?.trim() ?? null) : undefined,
+        description:
+          description !== undefined
+            ? description?.trim() ?? null
+            : undefined,
         dueDate: dueDate ? new Date(dueDate) : undefined,
-        subjectId: subjectId,
+        subjectId,
       },
       include: {
         subject: true,
@@ -71,8 +73,6 @@ export async function PUT(
         createdByUser: { select: { name: true } },
       },
     });
-
-    logger.info(`Assignment updated`, { id: params.id });
 
     return NextResponse.json(updated);
   } catch (error) {
@@ -102,8 +102,6 @@ export async function DELETE(
     await prisma.assignment.delete({
       where: { id: params.id },
     });
-
-    logger.info(`Assignment deleted`, { id: params.id });
 
     return NextResponse.json({ success: true });
   } catch (error) {

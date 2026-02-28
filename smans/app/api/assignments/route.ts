@@ -1,5 +1,5 @@
 // app/api/assignments/route.ts
-import { authOptions } from "@/lib/auth/auth"; // ← FIXED: correct export name
+import { authOptions } from "@/lib/auth/auth";
 import { logger } from "@/lib/logger";
 import { requireRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    await requireRole("TEACHER", "ADMIN");
+    requireRole("TEACHER", "ADMIN")
 
     const body = await request.json();
 
