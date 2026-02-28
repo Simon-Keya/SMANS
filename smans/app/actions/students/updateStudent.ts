@@ -2,16 +2,12 @@
 
 import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import { getServerSession } from "next-auth";
 
 export async function updateStudent(
   studentId: string,
-  data: Partial<{
-    firstName: string;
-    lastName: string;
-    gender: "male" | "female";
-    dateOfBirth: Date;
-  }>
+  data: Prisma.StudentUpdateInput
 ) {
   const session = await getServerSession(authOptions);
   if (!session) throw new Error("Unauthorized");

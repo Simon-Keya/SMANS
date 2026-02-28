@@ -35,7 +35,7 @@ export async function updateClass(classId: string, formData: FormData) {
     if (error instanceof z.ZodError) {
       return {
         success: false,
-        error: error.errors.map(e => e.message).join(", "),
+        error: error.issues.map((e: z.ZodIssue) => e.message).join(", "),
       };
     }
 

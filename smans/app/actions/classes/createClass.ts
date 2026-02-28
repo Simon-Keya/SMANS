@@ -3,7 +3,7 @@
 import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
-import { z } from "zod";
+import { z, ZodError, ZodIssue } from "zod";
 
 const createClassSchema = z.object({
   name: z.string().min(2, "Class name must be at least 2 characters").trim(),
@@ -46,15 +46,16 @@ export async function createClass(formData: FormData) {
     });
 
     return { success: true, class: newClass };
-  } catch (error) {
-    if (error instanceof z.ZodError) {
+  } catch (err: unknown) {
+    // Check if the error is a ZodError
+    if (err instanceof ZodError) {
       return {
         success: false,
-        error: error.errors.map(e => e.message).join(", "),
+        error: err.issues.map((e: ZodIssue) => e.message).join(", "),
       };
     }
 
-    console.error("[CREATE_CLASS_ERROR]", error);
+    console.error("[CREATE_CLASS_ERROR]", err);
     return { success: false, error: "Failed to create class" };
   }
 }
