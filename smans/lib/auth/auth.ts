@@ -4,10 +4,8 @@ import bcrypt from "bcryptjs";
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 
-// Correct typed imports for NextAuth v5
-import type { NextAuthConfig } from "next-auth";
-import type { User } from "next-auth";
-import type { Session } from "next-auth";
+// Type imports for v4 (no NextAuthConfig in v4 – use AuthOptions instead)
+import type { AuthOptions, Session, User } from "next-auth";
 import type { JWT } from "next-auth/jwt";
 
 // ───────────────────────────────────────────────
@@ -38,8 +36,8 @@ declare module "next-auth/jwt" {
 }
 
 // ───────────────────────────────────────────────
-// Auth configuration
-export const authConfig: NextAuthConfig = {
+// Auth configuration (v4 style – no NextAuthConfig)
+export const authOptions: AuthOptions = {
   providers: [
     Credentials({
       name: "Credentials",
@@ -78,7 +76,7 @@ export const authConfig: NextAuthConfig = {
   },
 
   session: {
-    strategy: "jwt" as const,
+    strategy: "jwt" as const, // ← FIXED: as const for literal type
   },
 
   callbacks: {
@@ -102,5 +100,5 @@ export const authConfig: NextAuthConfig = {
   secret: process.env.NEXTAUTH_SECRET,
 };
 
-const handler = NextAuth(authConfig);
+const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };

@@ -1,5 +1,5 @@
 // app/api/assignments/route.ts
-import { authConfig } from "@/lib/auth/auth"; // ← FIXED: correct import
+import { authOptions } from "@/lib/auth/auth"; // ← FIXED: correct export name
 import { logger } from "@/lib/logger";
 import { requireRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authConfig);
+    const session = await getServerSession(authOptions);
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -61,8 +61,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const session = await getServerSession(authConfig);
+    const session = await getServerSession(authOptions);
     const teacherId = session?.user?.id;
+
+    if (!teacherId) {
+      return NextResponse.json({ error: "Unauthorized - no user ID" }, { status: 401 });
+    }
 
     const assignment = await prisma.assignment.create({
       data: {
@@ -71,7 +75,7 @@ export async function POST(request: NextRequest) {
         dueDate: new Date(dueDate),
         classId,
         subjectId,
-        createdBy: teacherId!,
+        createdBy: teacherId,
       },
       include: {
         subject: true,
