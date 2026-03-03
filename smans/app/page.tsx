@@ -1,5 +1,5 @@
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
-import { authOptions } from "@/lib/auth";
+import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { BarChart3, BellRing, CalendarCheck, GraduationCap, Users } from "lucide-react";
 import { getServerSession } from "next-auth";

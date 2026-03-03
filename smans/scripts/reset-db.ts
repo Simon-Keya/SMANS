@@ -1,4 +1,4 @@
-// scripts/reset-db.ts
+
 // Run with: npx ts-node scripts/reset-db.ts
 
 import { PrismaClient } from '@prisma/client'
