@@ -113,7 +113,7 @@ export default async function DashboardHome() {
         })}
       </div>
 
-      {/* Role Message - reverted to slate style */}
+      
       <div className="bg-slate-100 border border-slate-200 rounded-lg p-6 text-slate-700">
         <span>
           {userRole === "admin" && "Full access: manage students, teachers, and reports."}
