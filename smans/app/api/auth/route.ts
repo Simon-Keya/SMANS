@@ -1,7 +1,7 @@
 // Most auth is handled by /api/auth/[...nextauth]/route.ts
 // This file can be used for custom endpoints like /api/auth/me
 
-import { authOptions } from "@/lib/auth";
+import { authOptions } from "@/lib/auth/auth";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
