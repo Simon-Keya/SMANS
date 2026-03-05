@@ -43,20 +43,21 @@ model User {
   id               String    @id @default(cuid())
   name             String?
   email            String    @unique
-  password         String?   // hashed
+  password         String?
   role             Role      @default(TEACHER)
   staffNo          String?   @unique
 
-  // Relations
   teacherClasses   Class[]   @relation("ClassTeacher")
+
+  assignmentsCreated Assignment[] @relation("AssignmentCreator") // ✅ ADD
+
   notifications    Notification[]
   notificationLogs NotificationLog[]
   auditLogs        AuditLog[]
   parent           Parent?   @relation("UserParent")
   student          Student?  @relation("UserStudent")
 
-  // Tokens
-  passwordResetTokens   PasswordResetToken[]
+  passwordResetTokens     PasswordResetToken[]
   emailVerificationTokens EmailVerificationToken[]
 
   createdAt        DateTime  @default(now())
@@ -108,6 +109,8 @@ model Class {
   timetable   Timetable[]
   attendance  Attendance[]
 
+  assignments Assignment[]   
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -125,12 +128,13 @@ model Subject {
   grades      Grade[]
   timetable   Timetable[]
 
+  assignments Assignment[]   
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@map("subjects")
 }
-
 // ───────────────────────────────────────────────
 // STUDENTS & PARENTS
 // ───────────────────────────────────────────────
@@ -194,8 +198,8 @@ model Assignment {
   subjectId   String
   subject     Subject  @relation(fields: [subjectId], references: [id])
 
-  createdBy   String?           // teacher/user ID
-  createdByUser User?           @relation(fields: [createdBy], references: [id])
+  createdBy   String?
+  createdByUser User?  @relation("AssignmentCreator", fields: [createdBy], references: [id])
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -474,11 +478,10 @@ model Permission {
 }
 
 model RolePermission {
-  roleId       String
-  role         Role      @relation(fields: [roleId], references: [id])
+  role         Role
   permissionId String
   permission   Permission @relation(fields: [permissionId], references: [id])
 
-  @@id([roleId, permissionId])
+  @@id([role, permissionId])
   @@map("role_permissions")
 }
