@@ -10,6 +10,20 @@ module.exports = {
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
       },
+      colors: {
+        // Optional: define custom colors you can use directly in classes
+        smans: {
+          primary: "#1e40af",        // Deep blue – trust & professionalism
+          primaryHover: "#1e3a8a",   // Darker hover
+          secondary: "#0d9488",      // Teal – growth, learning, calm
+          secondaryHover: "#0f766e",
+          accent: "#ea580c",         // Warm orange – energy, call-to-action
+          accentHover: "#c2410c",
+          neutral: "#1f2937",        // Dark gray for text/background contrast
+          base: "#f8fafc",           // Very light background
+          muted: "#64748b",          // Subtle gray for secondary text
+        },
+      },
     },
   },
   plugins: [
@@ -20,54 +34,52 @@ module.exports = {
     themes: [
       "light",
       "dark",
-      "corporate",
-      "emerald",
       {
         smans: {
-          // Primary: Deep, trustworthy blue (inspired by university blues)
-          primary: "#1e40af",        // Blue-800 - strong, professional
-          "primary-focus": "#1e3a8a", // Blue-900
+          // Primary – main buttons, links, headers
+          primary: "#1e40af",          // Deep professional blue
+          "primary-focus": "#1e3a8a",
           "primary-content": "#ffffff",
 
-          // Secondary: Calm, supportive teal/green (growth, learning)
-          secondary: "#0d9488",       // Teal-600
-          "secondary-focus": "#0f766e", // Teal-700
+          // Secondary – subtle highlights, success states
+          secondary: "#0d9488",        // Teal – education/growth
+          "secondary-focus": "#0f766e",
           "secondary-content": "#ffffff",
 
-          // Accent: Warm, energetic orange (call-to-action, motivation)
-          accent: "#ea580c",          // Orange-600
-          "accent-focus": "#c2410c",  // Orange-700
+          // Accent – urgent actions, warnings, highlights
+          accent: "#ea580c",           // Warm orange – attention & motivation
+          "accent-focus": "#c2410c",
           "accent-content": "#ffffff",
 
-          // Neutral: Clean, readable grays
-          neutral: "#374151",         // Gray-700
-          "neutral-focus": "#1f2937", // Gray-800
-          "neutral-content": "#ffffff",
+          // Neutral – backgrounds, borders, text
+          neutral: "#1f2937",          // Slate-800 – dark text/background
+          "neutral-focus": "#111827",  // Slate-900
+          "neutral-content": "#f1f5f9", // Very light gray for text on dark
 
-          // Base colors: Clean white/light background
-          "base-100": "#f8fafc",      // Slate-50 (very light gray for calm feel)
-          "base-200": "#e2e8f0",      // Slate-200
-          "base-300": "#cbd5e1",      // Slate-300
-          "base-content": "#1e293b",  // Slate-800 (dark text)
+          // Base colors – main background & content
+          "base-100": "#f8fafc",       // Slate-50 – clean light background
+          "base-200": "#e2e8f0",       // Slate-200
+          "base-300": "#cbd5e1",       // Slate-300
+          "base-content": "#0f172a",   // Slate-900 – dark text
 
-          // State colors
-          info: "#0ea5e9",            // Sky-500
-          success: "#22c55e",         // Green-500
-          warning: "#f59e0b",         // Amber-500
-          error: "#ef4444",           // Red-500
+          // Feedback colors
+          info: "#0ea5e9",             // Sky-500 – information
+          success: "#22c55e",          // Green-500 – success
+          warning: "#f59e0b",          // Amber-500 – warnings
+          error: "#ef4444",            // Red-500 – errors
 
-          // Rounded corners for modern, friendly feel
+          // Rounded corners – modern & friendly
           "--rounded-box": "0.75rem",
           "--rounded-btn": "0.5rem",
-          "--rounded-badge": "1.5rem",
+          "--rounded-badge": "1.25rem",
 
-          // Subtle animations
-          "--animation-btn": "0.2s",
+          // Smooth animations
+          "--animation-btn": "0.25s",
           "--animation-input": "0.2s",
         },
       },
     ],
-    darkTheme: "dark",  // Use built-in dark as fallback, or create custom later
+    darkTheme: "dark", // fallback to built-in dark theme
     base: true,
     styled: true,
     utils: true,

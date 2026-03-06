@@ -1,255 +1,192 @@
-// app/dashboard/page.tsx (or wherever this dashboard lives)
-import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
-import { authOptions } from "@/lib/auth/auth";
+// app/page.tsx  (public homepage / landing page)
+import { Button } from "@/components/ui/Button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { prisma } from "@/lib/prisma";
-import {
-  BarChart3,
-  BellRing,
-  CalendarCheck,
-  GraduationCap,
-  Users,
-} from "lucide-react";
-import { getServerSession } from "next-auth";
-import { redirect } from "next/navigation";
+import { format } from "date-fns";
+import { BookOpen, CalendarCheck, DollarSign, GraduationCap, Users } from "lucide-react";
+import Link from "next/link";
 
-// Use uppercase to match Prisma Role enum and your other files
-type Role = "ADMIN" | "TEACHER" | "STUDENT" | "PARENT";
+export default async function HomePage() {
+  // Public stats (no auth needed)
+  const totalStudents = await prisma.student.count().catch(() => 0);
+  const totalClasses = await prisma.class.count().catch(() => 0);
 
-export default async function DashboardHome() {
-  const session = await getServerSession(authOptions);
-
-  if (!session?.user) {
-    redirect("/auth/login");
-  }
-
-  // Safely cast role (Prisma returns uppercase enum values)
-  const userRole = (session.user.role as Role) ?? "STUDENT";
-
-  const userName = session.user.name ?? "User";
-
-  let totalStudents = 0;
-  let totalTeachers = 0;
-  let attendanceRate = 0;
-
-  try {
-    totalStudents = await prisma.student.count();
-
-    totalTeachers = await prisma.user.count({
-      where: { role: "TEACHER" },
-    });
-
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
-
-    today.setHours(0, 0, 0, 0);
-    tomorrow.setHours(0, 0, 0, 0);
-
-    const presentToday = await prisma.attendance.count({
-      where: {
-        date: {
-          gte: today,
-          lt: tomorrow,
-        },
-        status: "PRESENT",
-      },
-    });
-
-    const totalAttendanceToday = await prisma.attendance.count({
-      where: {
-        date: {
-          gte: today,
-          lt: tomorrow,
-        },
-      },
-    });
-
-    attendanceRate =
-      totalAttendanceToday > 0
-        ? Math.round((presentToday / totalAttendanceToday) * 100)
-        : 0;
-  } catch (error) {
-    console.error("Dashboard stats error:", error);
-  }
-
-  const roleData: Record<Role, { greeting: string; stats: any[] }> = {
-    ADMIN: {
-      greeting: "Welcome back, Administrator",
-      stats: [
-        {
-          label: "Total Students",
-          value: totalStudents,
-          icon: Users,
-          color: "text-emerald-600",
-        },
-        {
-          label: "Active Teachers",
-          value: totalTeachers,
-          icon: GraduationCap,
-          color: "text-emerald-600",
-        },
-        {
-          label: "Today's Attendance",
-          value: `${attendanceRate}%`,
-          icon: CalendarCheck,
-          color: "text-emerald-600",
-        },
-        {
-          label: "System Alerts",
-          value: "3",
-          icon: BellRing,
-          color: "text-red-600",
-        },
-      ],
-    },
-
-    TEACHER: {
-      greeting: "Good to see you, Teacher",
-      stats: [
-        {
-          label: "Your Classes Today",
-          value: "4",
-          icon: CalendarCheck,
-          color: "text-emerald-600",
-        },
-        {
-          label: "Students in Class",
-          value: "145",
-          icon: Users,
-          color: "text-emerald-600",
-        },
-        {
-          label: "Today's Attendance",
-          value: `${attendanceRate}%`,
-          icon: BarChart3,
-          color: "text-emerald-600",
-        },
-        {
-          label: "Pending Grades",
-          value: "18",
-          icon: GraduationCap,
-          color: "text-amber-600",
-        },
-      ],
-    },
-
-    STUDENT: {
-      greeting: "Welcome back",
-      stats: [
-        {
-          label: "Your Classes",
-          value: "7",
-          icon: CalendarCheck,
-          color: "text-emerald-600",
-        },
-        {
-          label: "Current Average",
-          value: "A-",
-          icon: GraduationCap,
-          color: "text-emerald-600",
-        },
-        {
-          label: "Attendance Rate",
-          value: "97%",
-          icon: CalendarCheck,
-          color: "text-emerald-600",
-        },
-        {
-          label: "Upcoming Assignments",
-          value: "4",
-          icon: BellRing,
-          color: "text-amber-600",
-        },
-      ],
-    },
-
-    PARENT: {
-      greeting: "Hello Parent",
-      stats: [
-        {
-          label: "Your Children",
-          value: "2",
-          icon: Users,
-          color: "text-emerald-600",
-        },
-        {
-          label: "Overall Average",
-          value: "B+",
-          icon: GraduationCap,
-          color: "text-emerald-600",
-        },
-        {
-          label: "Attendance This Month",
-          value: "96%",
-          icon: CalendarCheck,
-          color: "text-emerald-600",
-        },
-        {
-          label: "School Notices",
-          value: "5",
-          icon: BellRing,
-          color: "text-amber-600",
-        },
-      ],
-    },
-  };
-
-  // Fallback to admin if role is invalid
-  const data = roleData[userRole] ?? roleData.ADMIN;
+  const recentAnnouncements = await prisma.notification.findMany({
+    take: 3,
+    orderBy: { createdAt: "desc" },
+    where: { read: false },
+    select: { title: true, message: true, createdAt: true },
+  });
 
   return (
-    <div className="space-y-8">
-      {/* Greeting */}
-      <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-8 rounded-2xl text-white shadow-2xl">
-        <h1 className="text-4xl md:text-5xl font-bold mb-3">
-          {data.greeting}, {userName}!
-        </h1>
-        <p className="text-xl opacity-90">
-          Here's a quick overview of your school day.
-        </p>
-      </div>
+    <div className="min-h-screen bg-base-100">
+      {/* Hero Section */}
+      <section className="relative bg-gradient-to-br from-primary to-primary-focus text-primary-content">
+        <div className="container mx-auto px-6 py-24 md:py-32 text-center relative z-10">
+          <h1 className="text-5xl md:text-7xl font-extrabold mb-6 tracking-tight">
+            Welcome to <span className="text-secondary">SMANS</span>
+          </h1>
+          <p className="text-xl md:text-2xl mb-10 max-w-3xl mx-auto opacity-90">
+            A modern, secure, and efficient School Management System for students, teachers, parents, and administrators.
+          </p>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {data.stats.map((stat, index) => {
-          const Icon = stat.icon;
+          <div className="flex flex-col sm:flex-row gap-6 justify-center">
+            <Button asChild size="lg" variant="outline" className="border-primary-content text-primary-content hover:bg-primary-content/10 px-8 py-6 text-lg">
+              <Link href="/auth/login">Login</Link>
+            </Button>
+            <Button asChild size="lg" className="bg-secondary hover:bg-secondary-focus text-secondary-content px-8 py-6 text-lg">
+              <Link href="/auth/register">Get Started</Link>
+            </Button>
+          </div>
+        </div>
 
-          return (
-            <Card
-              key={index}
-              className="border border-slate-200 bg-white shadow-lg hover:shadow-xl transition-all duration-300"
-            >
-              <CardHeader className="flex flex-row items-center gap-4">
-                <div className="w-14 h-14 rounded-xl bg-emerald-50 flex items-center justify-center">
-                  <Icon className={`w-8 h-8 ${stat.color}`} />
-                </div>
+        {/* Subtle overlay pattern */}
+        <div className="absolute inset-0 opacity-10 pointer-events-none">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_50%,rgba(255,255,255,0.15),transparent_50%)]" />
+        </div>
+      </section>
 
-                <div>
-                  <p className="text-sm text-slate-600">{stat.label}</p>
-                  <CardTitle className={`text-3xl font-bold ${stat.color} mt-1`}>
-                    {stat.value}
-                  </CardTitle>
-                </div>
+      {/* Quick Stats Teaser */}
+      <section className="py-20 bg-base-100">
+        <div className="container mx-auto px-6">
+          <h2 className="text-4xl font-bold text-center mb-16 text-base-content">
+            SMANS at a Glance
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            <Card className="border border-neutral bg-base-100 shadow-lg hover:shadow-xl transition-all">
+              <CardHeader className="text-center pb-2">
+                <Users className="w-12 h-12 mx-auto text-primary mb-4" />
+                <CardTitle className="text-5xl font-bold text-primary">
+                  {totalStudents.toLocaleString()}
+                </CardTitle>
               </CardHeader>
+              <CardContent className="text-center">
+                <p className="text-xl font-medium text-base-content">Active Students</p>
+              </CardContent>
             </Card>
-          );
-        })}
-      </div>
 
-      {/* Role info */}
-      <div className="bg-slate-100 border border-slate-200 rounded-lg p-6 text-slate-700">
-        {userRole === "ADMIN" &&
-          "Full access: manage students, teachers, and reports."}
+            <Card className="border border-neutral bg-base-100 shadow-lg hover:shadow-xl transition-all">
+              <CardHeader className="text-center pb-2">
+                <GraduationCap className="w-12 h-12 mx-auto text-primary mb-4" />
+                <CardTitle className="text-5xl font-bold text-primary">
+                  {totalClasses}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-center">
+                <p className="text-xl font-medium text-base-content">Classes & Subjects</p>
+              </CardContent>
+            </Card>
 
-        {userRole === "TEACHER" &&
-          "Focus on teaching: mark attendance and enter grades."}
+            <Card className="border border-neutral bg-base-100 shadow-lg hover:shadow-xl transition-all">
+              <CardHeader className="text-center pb-2">
+                <CalendarCheck className="w-12 h-12 mx-auto text-primary mb-4" />
+                <CardTitle className="text-5xl font-bold text-primary">98%</CardTitle>
+              </CardHeader>
+              <CardContent className="text-center">
+                <p className="text-xl font-medium text-base-content">Average Attendance</p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
 
-        {userRole === "STUDENT" &&
-          "Stay on track: check timetable and grades."}
+      {/* Features / Highlights */}
+      <section className="py-20 bg-base-200">
+        <div className="container mx-auto px-6">
+          <h2 className="text-4xl font-bold text-center mb-16 text-base-content">
+            Why Choose SMANS?
+          </h2>
 
-        {userRole === "PARENT" &&
-          "Stay informed: monitor attendance and progress."}
-      </div>
+          <div className="grid md:grid-cols-3 gap-10 max-w-6xl mx-auto">
+            <Card className="border border-neutral bg-base-100 shadow-lg hover:shadow-xl transition-all">
+              <CardHeader>
+                <CalendarCheck className="w-12 h-12 text-secondary mb-4" />
+                <CardTitle className="text-2xl">Real-Time Attendance</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-base-content">
+                  Mark attendance instantly, view daily/monthly reports, and send alerts to parents.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="border border-neutral bg-base-100 shadow-lg hover:shadow-xl transition-all">
+              <CardHeader>
+                <BookOpen className="w-12 h-12 text-secondary mb-4" />
+                <CardTitle className="text-2xl">Grades & Exams</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-base-content">
+                  Enter marks, publish results, generate transcripts, and track student performance.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="border border-neutral bg-base-100 shadow-lg hover:shadow-xl transition-all">
+              <CardHeader>
+                <DollarSign className="w-12 h-12 text-secondary mb-4" />
+                <CardTitle className="text-2xl">Fee Management</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-base-content">
+                  Track invoices, record payments, send reminders, and monitor overdue fees.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* Recent Announcements */}
+      <section className="py-20 bg-base-100">
+        <div className="container mx-auto px-6">
+          <h2 className="text-4xl font-bold text-center mb-16 text-base-content">
+            Latest School Updates
+          </h2>
+
+          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            {recentAnnouncements.length === 0 ? (
+              <p className="text-center col-span-3 text-muted">No recent announcements</p>
+            ) : (
+              recentAnnouncements.map((ann, i) => (
+                <Card key={i} className="border border-neutral bg-base-100 shadow-lg hover:shadow-xl transition-all">
+                  <CardHeader>
+                    <CardTitle className="text-xl">{ann.title}</CardTitle>
+                    <p className="text-sm text-muted mt-1">
+                      {format(new Date(ann.createdAt), "MMM d, yyyy")}
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-base-content line-clamp-3">{ann.message}</p>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* Call to Action */}
+      <section className="bg-primary text-primary-content py-20">
+        <div className="container mx-auto px-6 text-center">
+          <h2 className="text-4xl md:text-5xl font-bold mb-6">
+            Ready to Join SMANS?
+          </h2>
+          <p className="text-xl mb-10 max-w-3xl mx-auto opacity-90">
+            Experience a modern school management system that makes education simpler and more connected.
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-6 justify-center">
+            <Button asChild size="lg" variant="outline" className="border-primary-content text-primary-content hover:bg-primary-content/10 px-10 py-7 text-lg">
+              <Link href="/auth/login">Login</Link>
+            </Button>
+            <Button asChild size="lg" className="bg-secondary hover:bg-secondary-focus text-secondary-content px-10 py-7 text-lg">
+              <Link href="/auth/register">Register Now</Link>
+            </Button>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
