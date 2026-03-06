@@ -1,22 +1,26 @@
-// next.config.mjs
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-    reactStrictMode: true,        // Enables React Strict Mode for better error handling
-    swcMinify: true,              // Uses SWC for faster, more efficient minification
-    experimental: {
-      // Optional: Enable if you want server actions instrumentation (useful for debugging)
-      // instrumentationHook: true,
-    },
-    images: {
-      // Optional: Add domains if you plan to use external images
-      remotePatterns: [
-        {
-          protocol: "https",
-          hostname: "**", // Allow all HTTPS images (adjust for security in production)
-        },
-      ],
-    },
-    // Add any other custom config you need
-  };
-  
-  export default nextConfig;
+  reactStrictMode: true,
+  swcMinify: true,
+
+  // FIX: Allow local network access (your phone/laptop at 192.168.100.232)
+  experimental: {
+    allowedDevOrigins: [
+      "http://localhost:3000",
+      "http://127.0.0.1:3000",
+      "http://192.168.100.232:3000",   // ← your local network IP
+      // Add more IPs if needed, e.g. "http://192.168.1.x:3000"
+    ],
+  },
+
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "**", // Allow all HTTPS images (secure in production)
+      },
+    ],
+  },
+};
+
+export default nextConfig;
