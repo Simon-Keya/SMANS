@@ -1,3 +1,4 @@
+// components/Footer.tsx
 import {
   Facebook,
   Instagram,
@@ -13,10 +14,9 @@ export default function Footer() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="border-t bg-base-100">
+    <footer className="border-t border-neutral bg-base-100">
       <div className="container mx-auto px-6 py-16">
         <div className="grid gap-10 md:grid-cols-4">
-          
           {/* Brand */}
           <div className="space-y-4">
             <div className="flex items-center gap-3">
@@ -28,25 +28,25 @@ export default function Footer() {
                 <h3 className="text-lg font-semibold text-primary">
                   SMANS
                 </h3>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted">
                   School Management System
                 </p>
               </div>
             </div>
 
-            <p className="text-sm text-muted-foreground leading-relaxed">
+            <p className="text-sm text-muted leading-relaxed">
               A secure and modern platform designed to simplify academic and
               administrative operations for educational institutions.
             </p>
           </div>
 
-          {/* Links */}
+          {/* Quick Links */}
           <div>
             <h4 className="font-semibold mb-4 text-base-content">
               Quick Links
             </h4>
 
-            <ul className="space-y-2 text-sm text-muted-foreground">
+            <ul className="space-y-2 text-sm text-muted">
               {["About", "Features", "Privacy", "Terms", "Support"].map(
                 (link) => (
                   <li key={link}>
@@ -68,7 +68,7 @@ export default function Footer() {
               Contact
             </h4>
 
-            <ul className="space-y-3 text-sm text-muted-foreground">
+            <ul className="space-y-3 text-sm text-muted">
               <li className="flex gap-3 items-center">
                 <MapPin className="h-4 w-4 text-primary" />
                 Nairobi, Kenya
@@ -97,7 +97,7 @@ export default function Footer() {
                 <a
                   key={i}
                   href="#"
-                  className="text-muted-foreground hover:text-primary transition-colors"
+                  className="text-muted hover:text-primary transition-colors"
                 >
                   <Icon className="h-5 w-5" />
                 </a>
@@ -107,7 +107,7 @@ export default function Footer() {
         </div>
 
         {/* Bottom */}
-        <div className="mt-12 border-t pt-6 text-center text-sm text-muted-foreground">
+        <div className="mt-12 border-t border-neutral pt-6 text-center text-sm text-muted">
           © {year} <span className="text-primary font-medium">SMANS</span>. Built for education.
         </div>
       </div>

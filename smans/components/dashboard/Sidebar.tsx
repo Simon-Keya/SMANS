@@ -1,3 +1,4 @@
+// components/Sidebar.tsx (or layout/Sidebar.tsx)
 "use client";
 
 import { cn } from "@/lib/utils";
@@ -17,15 +18,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 interface SidebarProps {
-  role?: string;  // ← Add this prop
+  role?: string; // "ADMIN" | "TEACHER" | "STUDENT" | "PARENT"
 }
 
-export default function Sidebar({ role = "student" }: SidebarProps) {
+export default function Sidebar({ role = "STUDENT" }: SidebarProps) {
   const pathname = usePathname();
 
   // Role-based navigation items
   const navItems = {
-    admin: [
+    ADMIN: [
       { href: "/dashboard", label: "Dashboard", icon: Home },
       { href: "/dashboard/students", label: "Students", icon: Users },
       { href: "/dashboard/teachers", label: "Teachers", icon: GraduationCap },
@@ -35,7 +36,7 @@ export default function Sidebar({ role = "student" }: SidebarProps) {
       { href: "/dashboard/settings", label: "Settings", icon: Settings },
       { href: "/dashboard/profile", label: "Profile", icon: UserCircle },
     ],
-    teacher: [
+    TEACHER: [
       { href: "/dashboard", label: "Dashboard", icon: Home },
       { href: "/dashboard/classes", label: "My Classes", icon: BookOpen },
       { href: "/dashboard/attendance/mark", label: "Mark Attendance", icon: CalendarCheck },
@@ -43,7 +44,7 @@ export default function Sidebar({ role = "student" }: SidebarProps) {
       { href: "/dashboard/timetable", label: "My Timetable", icon: CalendarDays },
       { href: "/dashboard/profile", label: "Profile", icon: UserCircle },
     ],
-    student: [
+    STUDENT: [
       { href: "/dashboard", label: "Dashboard", icon: Home },
       { href: "/dashboard/timetable", label: "My Timetable", icon: CalendarDays },
       { href: "/dashboard/grades", label: "My Grades", icon: BarChart3 },
@@ -51,7 +52,7 @@ export default function Sidebar({ role = "student" }: SidebarProps) {
       { href: "/dashboard/announcements", label: "Announcements", icon: BellRing },
       { href: "/dashboard/profile", label: "Profile", icon: UserCircle },
     ],
-    parent: [
+    PARENT: [
       { href: "/dashboard", label: "Dashboard", icon: Home },
       { href: "/dashboard/children", label: "My Children", icon: Users },
       { href: "/dashboard/grades/child", label: "Grades", icon: BarChart3 },
@@ -61,14 +62,15 @@ export default function Sidebar({ role = "student" }: SidebarProps) {
     ],
   };
 
-  const items = navItems[role as keyof typeof navItems] || navItems.student;
+  const items = navItems[role as keyof typeof navItems] || navItems.STUDENT;
 
   return (
-    <div className="hidden md:flex flex-col w-64 bg-base-200 border-r">
+    <div className="hidden md:flex flex-col w-64 bg-base-200 border-r border-neutral">
       <nav className="flex-1 p-4">
         {items.map((item) => {
           const Icon = item.icon;
           const isActive = pathname.startsWith(item.href);
+
           return (
             <Link
               key={item.href}
@@ -84,7 +86,9 @@ export default function Sidebar({ role = "student" }: SidebarProps) {
           );
         })}
       </nav>
-      <div className="p-4 border-t">
+
+      <div className="p-4 border-t border-neutral">
+        {/* Optional bottom section */}
       </div>
     </div>
   );
