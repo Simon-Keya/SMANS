@@ -4,25 +4,13 @@ module.exports = {
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/**/*.{js,ts,jsx,tsx,mdx}", // add if you have src/
   ],
   darkMode: "class",
   theme: {
     extend: {
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
-      },
-      colors: {
-        smans: {
-          primary: "#1e40af",
-          primaryHover: "#1e3a8a",
-          secondary: "#0d9488",
-          secondaryHover: "#0f766e",
-          accent: "#ea580c",
-          accentHover: "#c2410c",
-          neutral: "#1f2937",
-          base: "#f8fafc",
-          muted: "#64748b",
-        },
       },
     },
   },
@@ -71,12 +59,12 @@ module.exports = {
       "light",
       "dark",
     ],
-    defaultTheme: "smans",          // This activates your custom theme
+    defaultTheme: "smans",  // ← this forces the theme to load
     darkTheme: "dark",
     base: true,
     styled: true,
     utils: true,
     prefix: "",
-    logs: false,
+    logs: true,  // ← shows in terminal if theme loads
   },
 };

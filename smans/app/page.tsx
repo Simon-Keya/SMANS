@@ -1,4 +1,4 @@
-// app/page.tsx  (public homepage / landing page)
+// app/page.tsx
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { prisma } from "@/lib/prisma";
@@ -7,7 +7,6 @@ import { BookOpen, CalendarCheck, DollarSign, GraduationCap, Users } from "lucid
 import Link from "next/link";
 
 export default async function HomePage() {
-  // Public stats (no auth needed)
   const totalStudents = await prisma.student.count().catch(() => 0);
   const totalClasses = await prisma.class.count().catch(() => 0);
 
@@ -31,22 +30,30 @@ export default async function HomePage() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-6 justify-center">
-            <Button asChild size="lg" variant="outline" className="border-primary-content text-primary-content hover:bg-primary-content/10 px-8 py-6 text-lg">
+            <Button
+              asChild
+              size="lg"
+              variant="outline"
+              className="border-primary-content text-primary-content hover:bg-primary-content/10 px-8 py-6 text-lg"
+            >
               <Link href="/auth/login">Login</Link>
             </Button>
-            <Button asChild size="lg" className="bg-secondary hover:bg-secondary-focus text-secondary-content px-8 py-6 text-lg">
+            <Button
+              asChild
+              size="lg"
+              className="bg-secondary hover:bg-secondary-focus text-secondary-content px-8 py-6 text-lg"
+            >
               <Link href="/auth/register">Get Started</Link>
             </Button>
           </div>
         </div>
 
-        {/* Subtle overlay pattern */}
         <div className="absolute inset-0 opacity-10 pointer-events-none">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_50%,rgba(255,255,255,0.15),transparent_50%)]" />
         </div>
       </section>
 
-      {/* Quick Stats Teaser */}
+      {/* Quick Stats */}
       <section className="py-20 bg-base-100">
         <div className="container mx-auto px-6">
           <h2 className="text-4xl font-bold text-center mb-16 text-base-content">
@@ -91,7 +98,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Features / Highlights */}
+      {/* Features */}
       <section className="py-20 bg-base-200">
         <div className="container mx-auto px-6">
           <h2 className="text-4xl font-bold text-center mb-16 text-base-content">
@@ -138,7 +145,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Recent Announcements */}
+      {/* Announcements */}
       <section className="py-20 bg-base-100">
         <div className="container mx-auto px-6">
           <h2 className="text-4xl font-bold text-center mb-16 text-base-content">
@@ -167,7 +174,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Call to Action */}
+      {/* CTA */}
       <section className="bg-primary text-primary-content py-20">
         <div className="container mx-auto px-6 text-center">
           <h2 className="text-4xl md:text-5xl font-bold mb-6">
@@ -178,10 +185,19 @@ export default async function HomePage() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-6 justify-center">
-            <Button asChild size="lg" variant="outline" className="border-primary-content text-primary-content hover:bg-primary-content/10 px-10 py-7 text-lg">
+            <Button
+              asChild
+              size="lg"
+              variant="outline"
+              className="border-primary-content text-primary-content hover:bg-primary-content/10 px-10 py-7 text-lg"
+            >
               <Link href="/auth/login">Login</Link>
             </Button>
-            <Button asChild size="lg" className="bg-secondary hover:bg-secondary-focus text-secondary-content px-10 py-7 text-lg">
+            <Button
+              asChild
+              size="lg"
+              className="bg-secondary hover:bg-secondary-focus text-secondary-content px-10 py-7 text-lg"
+            >
               <Link href="/auth/register">Register Now</Link>
             </Button>
           </div>
