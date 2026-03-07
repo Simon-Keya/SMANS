@@ -2,6 +2,7 @@
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client"; // ← Needed for precise payload typing
 import { format } from "date-fns";
 import { BookOpen, CalendarCheck, DollarSign, GraduationCap, Users } from "lucide-react";
 import Link from "next/link";
@@ -158,19 +159,26 @@ export default async function HomePage() {
             {recentAnnouncements.length === 0 ? (
               <p className="text-center col-span-3 text-muted">No recent announcements</p>
             ) : (
-              recentAnnouncements.map((ann, i) => (
-                <Card key={i} className="border border-neutral bg-base-100 shadow-lg hover:shadow-xl transition-all">
-                  <CardHeader>
-                    <CardTitle className="text-xl">{ann.title}</CardTitle>
-                    <p className="text-sm text-muted mt-1">
-                      {format(new Date(ann.createdAt), "MMM d, yyyy")}
-                    </p>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-base-content line-clamp-3">{ann.message}</p>
-                  </CardContent>
-                </Card>
-              ))
+              recentAnnouncements.map(
+                (
+                  ann: Prisma.NotificationGetPayload<{
+                    select: { title: true; message: true; createdAt: true };
+                  }>,
+                  i: number
+                ) => (
+                  <Card key={i} className="border border-neutral bg-base-100 shadow-lg hover:shadow-xl transition-all">
+                    <CardHeader>
+                      <CardTitle className="text-xl">{ann.title}</CardTitle>
+                      <p className="text-sm text-muted mt-1">
+                        {format(new Date(ann.createdAt), "MMM d, yyyy")}
+                      </p>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-base-content line-clamp-3">{ann.message}</p>
+                    </CardContent>
+                  </Card>
+                )
+              )
             )}
           </div>
         </div>
