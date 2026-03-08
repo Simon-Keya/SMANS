@@ -2,12 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Smooth font rendering */
 html {
   scroll-behavior: smooth;
-}
-
-/* Base body styling */
-body {
-  @apply bg-base-100 text-base-content;
 }

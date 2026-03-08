@@ -1,12 +1,17 @@
 /** @type {import('tailwindcss').Config} */
+
+const daisyui = require("daisyui")
+
 module.exports = {
   content: [
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
-    "./pages/**/*.{js,ts,jsx,tsx,mdx}",
-    "./components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/**/*.{js,ts,jsx,tsx,mdx}", // add if you have src/
+    "./components/**/*.{js,ts,jsx,tsx}",
+    "./pages/**/*.{js,ts,jsx,tsx}",
+    "./src/**/*.{js,ts,jsx,tsx}",
   ],
+
   darkMode: "class",
+
   theme: {
     extend: {
       fontFamily: {
@@ -14,10 +19,12 @@ module.exports = {
       },
     },
   },
+
   plugins: [
     require("tailwindcss-animate"),
-    require("daisyui"),
+    daisyui
   ],
+
   daisyui: {
     themes: [
       {
@@ -31,12 +38,8 @@ module.exports = {
           "secondary-content": "#ffffff",
 
           accent: "#ea580c",
-          "accent-focus": "#c2410c",
-          "accent-content": "#ffffff",
 
           neutral: "#1f2937",
-          "neutral-focus": "#111827",
-          "neutral-content": "#f1f5f9",
 
           "base-100": "#f8fafc",
           "base-200": "#e2e8f0",
@@ -47,24 +50,12 @@ module.exports = {
           success: "#22c55e",
           warning: "#f59e0b",
           error: "#ef4444",
-
-          "--rounded-box": "0.75rem",
-          "--rounded-btn": "0.5rem",
-          "--rounded-badge": "1.25rem",
-
-          "--animation-btn": "0.25s",
-          "--animation-input": "0.2s",
         },
       },
       "light",
       "dark",
     ],
-    defaultTheme: "smans",  // ← this forces the theme to load
-    darkTheme: "dark",
-    base: true,
-    styled: true,
-    utils: true,
-    prefix: "",
-    logs: true,  // ← shows in terminal if theme loads
+
+    defaultTheme: "smans",
   },
-};
+}
