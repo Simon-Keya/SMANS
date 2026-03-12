@@ -2,23 +2,25 @@
 
 import { signUpAction } from "@/app/actions/auth/signUp";
 import { Button } from "@/components/ui/Button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { cn } from "@/lib/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  ArrowRight,
+  CheckCircle2,
+  GraduationCap,
+  Lock,
+  Mail,
+  User,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
-/*
-IMPORTANT:
-ADMIN role removed from schema
-Only teachers, students and parents can be created from here.
-First user will automatically become ADMIN in signUpAction.
-*/
 const signUpSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Please enter a valid email address"),
@@ -46,12 +48,9 @@ export default function SignUpPage() {
     setLoading(true);
     setError("");
     setSuccess(false);
-
     try {
       await signUpAction(data);
-
       setSuccess(true);
-
       setTimeout(() => {
         router.push("/auth/login?success=account_created");
       }, 2000);
@@ -63,108 +62,200 @@ export default function SignUpPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-base-200 to-base-300 p-4">
-      <Card className="w-full max-w-lg shadow-2xl">
-        <CardHeader className="text-center">
-          <CardTitle className="text-3xl font-bold text-primary">
-            Create SMANS Account
-          </CardTitle>
+    <div className="min-h-screen flex bg-base-100">
 
-          <p className="text-muted-foreground">
-            The first account created becomes the system administrator.
+      {/* ── Left panel (branding) ── */}
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-primary via-primary-focus to-primary flex-col items-center justify-center p-16 text-primary-content">
+        {/* Decorative background */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-secondary/10 blur-3xl" />
+          <div className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full bg-primary-content/5 blur-3xl" />
+          <div
+            className="absolute inset-0 opacity-[0.04]"
+            style={{
+              backgroundImage:
+                "linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)",
+              backgroundSize: "48px 48px",
+            }}
+          />
+        </div>
+
+        <div className="relative z-10 max-w-sm text-center">
+          {/* Logo mark */}
+          <div className="w-16 h-16 bg-white/15 border border-white/20 rounded-2xl flex items-center justify-center mx-auto mb-8 backdrop-blur-sm">
+            <GraduationCap className="w-8 h-8 text-primary-content" />
+          </div>
+
+          <h1 className="text-4xl font-black tracking-tight mb-4">
+            Join <span className="text-secondary">SMANS</span>
+          </h1>
+          <p className="text-primary-content/70 text-base leading-relaxed mb-12">
+            A modern, secure platform connecting students, teachers, parents, and administrators.
           </p>
-        </CardHeader>
 
-        <CardContent className="space-y-6">
+          {/* Feature list */}
+          <ul className="space-y-4 text-left">
+            {[
+              "Real-time attendance tracking",
+              "Grades & exam management",
+              "Fee invoicing & payments",
+              "Instant school announcements",
+            ].map((item) => (
+              <li key={item} className="flex items-center gap-3 text-sm text-primary-content/80">
+                <CheckCircle2 className="w-5 h-5 text-secondary flex-shrink-0" />
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      {/* ── Right panel (form) ── */}
+      <div className="flex-1 flex items-center justify-center px-6 py-12">
+        <div className="w-full max-w-md">
+
+          {/* Mobile logo */}
+          <div className="flex items-center gap-3 mb-10 lg:hidden">
+            <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center">
+              <GraduationCap className="w-5 h-5 text-primary-content" />
+            </div>
+            <span className="text-xl font-black text-base-content">SMANS</span>
+          </div>
+
+          {/* Heading */}
+          <div className="mb-8">
+            <h2 className="text-3xl font-black text-base-content mb-1.5">Create your account</h2>
+            <p className="text-base-content/50 text-sm">
+              The first account registered becomes the system administrator.
+            </p>
+          </div>
+
+          {/* Alerts */}
           {success && (
-            <div className="p-4 rounded-lg bg-success/10 border border-success/30 text-success text-center">
-              Account created successfully! Redirecting...
+            <div className="flex items-center gap-3 bg-success/10 border border-success/30 text-success rounded-xl px-4 py-3 text-sm mb-6">
+              <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+              Account created successfully. Redirecting to login…
             </div>
           )}
-
           {error && (
-            <div className="p-4 rounded-lg bg-error/10 border border-error/30 text-error text-center">
+            <div className="bg-error/10 border border-error/30 text-error rounded-xl px-4 py-3 text-sm mb-6">
               {error}
             </div>
           )}
 
+          {/* Form */}
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-            <div>
-              <Label>Full Name</Label>
-              <Input
-                placeholder="John Doe"
-                {...register("name")}
-                className={cn(errors.name && "border-error")}
-              />
+
+            {/* Full Name */}
+            <div className="space-y-1.5">
+              <Label className="text-sm font-semibold text-base-content">Full Name</Label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content/30" />
+                <Input
+                  placeholder="John Doe"
+                  {...register("name")}
+                  className={cn(
+                    "pl-9 rounded-xl bg-base-200 border-neutral/40 focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all",
+                    errors.name && "border-error focus:border-error focus:ring-error/30"
+                  )}
+                />
+              </div>
               {errors.name && (
-                <p className="text-sm text-error">{errors.name.message}</p>
+                <p className="text-xs text-error mt-1">{errors.name.message}</p>
               )}
             </div>
 
-            <div>
-              <Label>Email</Label>
-              <Input
-                type="email"
-                placeholder="john@smans.ac.ke"
-                {...register("email")}
-                className={cn(errors.email && "border-error")}
-              />
+            {/* Email */}
+            <div className="space-y-1.5">
+              <Label className="text-sm font-semibold text-base-content">Email Address</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content/30" />
+                <Input
+                  type="email"
+                  placeholder="user@school.com"
+                  {...register("email")}
+                  className={cn(
+                    "pl-9 rounded-xl bg-base-200 border-neutral/40 focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all",
+                    errors.email && "border-error focus:border-error focus:ring-error/30"
+                  )}
+                />
+              </div>
               {errors.email && (
-                <p className="text-sm text-error">{errors.email.message}</p>
+                <p className="text-xs text-error mt-1">{errors.email.message}</p>
               )}
             </div>
 
-            <div>
-              <Label>Password</Label>
-              <Input
-                type="password"
-                placeholder="At least 8 characters"
-                {...register("password")}
-                className={cn(errors.password && "border-error")}
-              />
+            {/* Password */}
+            <div className="space-y-1.5">
+              <Label className="text-sm font-semibold text-base-content">Password</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content/30" />
+                <Input
+                  type="password"
+                  placeholder="Minimum 8 characters"
+                  {...register("password")}
+                  className={cn(
+                    "pl-9 rounded-xl bg-base-200 border-neutral/40 focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all",
+                    errors.password && "border-error focus:border-error focus:ring-error/30"
+                  )}
+                />
+              </div>
               {errors.password && (
-                <p className="text-sm text-error">{errors.password.message}</p>
+                <p className="text-xs text-error mt-1">{errors.password.message}</p>
               )}
             </div>
 
-            <div>
-              <Label>Role</Label>
-
-              <select
-                {...register("role")}
-                className={cn(
-                  "select select-bordered w-full",
-                  errors.role && "border-error"
-                )}
-              >
-                <option value="">Select role</option>
-                <option value="TEACHER">Teacher</option>
-                <option value="STUDENT">Student</option>
-                <option value="PARENT">Parent</option>
-              </select>
-
+            {/* Role */}
+            <div className="space-y-1.5">
+              <Label className="text-sm font-semibold text-base-content">Account Type</Label>
+              <div className="relative">
+                <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content/30 z-10" />
+                <select
+                  {...register("role")}
+                  className={cn(
+                    "select select-bordered w-full pl-9 rounded-xl bg-base-200 border-neutral/40 focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all",
+                    errors.role && "border-error"
+                  )}
+                >
+                  <option value="">Select your role</option>
+                  <option value="TEACHER">Teacher</option>
+                  <option value="STUDENT">Student</option>
+                  <option value="PARENT">Parent</option>
+                </select>
+              </div>
               {errors.role && (
-                <p className="text-sm text-error">{errors.role.message}</p>
+                <p className="text-xs text-error mt-1">{errors.role.message}</p>
               )}
             </div>
 
             <Button
               type="submit"
-              className="w-full btn-primary"
               disabled={loading}
+              className="w-full bg-primary hover:bg-primary-focus text-primary-content font-bold py-3 rounded-xl shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all flex items-center justify-center gap-2 mt-2"
             >
-              {loading ? "Creating..." : "Create Account"}
+              {loading ? (
+                <>
+                  <span className="loading loading-spinner loading-sm" />
+                  Creating account…
+                </>
+              ) : (
+                <>
+                  Create Account <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </Button>
+
           </form>
 
-          <div className="text-center text-sm text-muted-foreground">
+          <p className="text-center text-sm text-base-content/50 mt-8">
             Already have an account?{" "}
-            <Link href="/auth/login" className="text-primary hover:underline">
+            <Link href="/auth/login" className="text-primary font-semibold hover:underline">
               Sign in
             </Link>
-          </div>
-        </CardContent>
-      </Card>
+          </p>
+
+        </div>
+      </div>
     </div>
   );
 }

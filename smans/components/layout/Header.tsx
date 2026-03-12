@@ -134,7 +134,7 @@ export default function Header() {
                 <Link href="/auth/login">Log In</Link>
               </Button>
               <Button size="sm" className="bg-primary hover:bg-primary-focus text-primary-content" asChild>
-                <Link href="/auth/register">Sign Up</Link>
+                <Link href="/auth/signup">Sign Up</Link>
               </Button>
             </div>
           )}
@@ -187,7 +187,7 @@ export default function Header() {
                   <Link href="/auth/login">Log In</Link>
                 </Button>
                 <Button className="bg-primary hover:bg-primary-focus text-primary-content" asChild>
-                  <Link href="/auth/register">Sign Up</Link>
+                  <Link href="/auth/signup">Sign Up</Link>
                 </Button>
               </div>
             )}
