@@ -2,21 +2,18 @@
   "name": "smans",
   "version": "1.0.0",
   "private": true,
-
   "scripts": {
-    "dev": "next dev --no-turbo",
+    "dev": "next dev",
+    "dev:turbo": "next dev --turbo",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:reset": "prisma migrate reset",
     "prisma:studio": "prisma studio",
-
     "postinstall": "prisma generate"
   },
-
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
     "@prisma/client": "^5.20.0",
@@ -35,6 +32,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
+    "daisyui": "^4.12.24",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.563.0",
     "next": "^16.1.6",
@@ -51,7 +49,6 @@
     "tailwindcss-animate": "^1.0.7",
     "zod": "^4.3.6"
   },
-
   "devDependencies": {
     "@playwright/test": "^1.58.2",
     "@sentry/nextjs": "^10.40.0",
@@ -67,7 +64,6 @@
     "@upstash/redis": "^1.36.2",
     "autoprefixer": "^10.4.27",
     "bullmq": "^5.70.1",
-    "daisyui": "^5.5.19",
     "eslint": "^10.0.0",
     "eslint-config-next": "^16.1.6",
     "jest": "^30.2.0",

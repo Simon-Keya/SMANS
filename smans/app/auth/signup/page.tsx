@@ -13,11 +13,17 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
+/*
+IMPORTANT:
+ADMIN role removed from schema
+Only teachers, students and parents can be created from here.
+First user will automatically become ADMIN in signUpAction.
+*/
 const signUpSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Please enter a valid email address"),
   password: z.string().min(8, "Password must be at least 8 characters"),
-  role: z.enum(["ADMIN", "TEACHER", "STUDENT", "PARENT"]),
+  role: z.enum(["TEACHER", "STUDENT", "PARENT"]),
 });
 
 type SignUpFormData = z.infer<typeof signUpSchema>;
@@ -43,6 +49,7 @@ export default function SignUpPage() {
 
     try {
       await signUpAction(data);
+
       setSuccess(true);
 
       setTimeout(() => {
@@ -62,8 +69,9 @@ export default function SignUpPage() {
           <CardTitle className="text-3xl font-bold text-primary">
             Create SMANS Account
           </CardTitle>
+
           <p className="text-muted-foreground">
-            Only administrators can create accounts
+            The first account created becomes the system administrator.
           </p>
         </CardHeader>
 
@@ -75,7 +83,7 @@ export default function SignUpPage() {
           )}
 
           {error && (
-            <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-center">
+            <div className="p-4 rounded-lg bg-error/10 border border-error/30 text-error text-center">
               {error}
             </div>
           )}
@@ -86,12 +94,10 @@ export default function SignUpPage() {
               <Input
                 placeholder="John Doe"
                 {...register("name")}
-                className={cn(errors.name && "border-destructive")}
+                className={cn(errors.name && "border-error")}
               />
               {errors.name && (
-                <p className="text-sm text-destructive">
-                  {errors.name.message}
-                </p>
+                <p className="text-sm text-error">{errors.name.message}</p>
               )}
             </div>
 
@@ -101,12 +107,10 @@ export default function SignUpPage() {
                 type="email"
                 placeholder="john@smans.ac.ke"
                 {...register("email")}
-                className={cn(errors.email && "border-destructive")}
+                className={cn(errors.email && "border-error")}
               />
               {errors.email && (
-                <p className="text-sm text-destructive">
-                  {errors.email.message}
-                </p>
+                <p className="text-sm text-error">{errors.email.message}</p>
               )}
             </div>
 
@@ -116,38 +120,39 @@ export default function SignUpPage() {
                 type="password"
                 placeholder="At least 8 characters"
                 {...register("password")}
-                className={cn(errors.password && "border-destructive")}
+                className={cn(errors.password && "border-error")}
               />
               {errors.password && (
-                <p className="text-sm text-destructive">
-                  {errors.password.message}
-                </p>
+                <p className="text-sm text-error">{errors.password.message}</p>
               )}
             </div>
 
             <div>
               <Label>Role</Label>
+
               <select
                 {...register("role")}
                 className={cn(
                   "select select-bordered w-full",
-                  errors.role && "border-destructive"
+                  errors.role && "border-error"
                 )}
               >
                 <option value="">Select role</option>
-                <option value="ADMIN">Administrator</option>
                 <option value="TEACHER">Teacher</option>
                 <option value="STUDENT">Student</option>
                 <option value="PARENT">Parent</option>
               </select>
+
               {errors.role && (
-                <p className="text-sm text-destructive">
-                  {errors.role.message}
-                </p>
+                <p className="text-sm text-error">{errors.role.message}</p>
               )}
             </div>
 
-            <Button type="submit" className="w-full btn-primary" disabled={loading}>
+            <Button
+              type="submit"
+              className="w-full btn-primary"
+              disabled={loading}
+            >
               {loading ? "Creating..." : "Create Account"}
             </Button>
           </form>

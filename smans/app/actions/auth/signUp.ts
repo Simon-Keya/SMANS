@@ -9,13 +9,39 @@ export async function signUpAction(data: {
   name: string;
   email: string;
   password: string;
-  role: "ADMIN" | "TEACHER" | "STUDENT" | "PARENT";
+  role: "TEACHER" | "STUDENT" | "PARENT";
 }) {
   const session = await getServerSession(authOptions);
 
-  // Only ADMIN can create accounts
+  const userCount = await prisma.user.count();
+
+  // ─────────────────────────────
+  // FIRST USER → AUTO ADMIN
+  // ─────────────────────────────
+  if (userCount === 0) {
+    const hashedPassword = await bcrypt.hash(data.password, 12);
+
+    const admin = await prisma.user.create({
+      data: {
+        name: data.name.trim(),
+        email: data.email.toLowerCase(),
+        password: hashedPassword,
+        role: "ADMIN",
+      },
+    });
+
+    return {
+      success: true,
+      message: "First admin account created",
+      userId: admin.id,
+    };
+  }
+
+  // ─────────────────────────────
+  // ONLY ADMIN CAN CREATE USERS
+  // ─────────────────────────────
   if (!session || session.user.role !== "ADMIN") {
-    throw new Error("Unauthorized - admin access required");
+    throw new Error("Only administrators can create accounts.");
   }
 
   const existingUser = await prisma.user.findUnique({
