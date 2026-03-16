@@ -1,26 +1,27 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  swcMinify: true,
 
-  // FIX: Allow local network access (your phone/laptop at 192.168.100.232)
-  experimental: {
-    allowedDevOrigins: [
-      "http://localhost:3000",
-      "http://127.0.0.1:3000",
-      "http://192.168.100.232:3000",   // ← your local network IP
-      // Add more IPs if needed, e.g. "http://192.168.1.x:3000"
-    ],
-  },
+  // SWC minification is enabled by default in Next.js 14+ → no need to set it
+  // experimental.allowedDevOrigins → does NOT exist; remove it
 
   images: {
     remotePatterns: [
       {
-        protocol: "https",
-        hostname: "**", // Allow all HTTPS images (secure in production)
+        protocol: 'https',
+        hostname: '**',
+      },
+      {
+        protocol: 'http',
+        hostname: '**',
       },
     ],
   },
+
+  // Optional: if you need to allow large images or other tweaks
+  // experimental: {
+  //   serverActions: true, // usually already enabled
+  // },
 };
 
 export default nextConfig;
