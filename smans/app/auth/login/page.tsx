@@ -53,8 +53,8 @@ export default function LoginPage() {
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-primary via-primary-focus to-primary flex-col items-center justify-center p-16 text-primary-content">
         {/* Decorative background */}
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-secondary/10 blur-3xl" />
-          <div className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full bg-primary-content/5 blur-3xl" />
+          <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-white/5 blur-3xl" />
+          <div className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full bg-white/5 blur-3xl" />
           <div
             className="absolute inset-0 opacity-[0.04]"
             style={{
@@ -70,10 +70,10 @@ export default function LoginPage() {
             <GraduationCap className="w-8 h-8 text-primary-content" />
           </div>
 
-          <h1 className="text-4xl font-black tracking-tight mb-4">
-            Welcome to <span className="text-secondary">SMANS</span>
+          <h1 className="text-4xl font-black tracking-tight mb-4 text-white">
+            Welcome to SMANS
           </h1>
-          <p className="text-primary-content/70 text-base leading-relaxed mb-12">
+          <p className="text-white/70 text-base leading-relaxed mb-12">
             Sign in to access your personalized school dashboard and stay connected with everything that matters.
           </p>
 
@@ -84,8 +84,8 @@ export default function LoginPage() {
               "Fee invoicing & payments",
               "Instant school announcements",
             ].map((item) => (
-              <li key={item} className="flex items-center gap-3 text-sm text-primary-content/80">
-                <CheckCircle2 className="w-5 h-5 text-secondary flex-shrink-0" />
+              <li key={item} className="flex items-center gap-3 text-sm text-white/80">
+                <CheckCircle2 className="w-5 h-5 text-white flex-shrink-0" />
                 {item}
               </li>
             ))}
@@ -108,7 +108,7 @@ export default function LoginPage() {
           {/* Heading */}
           <div className="mb-8">
             <h2 className="text-3xl font-black text-base-content mb-1.5">Sign in to your account</h2>
-            <p className="text-base-content/50 text-sm">
+            <p className="text-base-content opacity-50 text-sm">
               Enter your credentials to access your dashboard.
             </p>
           </div>
@@ -137,7 +137,7 @@ export default function LoginPage() {
                 Email Address
               </Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content/30" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content opacity-30" />
                 <Input
                   id="email"
                   type="email"
@@ -157,12 +157,15 @@ export default function LoginPage() {
                 <Label htmlFor="password" className="text-sm font-semibold text-base-content">
                   Password
                 </Label>
-                <a href="#" className="text-xs text-primary font-medium hover:underline">
+                <Link
+                  href="/auth/forgot-password"
+                  className="text-xs text-primary font-medium hover:underline"
+                >
                   Forgot password?
-                </a>
+                </Link>
               </div>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content/30" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content opacity-30" />
                 <Input
                   id="password"
                   type="password"
@@ -195,14 +198,14 @@ export default function LoginPage() {
           </form>
 
           <div className="flex items-center gap-3 my-7">
-            <div className="flex-1 h-px bg-neutral/30" />
-            <span className="text-xs text-base-content/40 font-medium">OR</span>
-            <div className="flex-1 h-px bg-neutral/30" />
+            <div className="flex-1 h-px bg-base-300" />
+            <span className="text-xs text-base-content opacity-40 font-medium">OR</span>
+            <div className="flex-1 h-px bg-base-300" />
           </div>
 
-          <p className="text-center text-sm text-base-content/50">
+          <p className="text-center text-sm text-base-content opacity-50">
             Don't have an account?{" "}
-            <Link href="/auth/signup" className="text-primary font-semibold hover:underline">
+            <Link href="/auth/signup" className="text-primary font-semibold hover:underline opacity-100">
               Sign up now
             </Link>
           </p>
