@@ -12,6 +12,13 @@ async function getAuthenticatedUserId(): Promise<string> {
   return session.user.id;
 }
 
+function buildOtpAuthUrl(email: string, secret: string): string {
+  const issuer = "SMANS";
+  const account = encodeURIComponent(email);
+  const encodedIssuer = encodeURIComponent(issuer);
+  return `otpauth://totp/${encodedIssuer}:${account}?secret=${secret}&issuer=${encodedIssuer}&algorithm=SHA1&digits=6&period=30`;
+}
+
 export async function enable2FA() {
   const userId = await getAuthenticatedUserId();
 
@@ -24,7 +31,7 @@ export async function enable2FA() {
   if (user.twoFactorEnabled) throw new Error("2FA is already enabled");
 
   const secret = authenticator.generateSecret();
-  const otpauth = authenticator.keyuri(user.email ?? userId, "SMANS", secret);
+  const otpauth = buildOtpAuthUrl(user.email ?? userId, secret);
 
   return { success: true, secret, otpauth };
 }

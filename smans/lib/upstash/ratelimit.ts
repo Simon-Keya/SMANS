@@ -2,9 +2,7 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { redis } from "./redis";
 
-// Rate limit presets (you can add more as needed)
-
-// 1. Login attempts: 10 attempts per 5 minutes per IP
+// 1. Login attempts: 10 per 5 minutes per IP/email
 export const loginLimiter = new Ratelimit({
   redis,
   limiter: Ratelimit.slidingWindow(10, "5 m"),
@@ -12,7 +10,7 @@ export const loginLimiter = new Ratelimit({
   prefix: "ratelimit:login",
 });
 
-// 2. Forgot password requests: 5 per email per 10 minutes
+// 2. Forgot password: 5 per email per 10 minutes
 export const forgotPasswordLimiter = new Ratelimit({
   redis,
   limiter: Ratelimit.slidingWindow(5, "10 m"),
@@ -20,7 +18,7 @@ export const forgotPasswordLimiter = new Ratelimit({
   prefix: "ratelimit:forgot-password",
 });
 
-// 3. SMS sending: 50 per minute globally (or per user/IP)
+// 3. SMS sending: 50 per minute per user
 export const smsLimiter = new Ratelimit({
   redis,
   limiter: Ratelimit.slidingWindow(50, "1 m"),
@@ -28,7 +26,15 @@ export const smsLimiter = new Ratelimit({
   prefix: "ratelimit:sms",
 });
 
-// 4. General API rate limit (example for public endpoints)
+// 4. Sign-up: 5 per hour per IP
+export const signUpLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(5, "1 h"),
+  analytics: true,
+  prefix: "ratelimit:signup",
+});
+
+// 5. General public API endpoints: 100 per minute
 export const apiLimiter = new Ratelimit({
   redis,
   limiter: Ratelimit.slidingWindow(100, "1 m"),
