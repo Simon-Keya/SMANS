@@ -19,8 +19,16 @@ export async function changePassword({
     throw new Error("Unauthorized");
   }
 
-  if (!currentPassword || !newPassword) {
-    throw new Error("Missing current or new password");
+  if (!currentPassword?.trim() || !newPassword?.trim()) {
+    throw new Error("Current and new passwords are required");
+  }
+
+  if (newPassword.length < 8) {
+    throw new Error("New password must be at least 8 characters");
+  }
+
+  if (currentPassword === newPassword) {
+    throw new Error("New password must differ from current password");
   }
 
   const user = await prisma.user.findUnique({

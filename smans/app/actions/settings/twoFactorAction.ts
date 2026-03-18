@@ -6,68 +6,70 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authenticator } from "otplib";
 
-export async function enable2FA() {
+async function getAuthenticatedUserId(): Promise<string> {
   const session = await getServerSession(authOptions);
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  return session.user.id;
+}
 
-  if (!session?.user?.id) {
-    throw new Error("Unauthorized");
-  }
+export async function enable2FA() {
+  const userId = await getAuthenticatedUserId();
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { email: true, twoFactorEnabled: true },
+  });
+
+  if (!user) throw new Error("User not found");
+  if (user.twoFactorEnabled) throw new Error("2FA is already enabled");
 
   const secret = authenticator.generateSecret();
+  const otpauth = authenticator.keyuri(user.email ?? userId, "SMANS", secret);
 
-  return {
-    success: true,
-    secret,
-    otpauth: authenticator.keyuri(
-      session.user.email || session.user.id,
-      "SMANS",
-      secret
-    ),
-  };
+  return { success: true, secret, otpauth };
 }
 
 export async function verify2FA(code: string, secret: string) {
-  const session = await getServerSession(authOptions);
+  const userId = await getAuthenticatedUserId();
 
-  if (!session?.user?.id) {
-    throw new Error("Unauthorized");
-  }
-
-  if (!code || !secret) {
-    throw new Error("Missing code or secret");
+  if (!code?.trim() || !secret?.trim()) {
+    throw new Error("Verification code and secret are required");
   }
 
   const isValid = authenticator.check(code, secret);
-
   if (!isValid) {
-    throw new Error("Invalid code");
+    throw new Error("Invalid verification code. Please try again.");
   }
 
   await prisma.user.update({
-    where: { id: session.user.id },
+    where: { id: userId },
     data: {
       twoFactorSecret: secret,
       twoFactorEnabled: true,
     },
   });
 
-  return { success: true, message: "2FA enabled" };
+  return { success: true, message: "2FA enabled successfully" };
 }
 
 export async function disable2FA() {
-  const session = await getServerSession(authOptions);
+  const userId = await getAuthenticatedUserId();
 
-  if (!session?.user?.id) {
-    throw new Error("Unauthorized");
-  }
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { twoFactorEnabled: true },
+  });
+
+  if (!user) throw new Error("User not found");
+  if (!user.twoFactorEnabled) throw new Error("2FA is not currently enabled");
 
   await prisma.user.update({
-    where: { id: session.user.id },
+    where: { id: userId },
     data: {
       twoFactorSecret: null,
       twoFactorEnabled: false,
     },
   });
 
-  return { success: true, message: "2FA disabled" };
+  return { success: true, message: "2FA disabled successfully" };
 }
