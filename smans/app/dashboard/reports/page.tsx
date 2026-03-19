@@ -1,5 +1,5 @@
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
-import { authOptions } from "@/lib/auth";
+import { authOptions } from "@/lib/auth/auth";
 import { BarChart3, BookOpen, CalendarCheck, DollarSign } from "lucide-react";
 import { getServerSession } from "next-auth";
 import Link from "next/link";

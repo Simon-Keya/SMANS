@@ -43,9 +43,11 @@ model User {
   id                        String                  @id @default(cuid())
   name                      String?
   email                     String                  @unique
+  emailVerified             DateTime?               // ← ADDED: for verification status
   password                  String?
   role                      Role                    @default(TEACHER)
   staffNo                   String?                 @unique
+  isActive                  Boolean                 @default(true) // ← ADDED: soft disable
   teacherClasses            Class[]                 @relation("ClassTeacher")
   assignmentsCreated        Assignment[]            @relation("AssignmentCreator")
   notifications             Notification[]
@@ -58,6 +60,7 @@ model User {
   createdAt                 DateTime                @default(now())
   updatedAt                 DateTime                @updatedAt
 
+  @@index([email])          // ← ADDED: fast lookup
   @@map("users")
 }
 
@@ -94,7 +97,7 @@ model Class {
   name            String
   level           String
   teacherId       String?
-  teacher         User?         @relation("ClassTeacher", fields: [teacherId], references: [id])
+  teacher         User?         @relation("ClassTeacher", fields: [teacherId], references: [id], onDelete: SetNull)
   students        Student[]
   subjects        Subject[]     @relation("ClassSubjects")
   exams           Exam[]
@@ -105,6 +108,7 @@ model Class {
   updatedAt       DateTime      @updatedAt
 
   @@unique([name, level])
+  @@index([teacherId])
   @@map("classes")
 }
 
@@ -120,6 +124,7 @@ model Subject {
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
+  @@index([code])
   @@map("subjects")
 }
 
@@ -131,12 +136,13 @@ model Parent {
   name      String
   phone     String?
   email     String?   @unique
-  user      User?     @relation("UserParent", fields: [userId], references: [id])
+  user      User?     @relation("UserParent", fields: [userId], references: [id], onDelete: SetNull)
   userId    String?   @unique
   students  Student[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
+  @@index([email])
   @@map("parents")
 }
 
@@ -147,10 +153,10 @@ model Student {
   email         String?
   phone         String?
   classId       String
-  class         Class           @relation(fields: [classId], references: [id])
+  class         Class           @relation(fields: [classId], references: [id], onDelete: Cascade)
   parentId      String?
-  parent        Parent?         @relation(fields: [parentId], references: [id])
-  user          User?           @relation("UserStudent", fields: [userId], references: [id])
+  parent        Parent?         @relation(fields: [parentId], references: [id], onDelete: SetNull)
+  user          User?           @relation("UserStudent", fields: [userId], references: [id], onDelete: SetNull)
   userId        String?         @unique
   attendance    Attendance[]
   grades        Grade[]
@@ -160,6 +166,8 @@ model Student {
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
+  @@index([rollNumber])
+  @@index([classId])
   @@map("students")
 }
 
@@ -172,14 +180,15 @@ model Assignment {
   description String?
   dueDate     DateTime
   classId     String
-  class       Class     @relation(fields: [classId], references: [id])
+  class       Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
   subjectId   String
-  subject     Subject   @relation(fields: [subjectId], references: [id])
+  subject     Subject   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   createdBy   String?
-  createdByUser User?   @relation("AssignmentCreator", fields: [createdBy], references: [id])
+  createdByUser User?   @relation("AssignmentCreator", fields: [createdBy], references: [id], onDelete: SetNull)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  @@index([classId])
   @@map("assignments")
 }
 
@@ -191,11 +200,13 @@ model Attendance {
   date      DateTime
   status    AttendanceStatus  @default(PRESENT)
   studentId String
-  student   Student           @relation(fields: [studentId], references: [id])
+  student   Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
   classId   String
-  class     Class             @relation(fields: [classId], references: [id])
+  class     Class             @relation(fields: [classId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, date])
+  @@index([studentId])
+  @@index([classId, date])
   @@map("attendance")
 }
 
@@ -208,11 +219,12 @@ model Exam {
   term      String?
   date      DateTime
   classId   String
-  class     Class     @relation(fields: [classId], references: [id])
+  class     Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
   grades    Grade[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
+  @@index([classId])
   @@map("exams")
 }
 
@@ -221,16 +233,18 @@ model Grade {
   marks     Int
   maxMarks  Int       @default(100)
   studentId String
-  student   Student   @relation(fields: [studentId], references: [id])
+  student   Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
   subjectId String
-  subject   Subject   @relation(fields: [subjectId], references: [id])
+  subject   Subject   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   examId    String
-  exam      Exam      @relation(fields: [examId], references: [id])
+  exam      Exam      @relation(fields: [examId], references: [id], onDelete: Cascade)
   published Boolean   @default(false)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
   @@unique([studentId, subjectId, examId])
+  @@index([studentId])
+  @@index([examId])
   @@map("grades")
 }
 
@@ -244,11 +258,12 @@ model Timetable {
   endTime   String
   room      String?
   classId   String
-  class     Class     @relation(fields: [classId], references: [id])
+  class     Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
   subjectId String
-  subject   Subject   @relation(fields: [subjectId], references: [id])
+  subject   Subject   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
 
   @@unique([classId, day, startTime])
+  @@index([classId])
   @@map("timetable")
 }
 
@@ -271,9 +286,9 @@ model FeeItem {
 model Invoice {
   id        String        @id @default(cuid())
   studentId String
-  student   Student       @relation(fields: [studentId], references: [id])
+  student   Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
   feeItemId String?
-  feeItem   FeeItem?      @relation(fields: [feeItemId], references: [id])
+  feeItem   FeeItem?      @relation(fields: [feeItemId], references: [id], onDelete: SetNull)
   amount    Float
   dueDate   DateTime
   status    InvoiceStatus @default(PENDING)
@@ -281,13 +296,14 @@ model Invoice {
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
+  @@index([studentId])
   @@map("invoices")
 }
 
 model Payment {
   id          String        @id @default(cuid())
   invoiceId   String
-  invoice     Invoice       @relation(fields: [invoiceId], references: [id])
+  invoice     Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   amount      Float
   method      String
   status      PaymentStatus @default(COMPLETED)
@@ -295,6 +311,7 @@ model Payment {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
+  @@index([invoiceId])
   @@map("payments")
 }
 
@@ -306,27 +323,32 @@ model Notification {
   title           String
   message         String
   read            Boolean         @default(false)
+  type            String?         // ← ADDED: e.g. "success", "warning", "info"
   userId          String
-  user            User            @relation(fields: [userId], references: [id])
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   logs            NotificationLog[]
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
+  @@index([userId])
+  @@index([createdAt])
   @@map("notifications")
 }
 
 model NotificationLog {
   id              String        @id @default(cuid())
   notificationId  String
-  notification    Notification  @relation(fields: [notificationId], references: [id])
+  notification    Notification  @relation(fields: [notificationId], references: [id], onDelete: Cascade)
   recipientId     String
-  recipient       User          @relation(fields: [recipientId], references: [id])
+  recipient       User          @relation(fields: [recipientId], references: [id], onDelete: Cascade)
   status          String
   errorMessage    String?
   sentAt          DateTime      @default(now())
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
+  @@index([notificationId])
+  @@index([recipientId])
   @@map("notification_logs")
 }
 
@@ -338,10 +360,12 @@ model Transcript {
   studentId String
   term      String
   year      Int
-  gpa       Float
-  student   Student   @relation(fields: [studentId], references: [id])
+  gpa       Float?
+  remarks   String?   // ← ADDED: optional teacher comments
+  student   Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, term, year])
+  @@index([studentId])
   @@map("transcripts")
 }
 
@@ -350,11 +374,11 @@ model PromotionLog {
   studentId String
   fromClass String
   toClass   String
-  student   Student   @relation(fields: [studentId], references: [id])
   date      DateTime  @default(now())
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  approvedBy String?  // ← ADDED: who approved the promotion
+  student   Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
+  @@index([studentId])
   @@map("promotion_logs")
 }
 
@@ -372,20 +396,18 @@ model SchoolSettings {
   academicYearEnd     DateTime?
   updatedAt           DateTime  @updatedAt
 
-  @@unique([id])
   @@map("school_settings")
 }
 
 model GeneralSettings {
-  id              Int       @id @default(1)
-  emailNotifications Boolean @default(true)
-  smsNotifications   Boolean @default(false)
-  defaultTheme       String  @default("system")
-  defaultLanguage    String  @default("en")
-  defaultTimezone    String  @default("Africa/Nairobi")
-  updatedAt          DateTime @updatedAt
+  id                 Int       @id @default(1)
+  emailNotifications Boolean   @default(true)
+  smsNotifications   Boolean   @default(false)
+  defaultTheme       String    @default("system")
+  defaultLanguage    String    @default("en")
+  defaultTimezone    String    @default("Africa/Nairobi")
+  updatedAt          DateTime  @updatedAt
 
-  @@unique([id])
   @@map("general_settings")
 }
 
@@ -395,14 +417,16 @@ model GeneralSettings {
 model AuditLog {
   id        String    @id @default(cuid())
   userId    String?
-  user      User?     @relation(fields: [userId], references: [id])
+  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
   action    String
   entity    String
   entityId  String?
-  metadata  Json?
+  metadata  Json?     @db.Json // ← FIXED: explicit @db.Json
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
+  @@index([userId])
+  @@index([createdAt])
   @@map("audit_logs")
 }
 
@@ -412,17 +436,20 @@ model AuditLog {
 model Permission {
   id              String          @id @default(cuid())
   code            String          @unique
+  name            String?
+  description     String?
   rolePermissions RolePermission[]
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
+  @@index([code])
   @@map("permissions")
 }
 
 model RolePermission {
   role          Role
   permissionId  String
-  permission    Permission @relation(fields: [permissionId], references: [id])
+  permission    Permission      @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
   @@id([role, permissionId])
   @@map("role_permissions")

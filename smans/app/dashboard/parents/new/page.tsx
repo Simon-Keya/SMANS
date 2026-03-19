@@ -1,12 +1,12 @@
 import ParentForm from "@/components/parents/ParentForm";
-import { authOptions } from "@/lib/auth";
+import { authOptions } from "@/lib/auth/auth";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 
 export default async function NewParentPage() {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
+  if (!session || session.user.role !== "ADMIN") {
     redirect("/dashboard");
   }
 

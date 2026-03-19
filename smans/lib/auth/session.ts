@@ -1,6 +1,6 @@
 // lib/auth/session.ts
 import { getServerSession } from "next-auth";
-import { authOptions } from "./auth"; // your existing auth config file
+import { authOptions } from "./auth";
 
 /**
  * Get the current authenticated session on the server

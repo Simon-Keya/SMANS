@@ -1,26 +1,47 @@
 import { Button } from "@/components/ui/Button";
-import { authOptions } from "@/lib/auth";
+import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { AlertCircle, Bell, CheckCircle } from "lucide-react";
 import { getServerSession } from "next-auth";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+// Define the expected shape of a notification (explicit type for clarity)
+type Notification = {
+  id: string;
+  title: string;
+  message: string;
+  read: boolean;
+  type?: "success" | "error" | "info" | "warning"; // optional, based on your schema
+  createdAt: Date;
+  userId: string;
+};
+
 export default async function NotificationsPage() {
   const session = await getServerSession(authOptions);
 
-  if (!session) {
+  if (!session?.user?.id) {
     redirect("/auth/login");
   }
 
-  const notifications = await prisma.notification.findMany({
+  // Explicitly select only the fields we need (helps TypeScript infer correctly)
+  const notifications: Notification[] = await prisma.notification.findMany({
     where: { userId: session.user.id },
     orderBy: { createdAt: "desc" },
     take: 20,
+    select: {
+      id: true,
+      title: true,
+      message: true,
+      read: true,
+      type: true,        // include if your schema has this field
+      createdAt: true,
+      userId: true,      // optional, but included for completeness
+    },
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-primary">Notifications</h1>
         <Button asChild className="btn-primary gap-2">
