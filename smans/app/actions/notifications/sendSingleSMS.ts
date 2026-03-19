@@ -5,7 +5,7 @@ import { authOptions } from "@/lib/auth/auth";
 import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { smsProvider } from "@/lib/services/sms";
-import { smsLimiter } from "@/lib/upstash/rateLimit";
+import { smsLimiter } from "@/lib/upstash/ratelimit";
 import { getServerSession } from "next-auth";
 
 interface SendSingleSMSInput {
