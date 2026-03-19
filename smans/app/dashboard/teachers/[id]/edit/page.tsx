@@ -1,6 +1,6 @@
 // app/dashboard/teachers/[id]/edit/page.tsx
 import TeacherForm from "@/components/teachers/TeacherForm";
-import { authOptions } from "@/lib/auth/auth"; // ← FIXED: correct export name
+import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { notFound, redirect } from "next/navigation";
@@ -19,15 +19,15 @@ export default async function EditTeacherPage({ params }: EditTeacherPageProps) 
   const teacher = await prisma.user.findUnique({
     where: { 
       id: params.id,
-      role: "TEACHER" // ← FIXED: uppercase "TEACHER"
+      role: "TEACHER" 
     },
     select: {
       id: true,
       name: true,
       email: true,
       role: true,
-      staffNo: true,     // optional: add if needed in form
-      phone: true,       // optional
+      staffNo: true,     
+      phone: true,       
     },
   });
 

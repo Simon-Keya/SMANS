@@ -1,6 +1,6 @@
 import ClassTable from "@/components/classes/ClassTable";
 import { Button } from "@/components/ui/Button";
-import { authOptions } from "@/lib/auth";
+import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { Plus } from "lucide-react";
 import { getServerSession } from "next-auth";
@@ -31,7 +31,7 @@ export default async function ClassesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-primary">Classes</h1>
-        {session.user.role === "admin" && (
+        {session.user.role === "ADMIN" && (
           <Button asChild className="btn-primary gap-2">
             <Link href="/dashboard/classes/new">
               <Plus className="h-4 w-4" />

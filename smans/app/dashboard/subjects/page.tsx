@@ -1,6 +1,6 @@
 import SubjectTable from "@/components/subjects/SubjectTable";
 import { Button } from "@/components/ui/Button";
-import { authOptions } from "@/lib/auth";
+import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { Plus } from "lucide-react";
 import { getServerSession } from "next-auth";
@@ -28,7 +28,7 @@ export default async function SubjectsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-primary">Subjects</h1>
-        {session.user.role === "admin" && (
+        {session.user.role === "ADMIN" && (
           <Button asChild className="btn-primary gap-2">
             <Link href="/dashboard/subjects/new">
               <Plus className="h-4 w-4" />
