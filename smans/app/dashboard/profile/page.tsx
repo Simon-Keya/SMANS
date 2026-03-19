@@ -1,11 +1,13 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { authOptions } from "@/lib/auth";
+import { authOptions } from "@/lib/auth/auth";
 import { Edit, Mail, Shield } from "lucide-react";
 import { getServerSession } from "next-auth";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+
+
 
 export default async function ProfilePage() {
   const session = await getServerSession(authOptions);
@@ -25,7 +27,7 @@ export default async function ProfilePage() {
         <Card className="lg:col-span-1 bg-base-100 shadow-lg border border-base-200">
           <CardHeader className="text-center">
             <Avatar className="w-32 h-32 mx-auto">
-              <AvatarImage src={user.image ?? ""} alt={user.name ?? ""} />
+              <AvatarImage src={user.image ?? ""} alt={user.name ?? "User"} />
               <AvatarFallback className="bg-primary text-primary-content text-4xl">
                 {user.name?.charAt(0).toUpperCase() || "U"}
               </AvatarFallback>
@@ -35,12 +37,12 @@ export default async function ProfilePage() {
             </CardTitle>
             <p className="text-base-content/70 capitalize">{user.role || "Role"}</p>
           </CardHeader>
-          <CardContent className="text-center space-y-2">
+          <CardContent className="text-center space-y-3">
             <p className="flex items-center justify-center gap-2">
               <Mail className="h-4 w-4 text-primary" />
-              {user.email}
+              {user.email || "No email set"}
             </p>
-            {/* Add phone if available */}
+            {/* Add more fields like phone, joined date, etc. when available */}
           </CardContent>
         </Card>
 
@@ -57,7 +59,7 @@ export default async function ProfilePage() {
               </div>
               <div>
                 <p className="text-sm text-base-content/60">Email</p>
-                <p className="font-medium">{user.email}</p>
+                <p className="font-medium">{user.email || "Not set"}</p>
               </div>
               <div>
                 <p className="text-sm text-base-content/60">Role</p>

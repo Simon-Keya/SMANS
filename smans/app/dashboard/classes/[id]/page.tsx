@@ -1,9 +1,15 @@
+// app/dashboard/classes/[id]/page.tsx
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { prisma } from "@/lib/prisma";
 import { ArrowLeft, Edit } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+
+type SelectedStudent = {
+  id: string;
+  name: string | null;
+};
 
 interface ClassDetailPageProps {
   params: { id: string };
@@ -30,8 +36,11 @@ export default async function ClassDetailPage({ params }: ClassDetailPageProps) 
     notFound();
   }
 
+  // Give students an explicit type so .map() is fully typed
+  const students: SelectedStudent[] = classData.students;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
@@ -41,15 +50,17 @@ export default async function ClassDetailPage({ params }: ClassDetailPageProps) 
           </Button>
           <h1 className="text-3xl font-bold text-primary">{classData.name}</h1>
         </div>
+
         <Button asChild variant="outline" className="gap-2">
           <Link href={`/dashboard/classes/${classData.id}/edit`}>
             <Edit className="h-4 w-4" />
-            Edit
+            Edit Class
           </Link>
         </Button>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
+        {/* Class Information */}
         <Card className="bg-base-100 shadow-lg border border-base-200">
           <CardHeader>
             <CardTitle className="text-xl text-primary">Class Information</CardTitle>
@@ -61,28 +72,45 @@ export default async function ClassDetailPage({ params }: ClassDetailPageProps) 
             </div>
             <div>
               <p className="text-sm text-base-content/60">Class Teacher</p>
-              <p className="font-medium">{classData.teacher?.name ?? "Not assigned"}</p>
+              <p className="font-medium">
+                {classData.teacher?.name ?? "Not assigned"}
+              </p>
             </div>
             <div>
               <p className="text-sm text-base-content/60">Student Count</p>
-              <p className="font-medium">{classData.students.length}</p>
+              <p className="font-medium">{students.length}</p>
             </div>
           </CardContent>
         </Card>
 
-        {/* Student list in class */}
+        {/* Enrolled Students */}
         <Card className="bg-base-100 shadow-lg border border-base-200">
           <CardHeader>
-            <CardTitle className="text-xl text-primary">Enrolled Students</CardTitle>
+            <CardTitle className="text-xl text-primary">
+              Enrolled Students ({students.length})
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            {classData.students.length === 0 ? (
-              <p className="text-base-content/60">No students enrolled yet.</p>
+            {students.length === 0 ? (
+              <p className="text-base-content/60 italic">
+                No students enrolled in this class yet.
+              </p>
             ) : (
-              <ul className="space-y-2">
-                {classData.students.map((student) => (
-                  <li key={student.id} className="flex items-center gap-2">
-                    <span className="font-medium">{student.name}</span>
+              <ul className="space-y-3">
+                {students.map((student: SelectedStudent) => (
+                  <li
+                    key={student.id}
+                    className="flex items-center justify-between py-2 border-b border-base-200 last:border-b-0"
+                  >
+                    <span className="font-medium text-base-content">
+                      {student.name ?? "Unnamed Student"}
+                    </span>
+                    <Link
+                      href={`/dashboard/students/${student.id}`}
+                      className="text-sm text-primary hover:text-primary-focus hover:underline"
+                    >
+                      View Profile
+                    </Link>
                   </li>
                 ))}
               </ul>

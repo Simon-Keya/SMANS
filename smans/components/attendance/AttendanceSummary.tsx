@@ -1,39 +1,53 @@
 // components/attendance/AttendanceSummary.tsx
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 
-interface SummaryProps {
-  present: number;
-  total: number;
-  rate: number;
+interface AttendanceSummaryProps {
+  totalDays: number;
+  presentDays: number;
+  percentage: number;
 }
 
-export default function AttendanceSummary({ present, total, rate }: SummaryProps) {
+export default function AttendanceSummary({
+  totalDays,
+  presentDays,
+  percentage,
+}: AttendanceSummaryProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <Card className="bg-base-100 shadow-lg border-base-200">
+      {/* Present Days Card */}
+      <Card className="bg-base-100 shadow-lg border-base-200 transition-all hover:shadow-xl">
         <CardHeader>
           <CardTitle className="text-lg text-primary">Present Today</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-3xl font-bold text-success">{present}</p>
+          <p className="text-4xl font-bold text-success">{presentDays}</p>
+          <p className="text-sm text-base-content/60 mt-1">
+            out of {totalDays} students
+          </p>
         </CardContent>
       </Card>
 
-      <Card className="bg-base-100 shadow-lg border-base-200">
+      {/* Total Students Card */}
+      <Card className="bg-base-100 shadow-lg border-base-200 transition-all hover:shadow-xl">
         <CardHeader>
           <CardTitle className="text-lg text-primary">Total Students</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-3xl font-bold">{total}</p>
+          <p className="text-4xl font-bold">{totalDays}</p>
+          <p className="text-sm text-base-content/60 mt-1">Enrolled</p>
         </CardContent>
       </Card>
 
-      <Card className="bg-base-100 shadow-lg border-base-200">
+      {/* Attendance Rate Card */}
+      <Card className="bg-base-100 shadow-lg border-base-200 transition-all hover:shadow-xl">
         <CardHeader>
           <CardTitle className="text-lg text-primary">Attendance Rate</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-3xl font-bold text-primary">{rate}%</p>
+          <p className="text-4xl font-bold text-primary">{percentage}%</p>
+          <p className="text-sm text-base-content/60 mt-1">
+            {presentDays} present today
+          </p>
         </CardContent>
       </Card>
     </div>

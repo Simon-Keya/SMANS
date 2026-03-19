@@ -43,11 +43,17 @@ model User {
   id                        String                  @id @default(cuid())
   name                      String?
   email                     String                  @unique
-  emailVerified             DateTime?               // ← ADDED: for verification status
+  emailVerified             DateTime?
   password                  String?
   role                      Role                    @default(TEACHER)
   staffNo                   String?                 @unique
-  isActive                  Boolean                 @default(true) // ← ADDED: soft disable
+  phone                     String?                 // ← ADDED
+  profilePicture            String?                 // ← ADDED (URL)
+  lastLogin                 DateTime?               // ← ADDED
+  isActive                  Boolean                 @default(true)
+  createdById               String?                 // ← ADDED (who created this user)
+  createdBy                 User?                   @relation("CreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdUsers              User[]                  @relation("CreatedBy") // self-relation
   teacherClasses            Class[]                 @relation("ClassTeacher")
   assignmentsCreated        Assignment[]            @relation("AssignmentCreator")
   notifications             Notification[]
@@ -60,7 +66,8 @@ model User {
   createdAt                 DateTime                @default(now())
   updatedAt                 DateTime                @updatedAt
 
-  @@index([email])          // ← ADDED: fast lookup
+  @@index([email])
+  @@index([createdById])
   @@map("users")
 }
 
@@ -132,15 +139,17 @@ model Subject {
 // STUDENTS & PARENTS
 // ───────────────────────────────────────────────
 model Parent {
-  id        String    @id @default(cuid())
-  name      String
-  phone     String?
-  email     String?   @unique
-  user      User?     @relation("UserParent", fields: [userId], references: [id], onDelete: SetNull)
-  userId    String?   @unique
-  students  Student[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id           String    @id @default(cuid())
+  name         String
+  phone        String?
+  email        String?   @unique
+  occupation   String?             // ← ADDED
+  relationship String?             // ← ADDED (Mother / Father / Guardian)
+  user         User?     @relation("UserParent", fields: [userId], references: [id], onDelete: SetNull)
+  userId       String?   @unique
+  students     Student[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@index([email])
   @@map("parents")
@@ -152,6 +161,10 @@ model Student {
   rollNumber    String          @unique
   email         String?
   phone         String?
+  admissionDate DateTime?               // ← ADDED
+  dateOfBirth   DateTime?               // ← ADDED
+  gender        String?                 // ← ADDED (Male / Female / Other)
+  address       String?                 // ← ADDED
   classId       String
   class         Class           @relation(fields: [classId], references: [id], onDelete: Cascade)
   parentId      String?
