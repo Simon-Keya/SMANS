@@ -8,7 +8,7 @@ export async function updateUser(
   userId: string,
   data: {
     name?: string;
-    role?: "ADMIN" | "TEACHER" | "STUDENT" | "PARENT";  // ← FIXED: uppercase to match enum
+    role?: "ADMIN" | "TEACHER" | "STUDENT" | "PARENT"; 
   }
 ) {
   const session = await getServerSession(authOptions);
