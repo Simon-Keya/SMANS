@@ -15,6 +15,7 @@ enum Role {
   TEACHER
   STUDENT
   PARENT
+  ACCOUNTANT          // ← ADDED
 }
 
 enum AttendanceStatus {
@@ -47,13 +48,13 @@ model User {
   password                  String?
   role                      Role                    @default(TEACHER)
   staffNo                   String?                 @unique
-  phone                     String?                 // ← ADDED
-  profilePicture            String?                 // ← ADDED (URL)
-  lastLogin                 DateTime?               // ← ADDED
+  phone                     String?
+  profilePicture            String?
+  lastLogin                 DateTime?
   isActive                  Boolean                 @default(true)
-  createdById               String?                 // ← ADDED (who created this user)
+  createdById               String?
   createdBy                 User?                   @relation("CreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  createdUsers              User[]                  @relation("CreatedBy") // self-relation
+  createdUsers              User[]                  @relation("CreatedBy")
   teacherClasses            Class[]                 @relation("ClassTeacher")
   assignmentsCreated        Assignment[]            @relation("AssignmentCreator")
   notifications             Notification[]
@@ -63,6 +64,10 @@ model User {
   student                   Student?                @relation("UserStudent")
   passwordResetTokens       PasswordResetToken[]
   emailVerificationTokens   EmailVerificationToken[]
+  createdInvoices           Invoice[]               @relation("CreatedByInvoice")      // ← ADDED: accountant who created invoice
+  approvedInvoices          Invoice[]               @relation("ApprovedByInvoice")      // ← ADDED: accountant who approved
+  createdPayments           Payment[]               @relation("CreatedByPayment")       // ← ADDED
+  approvedPayments          Payment[]               @relation("ApprovedByPayment")      // ← ADDED
   createdAt                 DateTime                @default(now())
   updatedAt                 DateTime                @updatedAt
 
@@ -143,8 +148,8 @@ model Parent {
   name         String
   phone        String?
   email        String?   @unique
-  occupation   String?             // ← ADDED
-  relationship String?             // ← ADDED (Mother / Father / Guardian)
+  occupation   String?
+  relationship String?
   user         User?     @relation("UserParent", fields: [userId], references: [id], onDelete: SetNull)
   userId       String?   @unique
   students     Student[]
@@ -161,10 +166,10 @@ model Student {
   rollNumber    String          @unique
   email         String?
   phone         String?
-  admissionDate DateTime?               // ← ADDED
-  dateOfBirth   DateTime?               // ← ADDED
-  gender        String?                 // ← ADDED (Male / Female / Other)
-  address       String?                 // ← ADDED
+  admissionDate DateTime?
+  dateOfBirth   DateTime?
+  gender        String?
+  address       String?
   classId       String
   class         Class           @relation(fields: [classId], references: [id], onDelete: Cascade)
   parentId      String?
@@ -242,18 +247,20 @@ model Exam {
 }
 
 model Grade {
-  id        String    @id @default(cuid())
-  marks     Int
-  maxMarks  Int       @default(100)
-  studentId String
-  student   Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  subjectId String
-  subject   Subject   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  examId    String
-  exam      Exam      @relation(fields: [examId], references: [id], onDelete: Cascade)
-  published Boolean   @default(false)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id            String    @id @default(cuid())
+  marks         Int
+  maxMarks      Int       @default(100)
+  studentId     String
+  student       Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subjectId     String
+  subject       Subject   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  examId        String
+  exam          Exam      @relation(fields: [examId], references: [id], onDelete: Cascade)
+  published     Boolean   @default(false)
+  comments      String?   // Teacher remarks
+  weightedScore Float?    // For weighted grading systems
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@unique([studentId, subjectId, examId])
   @@index([studentId])
@@ -297,34 +304,46 @@ model FeeItem {
 }
 
 model Invoice {
-  id        String        @id @default(cuid())
-  studentId String
-  student   Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  feeItemId String?
-  feeItem   FeeItem?      @relation(fields: [feeItemId], references: [id], onDelete: SetNull)
-  amount    Float
-  dueDate   DateTime
-  status    InvoiceStatus @default(PENDING)
-  payments  Payment[]
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  id            String        @id @default(cuid())
+  studentId     String
+  student       Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  feeItemId     String?
+  feeItem       FeeItem?      @relation(fields: [feeItemId], references: [id], onDelete: SetNull)
+  amount        Float
+  dueDate       DateTime
+  status        InvoiceStatus @default(PENDING)
+  payments      Payment[]
+  createdById   String?               // ← ADDED: accountant who created it
+  createdBy     User?         @relation("CreatedByInvoice", fields: [createdById], references: [id], onDelete: SetNull)
+  approvedById  String?               // ← ADDED: accountant who approved/verified
+  approvedBy    User?         @relation("ApprovedByInvoice", fields: [approvedById], references: [id], onDelete: SetNull)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   @@index([studentId])
+  @@index([createdById])
+  @@index([approvedById])
   @@map("invoices")
 }
 
 model Payment {
-  id          String        @id @default(cuid())
-  invoiceId   String
-  invoice     Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  amount      Float
-  method      String
-  status      PaymentStatus @default(COMPLETED)
-  paymentDate DateTime      @default(now())
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id            String        @id @default(cuid())
+  invoiceId     String
+  invoice       Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  amount        Float
+  method        String
+  status        PaymentStatus @default(COMPLETED)
+  paymentDate   DateTime      @default(now())
+  createdById   String?               // ← ADDED: accountant who recorded it
+  createdBy     User?         @relation("CreatedByPayment", fields: [createdById], references: [id], onDelete: SetNull)
+  approvedById  String?               // ← ADDED: accountant who verified/approved
+  approvedBy    User?         @relation("ApprovedByPayment", fields: [approvedById], references: [id], onDelete: SetNull)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   @@index([invoiceId])
+  @@index([createdById])
+  @@index([approvedById])
   @@map("payments")
 }
 
@@ -336,7 +355,7 @@ model Notification {
   title           String
   message         String
   read            Boolean         @default(false)
-  type            String?         // ← ADDED: e.g. "success", "warning", "info"
+  type            String?
   userId          String
   user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   logs            NotificationLog[]
@@ -374,7 +393,7 @@ model Transcript {
   term      String
   year      Int
   gpa       Float?
-  remarks   String?   // ← ADDED: optional teacher comments
+  remarks   String?
   student   Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, term, year])
@@ -388,7 +407,7 @@ model PromotionLog {
   fromClass String
   toClass   String
   date      DateTime  @default(now())
-  approvedBy String?  // ← ADDED: who approved the promotion
+  approvedBy String?
   student   Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@index([studentId])
@@ -396,7 +415,7 @@ model PromotionLog {
 }
 
 // ───────────────────────────────────────────────
-// SCHOOL & GENERAL SETTINGS (singleton models)
+// SCHOOL & GENERAL SETTINGS
 // ───────────────────────────────────────────────
 model SchoolSettings {
   id                  Int       @id @default(1)
@@ -434,7 +453,9 @@ model AuditLog {
   action    String
   entity    String
   entityId  String?
-  metadata  Json?     @db.Json // ← FIXED: explicit @db.Json
+  metadata  Json?     @db.Json
+  ipAddress String?   // ← ADDED
+  userAgent String?   // ← ADDED
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
@@ -444,7 +465,7 @@ model AuditLog {
 }
 
 // ───────────────────────────────────────────────
-// RBAC PERMISSIONS (optional but good to have)
+// RBAC PERMISSIONS
 // ───────────────────────────────────────────────
 model Permission {
   id              String          @id @default(cuid())

@@ -1,100 +1,92 @@
-// app/api/invoices/route.ts
-import { authOptions } from "@/lib/auth/auth"; // FIXED: correct path
+import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 const createInvoiceSchema = z.object({
-  studentId: z.string().min(1, "Student is required"),
+  studentId: z.string().min(1),
   feeItemId: z.string().optional(),
-  amount: z.number().min(1, "Amount must be greater than 0"),
-  dueDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
-    message: "Invalid due date format",
-  }),
+  amount: z.number().positive(),
+  dueDate: z.coerce.date(),
+  description: z.string().optional(),
 });
 
-export async function GET() {
+// GET: List all invoices (admin + accountant)
+export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "ADMIN") {
+  if (!session || !["ADMIN", "ACCOUNTANT"].includes(session.user.role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
+    const { searchParams } = new URL(req.url);
+    const status = searchParams.get("status") || undefined;
+    const startDate = searchParams.get("startDate") ? new Date(searchParams.get("startDate")!) : undefined;
+    const endDate = searchParams.get("endDate") ? new Date(searchParams.get("endDate")!) : undefined;
+
     const invoices = await prisma.invoice.findMany({
-      include: {
-        student: { select: { name: true, rollNumber: true } },
-        feeItem: { select: { name: true } },
+      where: {
+        status: status || undefined,
+        dueDate: startDate || endDate ? { gte: startDate, lte: endDate } : undefined,
+      },
+      select: {
+        id: true,
+        student: { select: { name: true } },
+        amount: true,
+        dueDate: true,
+        status: true,
+        createdAt: true,
       },
       orderBy: { dueDate: "desc" },
+      take: 50, // limit for performance
     });
 
-    return NextResponse.json({ success: true, data: invoices });
+    return NextResponse.json(invoices);
   } catch (error) {
-    console.error("[GET_INVOICES]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    console.error("GET /api/fees/invoices error:", error);
+    return NextResponse.json({ error: "Failed to fetch invoices" }, { status: 500 });
   }
 }
 
-export async function POST(request: NextRequest) {
+// POST: Create new invoice (admin + accountant)
+export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "ADMIN") {
+  if (!session || !["ADMIN", "ACCOUNTANT"].includes(session.user.role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const body = await request.json();
-    const parsed = createInvoiceSchema.safeParse(body);
+    const body = await req.json();
+    const validated = createInvoiceSchema.safeParse(body);
 
-    if (!parsed.success) {
-      // FIXED: proper Zod error handling
-      const firstIssue = parsed.error.issues[0];
+    if (!validated.success) {
       return NextResponse.json(
-        { error: firstIssue?.message || "Invalid input" },
+        { error: validated.error.issues[0]?.message || "Invalid input" },
         { status: 400 }
       );
     }
 
-    const { studentId, feeItemId, amount, dueDate } = parsed.data;
-
-    // Verify student exists
-    const student = await prisma.student.findUnique({
-      where: { id: studentId },
-    });
-
-    if (!student) {
-      return NextResponse.json({ error: "Student not found" }, { status: 404 });
-    }
-
-    // Optional: verify fee item exists if provided
-    if (feeItemId) {
-      const feeItem = await prisma.feeItem.findUnique({
-        where: { id: feeItemId },
-      });
-      if (!feeItem) {
-        return NextResponse.json({ error: "Fee item not found" }, { status: 404 });
-      }
-    }
+    const data = validated.data;
 
     const invoice = await prisma.invoice.create({
       data: {
-        studentId,
-        feeItemId: feeItemId || null,
-        amount,
-        dueDate: new Date(dueDate),
+        studentId: data.studentId,
+        feeItemId: data.feeItemId || null,
+        amount: data.amount,
+        dueDate: data.dueDate,
+        description: data.description?.trim(),
         status: "PENDING",
-      },
-      include: {
-        student: { select: { name: true } },
-        feeItem: { select: { name: true } },
+        createdById: session.user.id,
+        approvedById: session.user.role === "ACCOUNTANT" ? session.user.id : null,
       },
     });
 
-    return NextResponse.json({ success: true, data: invoice }, { status: 201 });
+    return NextResponse.json({ success: true, invoice }, { status: 201 });
   } catch (error) {
-    console.error("[CREATE_INVOICE]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    console.error("POST /api/fees/invoices error:", error);
+    return NextResponse.json({ error: "Failed to create invoice" }, { status: 500 });
   }
 }

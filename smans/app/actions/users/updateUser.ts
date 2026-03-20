@@ -3,37 +3,82 @@
 import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
+import { z } from "zod";
+
+// ✅ Validation schema
+const updateUserSchema = z.object({
+  name: z.string().min(2).optional(),
+  role: z.enum(["ADMIN", "TEACHER", "STUDENT", "PARENT"]).optional(),
+});
 
 export async function updateUser(
   userId: string,
-  data: {
-    name?: string;
-    role?: "ADMIN" | "TEACHER" | "STUDENT" | "PARENT"; 
-  }
+  rawData: unknown
 ) {
   const session = await getServerSession(authOptions);
 
-  if (!session) {
+  if (!session?.user) {
     throw new Error("Unauthorized");
   }
 
-  // Admin can update anyone, users can update themselves (name only)
-  if (
-    session.user.role !== "ADMIN" &&                    // ← FIXED: uppercase
-    session.user.id !== userId
-  ) {
+  // ✅ Validate input
+  const data = updateUserSchema.parse(rawData);
+
+  // ✅ Check if user exists
+  const existingUser = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!existingUser) {
+    throw new Error("User not found");
+  }
+
+  // ✅ Authorization
+  const isAdmin = session.user.role === "ADMIN";
+  const isSelf = session.user.id === userId;
+
+  if (!isAdmin && !isSelf) {
     throw new Error("Forbidden");
   }
 
-  // Optional: prevent non-admins from changing role
-  if (data.role && session.user.role !== "ADMIN") {
+  // ✅ Prevent role change by non-admin
+  if (data.role && !isAdmin) {
     throw new Error("Only admins can change roles");
   }
 
-  await prisma.user.update({
+  // ✅ Sanitize data
+  const updateData: any = {};
+
+  if (data.name) {
+    updateData.name = data.name.trim();
+  }
+
+  if (data.role && isAdmin) {
+    updateData.role = data.role;
+  }
+
+  // 🚨 Nothing to update
+  if (Object.keys(updateData).length === 0) {
+    throw new Error("No valid fields provided");
+  }
+
+  const updatedUser = await prisma.user.update({
     where: { id: userId },
-    data,
+    data: updateData,
   });
 
-  return { success: true };
+  // ✅ Audit log (VERY IMPORTANT)
+  await prisma.auditLog.create({
+    data: {
+      action: "UPDATE_USER",
+      userId: session.user.id,
+      targetId: userId,
+      metadata: JSON.stringify(updateData),
+    },
+  });
+
+  return {
+    success: true,
+    user: updatedUser,
+  };
 }

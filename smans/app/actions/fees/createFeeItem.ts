@@ -1,71 +1,43 @@
 "use server";
 
-import { logAction } from "@/app/actions/audit/logAction"; // ← optional: your audit logger
+import { getCurrentUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
 const createFeeItemSchema = z.object({
-  name: z.string().min(3, "Name must be at least 3 characters").trim(),
-  amount: z.number().positive("Amount must be greater than 0"),
-  frequency: z.enum(["once", "monthly", "termly", "yearly"], {
-    errorMap: () => ({ message: "Invalid frequency. Choose: once, monthly, termly, yearly" }),
-  }),
-  description: z.string().max(500).optional(),
+  name: z.string().min(1, "Name is required"),
+  amount: z.number().positive("Amount must be positive"),
+  frequency: z.enum(["ONCE", "MONTHLY", "TERM", "YEARLY"]),
+  description: z.string().optional(),
 });
 
-export async function createFeeItem(
-  rawData: unknown,
-  userId?: string // ← optional: pass current user ID for logging
-) {
-  try {
-    // Validate input with Zod
-    const data = createFeeItemSchema.parse(rawData);
+export async function createFeeItemAction(input: unknown) {
+  const user = await getCurrentUser();
 
-    // Create the fee item
+  if (!user || !["ADMIN", "ACCOUNTANT"].includes(user.role)) {
+    throw new Error("Unauthorized: Only admins and accountants can create fee items");
+  }
+
+  const validated = createFeeItemSchema.safeParse(input);
+  if (!validated.success) {
+    throw new Error(validated.error.issues[0]?.message || "Invalid input");
+  }
+
+  const data = validated.data;
+
+  try {
     const feeItem = await prisma.feeItem.create({
       data: {
-        name: data.name,
+        name: data.name.trim(),
         amount: data.amount,
         frequency: data.frequency,
-        description: data.description ?? null,
+        description: data.description?.trim(),
       },
     });
 
-    // Optional: log the action (if you have user context)
-    if (userId) {
-      await logAction(
-        "CREATE",
-        "FeeItem",
-        feeItem.id,
-        { name: data.name, amount: data.amount, frequency: data.frequency },
-        userId
-      );
-    }
-
-    return {
-      success: true,
-      message: "Fee item created successfully",
-      data: feeItem,
-    };
+    return { success: true, feeItem };
   } catch (error) {
-    console.error("[CREATE_FEE_ITEM_ERROR]", error);
-
-    // Zod validation error
-    if (error instanceof z.ZodError) {
-      return {
-        success: false,
-        message: "Validation failed",
-        errors: error.errors.map(e => ({
-          field: e.path.join("."),
-          message: e.message,
-        })),
-      };
-    }
-
-    // General error
-    return {
-      success: false,
-      message: error instanceof Error ? error.message : "Failed to create fee item",
-    };
+    console.error("Create fee item error:", error);
+    throw new Error("Failed to create fee item. Please try again.");
   }
 }

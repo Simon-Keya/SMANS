@@ -1,104 +1,87 @@
-// app/api/structure/[id]/route.ts
-import { authOptions } from "@/lib/auth/auth"; // FIXED: correct path
+import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 const updateFeeItemSchema = z.object({
-  name: z.string().min(3, "Name must be at least 3 characters").trim().optional(),
-  amount: z.number().min(1, "Amount must be greater than 0").optional(),
-  frequency: z.enum(["once", "monthly", "termly", "yearly"]).optional(),
+  name: z.string().min(1).optional(),
+  amount: z.number().positive().optional(),
+  frequency: z.enum(["ONCE", "MONTHLY", "TERM", "YEARLY"]).optional(),
   description: z.string().optional().nullable(),
 });
 
+// GET: Fetch single fee item
 export async function GET(
-  request: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "ADMIN") {
+  if (!session || !["ADMIN", "ACCOUNTANT"].includes(session.user.role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const item = await prisma.feeItem.findUnique({
+    const feeItem = await prisma.feeItem.findUnique({
       where: { id: params.id },
+      select: {
+        id: true,
+        name: true,
+        amount: true,
+        frequency: true,
+        description: true,
+      },
     });
 
-    if (!item) {
+    if (!feeItem) {
       return NextResponse.json({ error: "Fee item not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true, data: item });
+    return NextResponse.json(feeItem);
   } catch (error) {
-    console.error("[GET_FEE_ITEM]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    console.error("GET /api/fees/structure/[id] error:", error);
+    return NextResponse.json({ error: "Failed to fetch fee item" }, { status: 500 });
   }
 }
 
-export async function PUT(
-  request: NextRequest,
+// PATCH: Update fee item
+export async function PATCH(
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "ADMIN") {
+  if (!session || !["ADMIN", "ACCOUNTANT"].includes(session.user.role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const body = await request.json();
-    const parsed = updateFeeItemSchema.safeParse(body);
+    const body = await req.json();
+    const validated = updateFeeItemSchema.safeParse(body);
 
-    if (!parsed.success) {
-      // FIXED: proper Zod error handling
-      const firstIssue = parsed.error.issues[0];
+    if (!validated.success) {
       return NextResponse.json(
-        { error: firstIssue?.message || "Validation failed" },
+        { error: validated.error.issues[0]?.message || "Invalid input" },
         { status: 400 }
       );
     }
 
-    const updated = await prisma.feeItem.update({
+    const data = validated.data;
+
+    const feeItem = await prisma.feeItem.update({
       where: { id: params.id },
-      data: parsed.data,
+      data: {
+        name: data.name ? data.name.trim() : undefined,
+        amount: data.amount,
+        frequency: data.frequency,
+        description: data.description,
+      },
     });
 
-    return NextResponse.json({ success: true, data: updated });
+    return NextResponse.json({ success: true, feeItem });
   } catch (error) {
-    console.error("[UPDATE_FEE_ITEM]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
-}
-
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  const session = await getServerSession(authOptions);
-
-  if (!session || session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  try {
-    const item = await prisma.feeItem.findUnique({
-      where: { id: params.id },
-    });
-
-    if (!item) {
-      return NextResponse.json({ error: "Fee item not found" }, { status: 404 });
-    }
-
-    await prisma.feeItem.delete({
-      where: { id: params.id },
-    });
-
-    return NextResponse.json({ success: true, message: "Fee item deleted" });
-  } catch (error) {
-    console.error("[DELETE_FEE_ITEM]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    console.error("PATCH /api/fees/structure/[id] error:", error);
+    return NextResponse.json({ error: "Failed to update fee item" }, { status: 500 });
   }
 }
