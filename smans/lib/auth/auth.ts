@@ -1,39 +1,30 @@
 // lib/auth/auth.ts
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import NextAuth from "next-auth";
+import NextAuth, { DefaultSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 
 // ───────────────────────────────────────────────
-// Type augmentation (extends defaults instead of overriding)
-// This keeps name, email, image while adding id & role
+// Type augmentation – extends defaults, keeps name/email/image
 // ───────────────────────────────────────────────
-import { DefaultSession } from "next-auth";
-
 declare module "next-auth" {
-  /**
-   * Extend the default Session.user type
-   */
   interface Session {
     user: {
       id: string;
-      role: "ADMIN" | "TEACHER" | "STUDENT" | "PARENT";
-    } & DefaultSession["user"]; // ← this brings back name, email, image
+      role: "ADMIN" | "TEACHER" | "STUDENT" | "PARENT" | "ACCOUNTANT";
+    } & DefaultSession["user"];
   }
 
-  /**
-   * Extend the User type (returned from authorize)
-   */
   interface User {
     id: string;
-    role: "ADMIN" | "TEACHER" | "STUDENT" | "PARENT";
+    role: "ADMIN" | "TEACHER" | "STUDENT" | "PARENT" | "ACCOUNTANT";
   }
 }
 
 declare module "next-auth/jwt" {
   interface JWT {
     id: string;
-    role: "ADMIN" | "TEACHER" | "STUDENT" | "PARENT";
+    role: "ADMIN" | "TEACHER" | "STUDENT" | "PARENT" | "ACCOUNTANT";
   }
 }
 
@@ -67,7 +58,6 @@ export const authOptions = {
           return null;
         }
 
-        // Return user object that matches the augmented User type
         return {
           id: user.id,
           name: user.name ?? null,
@@ -80,16 +70,18 @@ export const authOptions = {
 
   pages: {
     signIn: "/auth/login",
-    error: "/auth/error", // ← optional but recommended
+    error: "/auth/error",        // recommended – shows auth errors nicely
+    signOut: "/auth/signout",    // optional but good practice
   },
 
   session: {
     strategy: "jwt" as const,
+    maxAge: 30 * 24 * 60 * 60,   // 30 days – adjust as needed
   },
 
   callbacks: {
     async jwt({ token, user }) {
-      // When user signs in, add id & role to token
+      // First sign-in: copy user data into token
       if (user) {
         token.id = user.id;
         token.role = user.role;
@@ -98,12 +90,12 @@ export const authOptions = {
     },
 
     async session({ session, token }) {
-      // Add id & role from token to session.user
+      // Copy token data into session.user
       if (token?.id) {
         session.user.id = token.id as string;
       }
       if (token?.role) {
-        session.user.role = token.role as "ADMIN" | "TEACHER" | "STUDENT" | "PARENT";
+        session.user.role = token.role as "ADMIN" | "TEACHER" | "STUDENT" | "PARENT" | "ACCOUNTANT";
       }
       return session;
     },
@@ -111,11 +103,16 @@ export const authOptions = {
 
   secret: process.env.NEXTAUTH_SECRET,
 
-  // Optional: debug in development
+  // Enable debug logs in development
   debug: process.env.NODE_ENV === "development",
+
+  // Optional: improve security
+  jwt: {
+    maxAge: 30 * 24 * 60 * 60, // match session maxAge
+  },
 } satisfies import("next-auth").NextAuthOptions;
 
-// Export handler for API route
+// Export handler for App Router API route
 const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST };

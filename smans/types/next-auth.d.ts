@@ -6,15 +6,15 @@ import { DefaultSession } from "next-auth";
 declare module "next-auth" {
   interface Session {
     user: {
-      id: string;                                
-      role: "ADMIN" | "TEACHER" | "STUDENT" | "PARENT"; 
-    } & DefaultSession["user"];                   
+      id: string;
+      role: "ADMIN" | "TEACHER" | "STUDENT" | "PARENT" | "ACCOUNTANT"; // ← added ACCOUNTANT
+    } & DefaultSession["user"];
   }
 
   // Extend User (returned from authorize)
   interface User {
     id: string;
-    role: "ADMIN" | "TEACHER" | "STUDENT" | "PARENT";
+    role: "ADMIN" | "TEACHER" | "STUDENT" | "PARENT" | "ACCOUNTANT"; // ← added ACCOUNTANT
   }
 }
 
@@ -22,6 +22,6 @@ declare module "next-auth" {
 declare module "next-auth/jwt" {
   interface JWT {
     id: string;
-    role: "ADMIN" | "TEACHER" | "STUDENT" | "PARENT";
+    role: "ADMIN" | "TEACHER" | "STUDENT" | "PARENT" | "ACCOUNTANT"; // ← added ACCOUNTANT
   }
 }

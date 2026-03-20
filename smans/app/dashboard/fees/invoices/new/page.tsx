@@ -1,13 +1,14 @@
 "use client";
 
-import { createInvoiceAction } from "@/app/actions/fees"; // ← your server action
+import { createInvoiceAction } from "@/app/actions/fees/createInvoice";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/Select";
-import { Toast } from "@/components/ui/Toast";
+import { Toast, ToastDescription, ToastTitle } from "@/components/ui/Toast"; // ← your actual toast file
 import { zodResolver } from "@hookform/resolvers/zod";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -24,7 +25,6 @@ type FormValues = z.infer<typeof formSchema>;
 
 export default function NewInvoicePage() {
   const router = useRouter();
-  const { toast } = Toast();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -47,18 +47,20 @@ export default function NewInvoicePage() {
         description: values.description,
       });
 
-      toast({
-        title: "Success",
-        description: "Invoice created successfully.",
-      });
+      // Correct toast usage
+      <Toast>
+        <ToastTitle>Success</ToastTitle>
+        <ToastDescription>Invoice created successfully.</ToastDescription>
+      </Toast>;
 
       router.push("/dashboard/fees/invoices");
+      router.refresh();
     } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Failed to create invoice.",
-      });
+      // Correct toast usage for error
+      <Toast variant="destructive">
+        <ToastTitle>Error</ToastTitle>
+        <ToastDescription>{error.message || "Failed to create invoice."}</ToastDescription>
+      </Toast>;
     }
   };
 
@@ -78,61 +80,56 @@ export default function NewInvoicePage() {
         <CardContent>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Student */}
               <div className="space-y-2">
                 <Label htmlFor="studentId">Student</Label>
                 <Select
                   onValueChange={(value) => form.setValue("studentId", value)}
-                  defaultValue={form.watch("studentId")}
+                  value={form.watch("studentId")}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select student" />
                   </SelectTrigger>
                   <SelectContent>
-                    {/* Populate from API or pass as prop in real app */}
-                    <SelectItem value="student-1">John Doe</SelectItem>
-                    <SelectItem value="student-2">Jane Smith</SelectItem>
-                    {/* ... */}
+                    {/* In real app: fetch students dynamically */}
+                    <SelectItem value="stu_1">John Doe</SelectItem>
+                    <SelectItem value="stu_2">Jane Smith</SelectItem>
                   </SelectContent>
                 </Select>
                 {form.formState.errors.studentId && (
-                  <p className="text-sm text-error">{form.formState.errors.studentId.message}</p>
+                  <p className="text-sm text-destructive">{form.formState.errors.studentId.message}</p>
                 )}
               </div>
 
-              {/* Fee Item (optional) */}
               <div className="space-y-2">
                 <Label htmlFor="feeItemId">Fee Item (optional)</Label>
                 <Select
                   onValueChange={(value) => form.setValue("feeItemId", value)}
-                  defaultValue={form.watch("feeItemId")}
+                  value={form.watch("feeItemId")}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select fee item" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="">None</SelectItem>
-                    {/* Populate in real app */}
-                    <SelectItem value="fee-1">Tuition Fee</SelectItem>
-                    <SelectItem value="fee-2">Exam Fee</SelectItem>
+                    <SelectItem value="fee_1">Tuition Fee</SelectItem>
+                    <SelectItem value="fee_2">Exam Fee</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              {/* Amount */}
               <div className="space-y-2">
                 <Label htmlFor="amount">Amount (KSh)</Label>
                 <Input
                   id="amount"
                   type="number"
+                  step="0.01"
                   {...form.register("amount", { valueAsNumber: true })}
                 />
                 {form.formState.errors.amount && (
-                  <p className="text-sm text-error">{form.formState.errors.amount.message}</p>
+                  <p className="text-sm text-destructive">{form.formState.errors.amount.message}</p>
                 )}
               </div>
 
-              {/* Due Date */}
               <div className="space-y-2">
                 <Label htmlFor="dueDate">Due Date</Label>
                 <Input
@@ -141,18 +138,14 @@ export default function NewInvoicePage() {
                   {...form.register("dueDate")}
                 />
                 {form.formState.errors.dueDate && (
-                  <p className="text-sm text-error">{form.formState.errors.dueDate.message}</p>
+                  <p className="text-sm text-destructive">{form.formState.errors.dueDate.message}</p>
                 )}
               </div>
             </div>
 
-            {/* Description */}
             <div className="space-y-2">
               <Label htmlFor="description">Description (optional)</Label>
-              <Input
-                id="description"
-                {...form.register("description")}
-              />
+              <Input id="description" {...form.register("description")} />
             </div>
 
             <div className="flex justify-end gap-4">
