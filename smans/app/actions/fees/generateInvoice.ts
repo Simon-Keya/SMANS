@@ -1,46 +1,53 @@
+// app/actions/fees/generateInvoice.ts
 "use server";
 
+import { getCurrentUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
+import { z } from "zod";
 
-export async function generateInvoice(
-  studentId: string,
-  feeItemIds: string[]
-) {
-  // 1. Fetch the fee items
-  const items = await prisma.feeItem.findMany({
-    where: { id: { in: feeItemIds } },
-  });
+const generateInvoiceSchema = z.object({
+  studentId: z.string().min(1, "Student is required"),
+  feeItemId: z.string().optional(), // optional – can be custom invoice
+  amount: z.number().positive("Amount must be greater than 0"),
+  dueDate: z.coerce.date().min(new Date(), "Due date must be in the future"),
+  description: z.string().optional(),
+});
 
-  if (items.length !== feeItemIds.length) {
-    throw new Error("One or more fee items not found");
+export async function generateInvoice(input: unknown) {
+  const user = await getCurrentUser();
+
+  if (!user || !["ADMIN", "ACCOUNTANT"].includes(user.role)) {
+    throw new Error("Unauthorized: Only admins and accountants can generate invoices");
   }
 
-  // 2. Calculate total
-  const total = items.reduce((sum, item) => sum + item.amount, 0);
+  const validated = generateInvoiceSchema.safeParse(input);
+  if (!validated.success) {
+    throw new Error(validated.error.issues[0]?.message || "Invalid input");
+  }
 
-  // 3. Create invoice + invoice items in a transaction
-  return prisma.$transaction(async (tx) => {
-    const invoice = await tx.invoice.create({
+  const { studentId, feeItemId, amount, dueDate, description } = validated.data;
+
+  try {
+    const invoice = await prisma.invoice.create({
       data: {
         studentId,
-        amount: total,           // ← renamed 'total' to 'amount' to match schema
-        status: "PENDING",       // ← FIXED: uppercase to match enum
-        // Optional: due date (e.g. 30 days from now)
-        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        // Create invoice items (many-to-many or through relation table)
-        items: {
-          create: items.map(item => ({
-            feeItemId: item.id,
-            amount: item.amount,
-          })),
-        },
+        feeItemId: feeItemId || null,
+        amount,
+        dueDate,
+        description: description?.trim(),
+        status: "PENDING", // matches your InvoiceStatus enum
+        createdById: user.id,
+        approvedById: user.role === "ACCOUNTANT" ? user.id : null,
       },
       include: {
-        items: true,
         student: { select: { name: true } },
+        feeItem: { select: { name: true } },
       },
     });
 
-    return invoice;
-  });
+    return { success: true, invoice };
+  } catch (error) {
+    console.error("Generate invoice error:", error);
+    throw new Error("Failed to generate invoice. Please try again.");
+  }
 }

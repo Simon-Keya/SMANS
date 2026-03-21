@@ -1,3 +1,4 @@
+// app/actions/users/updateUser.ts
 "use server";
 
 import { authOptions } from "@/lib/auth/auth";
@@ -5,80 +6,120 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { z } from "zod";
 
-// ✅ Validation schema
+const allowedRoles = ["ADMIN", "TEACHER", "STUDENT", "PARENT", "ACCOUNTANT"] as const;
+
 const updateUserSchema = z.object({
   name: z.string().min(2).optional(),
-  role: z.enum(["ADMIN", "TEACHER", "STUDENT", "PARENT"]).optional(),
+  phone: z.string().min(9).optional(),
+  role: z.enum(allowedRoles).optional(),
+  staffNo: z.string().min(3).optional(),
+  rollNumber: z.string().min(3).optional(),
+  classId: z.string().optional(),
+  parentId: z.string().optional(),
+  occupation: z.string().optional(),
+  relationship: z.string().optional(),
+  isActive: z.boolean().optional(),
 });
 
-export async function updateUser(
-  userId: string,
-  rawData: unknown
-) {
+export async function updateUser(userId: string, rawData: unknown) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user) {
     throw new Error("Unauthorized");
   }
 
-  // ✅ Validate input
-  const data = updateUserSchema.parse(rawData);
-
-  // ✅ Check if user exists
-  const existingUser = await prisma.user.findUnique({
-    where: { id: userId },
-  });
-
-  if (!existingUser) {
-    throw new Error("User not found");
-  }
-
-  // ✅ Authorization
   const isAdmin = session.user.role === "ADMIN";
   const isSelf = session.user.id === userId;
 
   if (!isAdmin && !isSelf) {
-    throw new Error("Forbidden");
+    throw new Error("Forbidden: You can only update your own profile");
   }
 
-  // ✅ Prevent role change by non-admin
-  if (data.role && !isAdmin) {
-    throw new Error("Only admins can change roles");
+  const data = updateUserSchema.safeParse(rawData);
+  if (!data.success) {
+    throw new Error(data.error.issues[0]?.message || "Invalid input");
   }
 
-  // ✅ Sanitize data
+  const updateFields = data.data;
+
+  // Only admin can change role
+  if (updateFields.role && !isAdmin) {
+    throw new Error("Only administrators can change user roles");
+  }
+
+  // Prevent self role downgrade
+  if (isSelf && updateFields.role && updateFields.role !== session.user.role) {
+    throw new Error("You cannot change your own role");
+  }
+
+  // Build sanitized update object
   const updateData: any = {};
 
-  if (data.name) {
-    updateData.name = data.name.trim();
+  if (updateFields.name !== undefined) updateData.name = updateFields.name.trim();
+  if (updateFields.phone !== undefined) updateData.phone = updateFields.phone.trim();
+
+  if (updateFields.role !== undefined && isAdmin) {
+    updateData.role = updateFields.role;
   }
 
-  if (data.role && isAdmin) {
-    updateData.role = data.role;
+  if (updateFields.staffNo !== undefined) updateData.staffNo = updateFields.staffNo.trim();
+  if (updateFields.rollNumber !== undefined) updateData.rollNumber = updateFields.rollNumber.trim();
+  if (updateFields.classId !== undefined) updateData.classId = updateFields.classId;
+  if (updateFields.parentId !== undefined) updateData.parentId = updateFields.parentId;
+  if (updateFields.occupation !== undefined) updateData.occupation = updateFields.occupation.trim();
+  if (updateFields.relationship !== undefined) updateData.relationship = updateFields.relationship.trim();
+
+  if (updateFields.isActive !== undefined && isAdmin) {
+    updateData.isActive = updateFields.isActive;
   }
 
-  // 🚨 Nothing to update
   if (Object.keys(updateData).length === 0) {
-    throw new Error("No valid fields provided");
+    throw new Error("No valid fields provided for update");
   }
 
-  const updatedUser = await prisma.user.update({
-    where: { id: userId },
-    data: updateData,
-  });
+  try {
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        staffNo: true,
+        rollNumber: true,
+        classId: true,
+        parentId: true,
+        occupation: true,
+        relationship: true,
+        isActive: true,
+        updatedAt: true,
+      },
+    });
 
-  // ✅ Audit log (VERY IMPORTANT)
-  await prisma.auditLog.create({
-    data: {
-      action: "UPDATE_USER",
-      userId: session.user.id,
-      targetId: userId,
-      metadata: JSON.stringify(updateData),
-    },
-  });
+    // Audit log
+    await prisma.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: "UPDATE_USER",
+        entity: "User",
+        entityId: userId,
+        metadata: {
+          updatedFields: Object.keys(updateData),
+          targetEmail: updatedUser.email,
+          targetRole: updatedUser.role,
+        },
+      },
+    });
 
-  return {
-    success: true,
-    user: updatedUser,
-  };
+    return {
+      success: true,
+      user: updatedUser,
+      message: "User updated successfully",
+    };
+  } catch (error: any) {
+    console.error("Update user error:", error);
+    throw new Error("Failed to update user. Please try again.");
+  }
 }
