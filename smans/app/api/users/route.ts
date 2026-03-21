@@ -1,16 +1,22 @@
-import { authOptions } from "@/lib/auth";
+import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import * as z from "zod";
 
-// Validation schema for creating a user
+// Allowed roles
+const allowedRoles = ["ADMIN", "TEACHER", "STUDENT", "PARENT", "ACCOUNTANT"] as const;
+
+// Create schema
 const createUserSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").trim(),
-  email: z.string().email("Invalid email address").trim().toLowerCase(),
+  email: z.string().email("Invalid email").trim().toLowerCase(),
   password: z.string().min(8, "Password must be at least 8 characters"),
-  role: z.enum(["ADMIN", "TEACHER", "STUDENT", "PARENT"]),
+  phone: z.string().min(9, "Phone too short").optional(),
+  role: z.enum(allowedRoles, {
+    message: `Invalid role. Must be one of: ${allowedRoles.join(", ")}`,
+  }),
 });
 
 export async function GET() {
@@ -26,8 +32,17 @@ export async function GET() {
         id: true,
         name: true,
         email: true,
+        phone: true,
         role: true,
+        isActive: true,
+        staffNo: true,
+        rollNumber: true,
+        classId: true,
+        parentId: true,
+        occupation: true,
+        relationship: true,
         createdAt: true,
+        updatedAt: true,
       },
       orderBy: { name: "asc" },
     });
@@ -52,16 +67,17 @@ export async function POST(request: Request) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: parsed.error.errors[0].message },
+        { error: parsed.error.issues[0]?.message || "Invalid input" },
         { status: 400 }
       );
     }
 
-    const { name, email, password, role } = parsed.data;
+    const { name, email, password, phone, role } = parsed.data;
 
-    // Check for duplicate email
+    // Check email uniqueness
     const existing = await prisma.user.findUnique({
       where: { email },
+      select: { id: true },
     });
 
     if (existing) {
@@ -76,20 +92,43 @@ export async function POST(request: Request) {
         name,
         email,
         password: hashedPassword,
+        phone: phone?.trim(),
         role,
+        isActive: true,
       },
       select: {
         id: true,
         name: true,
         email: true,
+        phone: true,
         role: true,
         createdAt: true,
       },
     });
 
+    // Audit log
+    await prisma.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: "CREATE_USER",
+        entity: "User",
+        entityId: newUser.id,
+        metadata: {
+          email: newUser.email,
+          role: newUser.role,
+          phone: newUser.phone || null,
+        },
+      },
+    });
+
     return NextResponse.json({ success: true, data: newUser }, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
     console.error("[CREATE_USER]", error);
+
+    if (error.code === "P2002") {
+      return NextResponse.json({ error: "Email already exists" }, { status: 409 });
+    }
+
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

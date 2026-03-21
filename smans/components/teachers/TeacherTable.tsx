@@ -1,25 +1,25 @@
 "use client";
 
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"; // ← Fixed: alert-dialog (not dialogue)
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/Table";
 import { Edit, Eye, Trash2 } from "lucide-react";
 import Link from "next/link";
@@ -29,7 +29,7 @@ interface Teacher {
   id: string;
   name: string;
   email: string;
-  role?: string;           // ← Optional as per your query
+  role?: string;
   createdAt: Date;
 }
 
@@ -67,6 +67,7 @@ export default function TeacherTable({ teachers, onDelete }: TeacherTableProps) 
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
+
         <TableBody>
           {teachers.length === 0 ? (
             <TableRow>
@@ -92,31 +93,21 @@ export default function TeacherTable({ teachers, onDelete }: TeacherTableProps) 
                   })}
                 </TableCell>
                 <TableCell className="text-right space-x-2">
-                  {/* View Button */}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    asChild
-                    aria-label="View teacher details"
-                  >
+                  {/* View */}
+                  <Button variant="ghost" size="icon" asChild aria-label="View teacher">
                     <Link href={`/dashboard/teachers/${teacher.id}`}>
                       <Eye className="h-4 w-4" />
                     </Link>
                   </Button>
 
-                  {/* Edit Button */}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    asChild
-                    aria-label="Edit teacher"
-                  >
+                  {/* Edit */}
+                  <Button variant="ghost" size="icon" asChild aria-label="Edit teacher">
                     <Link href={`/dashboard/teachers/${teacher.id}/edit`}>
                       <Edit className="h-4 w-4" />
                     </Link>
                   </Button>
 
-                  {/* Delete Button (with confirmation) */}
+                  {/* Delete with confirmation */}
                   {onDelete && (
                     <AlertDialog>
                       <AlertDialogTrigger asChild>

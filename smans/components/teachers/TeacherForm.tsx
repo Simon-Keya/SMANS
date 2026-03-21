@@ -1,4 +1,3 @@
-// components/dashboard/teachers/components/TeacherForm.tsx
 "use client";
 
 import { Button } from "@/components/ui/Button";
@@ -14,8 +13,10 @@ import * as z from "zod";
 
 const teacherSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").trim(),
-  email: z.string().email("Invalid email address").trim().toLowerCase(),
-  password: z.string().min(8, "Password must be at least 8 characters").optional(),
+  email: z.string().email("Invalid email").trim().toLowerCase(),
+  phone: z.string().min(9, "Phone too short").optional(),
+  staffNo: z.string().min(3, "Staff number is required"),
+  password: z.string().min(8, "Password must be at least 8 characters").optional(), // only for create
 });
 
 type TeacherFormData = z.infer<typeof teacherSchema> & { id?: string };
@@ -23,8 +24,10 @@ type TeacherFormData = z.infer<typeof teacherSchema> & { id?: string };
 interface TeacherFormProps {
   teacher?: {
     id: string;
-    name: string | null;     // ← Fixed: allow null from Prisma
+    name: string | null;
     email: string;
+    phone?: string | null;
+    staffNo?: string | null;
   };
   onSuccess?: () => void;
 }
@@ -37,12 +40,14 @@ export default function TeacherForm({ teacher, onSuccess }: TeacherFormProps = {
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm<TeacherFormData>({
     resolver: zodResolver(teacherSchema),
     defaultValues: {
-      name: teacher?.name ?? "",          // ← Safe null fallback
+      name: teacher?.name ?? "",
       email: teacher?.email ?? "",
+      phone: teacher?.phone ?? "",
+      staffNo: teacher?.staffNo ?? "",
       password: "",
     },
   });
@@ -53,14 +58,14 @@ export default function TeacherForm({ teacher, onSuccess }: TeacherFormProps = {
         let res: Response;
 
         if (isEdit) {
-          // Update existing teacher
+          // Remove password from update payload
+          const { password, ...updateData } = data;
           res = await fetch(`/api/teachers/${teacher?.id}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data),
+            body: JSON.stringify(updateData),
           });
         } else {
-          // Create new teacher
           res = await fetch("/api/teachers", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -74,7 +79,7 @@ export default function TeacherForm({ teacher, onSuccess }: TeacherFormProps = {
         }
 
         router.push("/dashboard/teachers");
-        router.refresh(); // Refresh server data
+        router.refresh();
         onSuccess?.();
       } catch (err: any) {
         console.error("Teacher save error:", err);
@@ -84,7 +89,7 @@ export default function TeacherForm({ teacher, onSuccess }: TeacherFormProps = {
   };
 
   return (
-    <Card className="border-border/50 shadow-sm">
+    <Card className="border-base-200 shadow-sm">
       <CardContent className="pt-6">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <div className="grid gap-6 md:grid-cols-2">
@@ -97,9 +102,19 @@ export default function TeacherForm({ teacher, onSuccess }: TeacherFormProps = {
                 className={errors.name ? "border-destructive" : ""}
                 disabled={isPending}
               />
-              {errors.name && (
-                <p className="text-sm text-destructive">{errors.name.message}</p>
-              )}
+              {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="staffNo">Staff Number *</Label>
+              <Input
+                id="staffNo"
+                placeholder="TCH-001"
+                {...register("staffNo")}
+                className={errors.staffNo ? "border-destructive" : ""}
+                disabled={isPending}
+              />
+              {errors.staffNo && <p className="text-sm text-destructive">{errors.staffNo.message}</p>}
             </div>
 
             <div className="space-y-2">
@@ -112,9 +127,19 @@ export default function TeacherForm({ teacher, onSuccess }: TeacherFormProps = {
                 className={errors.email ? "border-destructive" : ""}
                 disabled={isPending}
               />
-              {errors.email && (
-                <p className="text-sm text-destructive">{errors.email.message}</p>
-              )}
+              {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone Number (Optional)</Label>
+              <Input
+                id="phone"
+                type="tel"
+                placeholder="+254712345678"
+                {...register("phone")}
+                disabled={isPending}
+              />
+              {errors.phone && <p className="text-sm text-destructive">{errors.phone.message}</p>}
             </div>
 
             {!isEdit && (
@@ -128,9 +153,7 @@ export default function TeacherForm({ teacher, onSuccess }: TeacherFormProps = {
                   className={errors.password ? "border-destructive" : ""}
                   disabled={isPending}
                 />
-                {errors.password && (
-                  <p className="text-sm text-destructive">{errors.password.message}</p>
-                )}
+                {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
               </div>
             )}
           </div>
@@ -145,11 +168,7 @@ export default function TeacherForm({ teacher, onSuccess }: TeacherFormProps = {
               Cancel
             </Button>
 
-            <Button
-              type="submit"
-              className="btn-primary"
-              disabled={isPending}
-            >
+            <Button type="submit" className="btn-primary" disabled={isPending}>
               {isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

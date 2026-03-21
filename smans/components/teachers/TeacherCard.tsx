@@ -1,4 +1,3 @@
-// components/dashboard/teachers/components/TeacherCard.tsx
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -9,13 +8,14 @@ interface Teacher {
   id: string;
   name: string;
   email: string;
+  phone?: string | null;
   role: string;
   createdAt: Date;
 }
 
 interface TeacherCardProps {
   teacher: Teacher;
-  onDelete?: (id: string) => void;
+  onDelete?: (id: string) => Promise<void>;
 }
 
 export default function TeacherCard({ teacher, onDelete }: TeacherCardProps) {
@@ -30,12 +30,22 @@ export default function TeacherCard({ teacher, onDelete }: TeacherCardProps) {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-1 text-sm">
+        <div className="space-y-2 text-sm">
           <p className="text-muted-foreground">
             <strong>Email:</strong> {teacher.email}
           </p>
+          {teacher.phone && (
+            <p className="text-muted-foreground">
+              <strong>Phone:</strong> {teacher.phone}
+            </p>
+          )}
           <p className="text-muted-foreground">
-            <strong>Joined:</strong> {new Date(teacher.createdAt).toLocaleDateString()}
+            <strong>Joined:</strong>{" "}
+            {new Date(teacher.createdAt).toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
           </p>
         </div>
 
@@ -58,8 +68,9 @@ export default function TeacherCard({ teacher, onDelete }: TeacherCardProps) {
             <Button
               variant="outline"
               size="sm"
-              className="text-destructive hover:text-destructive"
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
               onClick={() => onDelete(teacher.id)}
+              aria-label="Delete teacher"
             >
               <Trash2 className="mr-2 h-4 w-4" />
               Delete

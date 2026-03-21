@@ -1,37 +1,37 @@
-// components/parents/ParentTable.tsx
 "use client";
 
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/Table";
 import { Edit, Eye, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 
 interface Parent {
   id: string;
   name: string | null;
   email: string;
-  role: string;
-  createdAt: Date;
+  phone?: string | null;
   childrenCount?: number;
+  createdAt: Date;
 }
 
 interface ParentTableProps {
@@ -48,7 +48,8 @@ export default function ParentTable({ parents, onDelete }: ParentTableProps) {
     try {
       await onDelete(id);
     } catch (err) {
-      console.error(err);
+      console.error("Delete parent failed:", err);
+      // Optional: show toast error here
     } finally {
       setDeletingId(null);
     }
@@ -61,6 +62,7 @@ export default function ParentTable({ parents, onDelete }: ParentTableProps) {
           <TableRow>
             <TableHead>Name</TableHead>
             <TableHead>Email</TableHead>
+            <TableHead>Phone</TableHead>
             <TableHead>Children</TableHead>
             <TableHead>Registered</TableHead>
             <TableHead className="text-right">Actions</TableHead>
@@ -69,7 +71,7 @@ export default function ParentTable({ parents, onDelete }: ParentTableProps) {
         <TableBody>
           {parents.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+              <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
                 No parents found.
               </TableCell>
             </TableRow>
@@ -80,6 +82,7 @@ export default function ParentTable({ parents, onDelete }: ParentTableProps) {
                   {parent.name ?? "Unnamed Parent"}
                 </TableCell>
                 <TableCell>{parent.email}</TableCell>
+                <TableCell>{parent.phone ?? "-"}</TableCell>
                 <TableCell>
                   <Badge variant="secondary">
                     {parent.childrenCount ?? 0} children
@@ -107,7 +110,7 @@ export default function ParentTable({ parents, onDelete }: ParentTableProps) {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="text-destructive hover:text-destructive"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
                           disabled={deletingId === parent.id}
                           aria-label="Delete parent"
                         >
