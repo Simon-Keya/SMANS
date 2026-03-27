@@ -1,99 +1,216 @@
 "use client";
 
+import { recordResults } from "@/app/actions/exams/recordResults";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
+import { Label } from "@/components/ui/Label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/Select";
+import { Textarea } from "@/components/ui/Textarea";
+import { Toast, ToastDescription, ToastTitle } from "@/components/ui/Toast";
 import { useState } from "react";
 
-type GradeValue = number | "";
+const assessmentTypes = [
+  "TEST", "PROJECT", "PRACTICAL", "OBSERVATION", 
+  "ORAL", "PORTFOLIO", "GROUP_WORK", "ASSIGNMENT"
+];
+
+const competencyLevels = [
+  "EXCEEDING_EXPECTATIONS",
+  "MEETING_EXPECTATIONS",
+  "APPROACHING_EXPECTATIONS",
+  "BELOW_EXPECTATIONS"
+];
 
 interface GradeEntryFormProps {
-  studentName: string;
-  subjects: string[];
-  onSubmit: (grades: Record<string, number>) => void | Promise<void>;
+  examId: string;
+  students: Array<{ id: string; name: string }>;
+  subjects: Array<{ id: string; name: string }>;
+  onSuccess?: () => void;
 }
 
-export default function GradeEntryForm({
-  studentName,
-  subjects,
-  onSubmit,
+export default function GradeEntryForm({ 
+  examId, 
+  students, 
+  subjects, 
+  onSuccess 
 }: GradeEntryFormProps) {
-  const [grades, setGrades] = useState<Record<string, GradeValue>>(
-    () =>
-      subjects.reduce((acc, subject) => {
-        acc[subject] = "";
-        return acc;
-      }, {} as Record<string, GradeValue>)
-  );
+  
+  const [entries, setEntries] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleChange = (subject: string, value: string) => {
-    const numericValue = value === "" ? "" : Number(value);
-
-    if (numericValue !== "" && (numericValue < 0 || numericValue > 100)) {
-      return;
-    }
-
-    setGrades((prev) => ({
-      ...prev,
-      [subject]: numericValue,
-    }));
+  const addEntry = () => {
+    setEntries([...entries, {
+      studentId: "",
+      subjectId: "",
+      marks: 0,
+      maxMarks: 100,
+      assessmentType: "TEST",
+      competencyLevel: "",
+      remarks: "",
+    }]);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const updateEntry = (index: number, field: string, value: any) => {
+    const newEntries = [...entries];
+    newEntries[index] = { ...newEntries[index], [field]: value };
+    setEntries(newEntries);
+  };
 
-    const formattedGrades: Record<string, number> = {};
+  const removeEntry = (index: number) => {
+    setEntries(entries.filter((_, i) => i !== index));
+  };
 
-    for (const subject of subjects) {
-      const value = grades[subject];
-      if (value === "") {
-        alert(`Please enter a grade for ${subject}`);
-        return;
-      }
-      formattedGrades[subject] = value;
-    }
+  const handleSubmit = async () => {
+    if (entries.length === 0) return;
+
+    setLoading(true);
 
     try {
-      setIsSubmitting(true);
-      await onSubmit(formattedGrades);
+      await recordResults({
+        examId,
+        term: "TERM_2", // You can make this dynamic
+        results: entries,
+      });
+
+      <Toast>
+        <ToastTitle>Success</ToastTitle>
+        <ToastDescription>CBC results saved successfully.</ToastDescription>
+      </Toast>;
+
+      setEntries([]); // Clear form
+      onSuccess?.();
+    } catch (error: any) {
+      <Toast variant="destructive">
+        <ToastTitle>Error</ToastTitle>
+        <ToastDescription>{error.message}</ToastDescription>
+      </Toast>;
     } finally {
-      setIsSubmitting(false);
+      setLoading(false);
     }
   };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Grades for {studentName}</CardTitle>
+        <CardTitle>CBC Grade Entry Form</CardTitle>
       </CardHeader>
+      <CardContent className="space-y-6">
+        {entries.map((entry, index) => (
+          <div key={index} className="grid grid-cols-1 md:grid-cols-7 gap-4 p-4 border rounded-lg">
+            <div className="md:col-span-2">
+              <Label>Student</Label>
+              <Select 
+                value={entry.studentId} 
+                onValueChange={(v) => updateEntry(index, "studentId", v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select student" />
+                </SelectTrigger>
+                <SelectContent>
+                  {students.map(s => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {subjects.map((subject) => (
-            <div key={subject} className="flex items-center gap-4">
-              <label className="w-1/3 font-medium">{subject}</label>
+            <div>
+              <Label>Learning Area</Label>
+              <Select 
+                value={entry.subjectId} 
+                onValueChange={(v) => updateEntry(index, "subjectId", v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select area" />
+                </SelectTrigger>
+                <SelectContent>
+                  {subjects.map(s => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Marks</Label>
               <Input
                 type="number"
-                min={0}
-                max={100}
-                placeholder="0 – 100"
-                value={grades[subject]}
-                onChange={(e) => handleChange(subject, e.target.value)}
-                required
+                value={entry.marks}
+                onChange={(e) => updateEntry(index, "marks", Number(e.target.value))}
               />
             </div>
-          ))}
 
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? "Saving Grades..." : "Submit Grades"}
+            <div>
+              <Label>Assessment Type</Label>
+              <Select 
+                value={entry.assessmentType} 
+                onValueChange={(v) => updateEntry(index, "assessmentType", v)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {assessmentTypes.map(t => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Competency</Label>
+              <Select 
+                value={entry.competencyLevel} 
+                onValueChange={(v) => updateEntry(index, "competencyLevel", v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Level" />
+                </SelectTrigger>
+                <SelectContent>
+                  {competencyLevels.map(l => (
+                    <SelectItem key={l} value={l}>
+                      {l.replace(/_/g, " ")}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="md:col-span-2">
+              <Label>Remarks</Label>
+              <Textarea
+                value={entry.remarks}
+                onChange={(e) => updateEntry(index, "remarks", e.target.value)}
+                placeholder="Observations..."
+                rows={2}
+              />
+            </div>
+
+            <div className="flex items-end">
+              <Button 
+                variant="destructive" 
+                size="sm"
+                onClick={() => removeEntry(index)}
+              >
+                Remove
+              </Button>
+            </div>
+          </div>
+        ))}
+
+        <div className="flex gap-4">
+          <Button onClick={addEntry} variant="outline" className="flex-1">
+            + Add New Entry
           </Button>
-        </form>
+          <Button 
+            onClick={handleSubmit} 
+            disabled={loading || entries.length === 0}
+            className="flex-1"
+          >
+            {loading ? "Saving..." : "Save All CBC Results"}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

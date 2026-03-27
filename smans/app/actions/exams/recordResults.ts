@@ -5,45 +5,41 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
-// CBC/CBE Assessment Types commonly used in Kenya
+// CBC Assessment Types used in Kenyan schools
 const assessmentTypes = [
-  "TEST",
-  "PROJECT",
-  "PRACTICAL",
-  "OBSERVATION",
-  "ORAL",
-  "PORTFOLIO",
-  "GROUP_WORK",
+  "TEST", "PROJECT", "PRACTICAL", "OBSERVATION", 
+  "ORAL", "PORTFOLIO", "GROUP_WORK", "ASSIGNMENT"
 ] as const;
 
+// CBC Competency Levels
 const competencyLevels = [
   "EXCEEDING_EXPECTATIONS",
   "MEETING_EXPECTATIONS",
   "APPROACHING_EXPECTATIONS",
-  "BELOW_EXPECTATIONS",
+  "BELOW_EXPECTATIONS"
 ] as const;
 
-const recordResultSchema = z.object({
-  studentId: z.string().min(1, "Student ID is required"),
-  subjectId: z.string().min(1, "Learning area is required"), // CBC uses "Learning Areas"
+const resultSchema = z.object({
+  studentId: z.string().min(1),
+  subjectId: z.string().min(1),
   marks: z.number().min(0).max(100),
   maxMarks: z.number().min(1).default(100),
   assessmentType: z.enum(assessmentTypes).default("TEST"),
-  competencyLevel: z.enum(competencyLevels).optional(), // CBC-style rating
-  remarks: z.string().optional(), // Teacher comments
+  competencyLevel: z.enum(competencyLevels).optional(),
+  remarks: z.string().max(500).optional(),
 });
 
 const recordResultsSchema = z.object({
-  examId: z.string().min(1, "Exam ID is required"),
-  term: z.enum(["TERM_1", "TERM_2", "TERM_3"]).optional(), // Kenyan terms
-  results: z.array(recordResultSchema).min(1, "At least one result is required"),
+  examId: z.string().min(1),
+  term: z.enum(["TERM_1", "TERM_2", "TERM_3"]).optional(),
+  results: z.array(resultSchema).min(1),
 });
 
 export async function recordResults(input: unknown) {
   const user = await getCurrentUser();
 
   if (!user || !["ADMIN", "ACCOUNTANT", "TEACHER"].includes(user.role)) {
-    throw new Error("Unauthorized: Only admins, accountants, and teachers can record CBC results");
+    throw new Error("Unauthorized: Only teachers, accountants and admins can record CBC results");
   }
 
   const validated = recordResultsSchema.safeParse(input);
@@ -59,9 +55,7 @@ export async function recordResults(input: unknown) {
     select: { id: true, name: true, classId: true },
   });
 
-  if (!exam) {
-    throw new Error("Exam not found");
-  }
+  if (!exam) throw new Error("Exam not found");
 
   try {
     const createdGrades = await prisma.$transaction(
@@ -113,16 +107,11 @@ export async function recordResults(input: unknown) {
 
     return {
       success: true,
-      message: `Successfully recorded ${results.length} CBC assessment(s) for exam ${exam.name}`,
+      message: `Successfully recorded ${results.length} CBC assessment(s)`,
       grades: createdGrades,
     };
   } catch (error: any) {
     console.error("Record CBC results error:", error);
-
-    if (error.code === "P2003") {
-      throw new Error("One or more students or learning areas are invalid");
-    }
-
-    throw new Error(error.message || "Failed to record CBC results. Please try again.");
+    throw new Error(error.message || "Failed to record results. Please try again.");
   }
 }
