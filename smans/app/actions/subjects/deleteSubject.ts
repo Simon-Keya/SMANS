@@ -3,6 +3,7 @@
 
 import { getCurrentUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 export async function deleteSubject(subjectId: string) {
   const user = await getCurrentUser();
@@ -16,7 +17,6 @@ export async function deleteSubject(subjectId: string) {
   }
 
   try {
-    // Check if subject exists
     const subject = await prisma.subject.findUnique({
       where: { id: subjectId },
       select: { id: true, name: true, code: true },
@@ -26,7 +26,6 @@ export async function deleteSubject(subjectId: string) {
       throw new Error("Subject not found");
     }
 
-    // Safety: check if subject is used in any class or grades
     const usageCount = await prisma.$transaction([
       prisma.class.count({ where: { subjects: { some: { id: subjectId } } } }),
       prisma.grade.count({ where: { subjectId } }),
@@ -38,8 +37,8 @@ export async function deleteSubject(subjectId: string) {
       );
     }
 
-    // Atomic delete + audit log
-    await prisma.$transaction(async (tx) => {
+    // ← tx is now explicitly typed
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await tx.auditLog.create({
         data: {
           userId: user.id,
