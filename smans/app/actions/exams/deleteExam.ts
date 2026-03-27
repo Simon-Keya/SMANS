@@ -3,12 +3,14 @@
 
 import { getCurrentUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 
 export async function deleteExam(examId: string) {
   const user = await getCurrentUser();
 
-  if (!user || !["ADMIN", "ACCOUNTANT"].includes(user.role)) {
-    throw new Error("Unauthorized: Only admins and accountants can delete exams");
+  // Only ADMIN and TEACHER can delete exams
+  if (!user || !["ADMIN", "TEACHER"].includes(user.role)) {
+    throw new Error("Unauthorized: Only admins and teachers can delete exams");
   }
 
   if (!examId || typeof examId !== "string") {
@@ -34,12 +36,12 @@ export async function deleteExam(examId: string) {
     if (relatedGradesCount > 0) {
       throw new Error(
         `Cannot delete exam "${exam.name}" — it has ${relatedGradesCount} grade records. ` +
-        `Delete or reassign grades first.`
+        `Delete or reassign the grades first.`
       );
     }
 
-    // Atomic delete + audit
-    await prisma.$transaction(async (tx) => {
+    // Atomic transaction: delete + audit log
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await tx.auditLog.create({
         data: {
           userId: user.id,

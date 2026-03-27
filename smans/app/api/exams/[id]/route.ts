@@ -1,5 +1,5 @@
 // app/api/exams/[id]/route.ts
-import { authOptions } from "@/lib/auth/auth"; // FIXED: correct path
+import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
@@ -28,7 +28,7 @@ export async function GET(
     const exam = await prisma.exam.findUnique({
       where: { id: params.id },
       include: {
-        subject: { select: { name: true } },
+        subject: { select: { name: true, code: true } },
         class: { select: { name: true } },
       },
     });
@@ -59,10 +59,8 @@ export async function PUT(
     const parsed = updateExamSchema.safeParse(body);
 
     if (!parsed.success) {
-      // FIXED: proper Zod error handling
-      const firstIssue = parsed.error.issues[0];
       return NextResponse.json(
-        { error: firstIssue?.message || "Validation failed" },
+        { error: parsed.error.issues[0]?.message || "Validation failed" },
         { status: 400 }
       );
     }
@@ -101,17 +99,27 @@ export async function DELETE(
   try {
     const exam = await prisma.exam.findUnique({
       where: { id: params.id },
+      select: { id: true, name: true },
     });
 
     if (!exam) {
       return NextResponse.json({ error: "Exam not found" }, { status: 404 });
     }
 
-    await prisma.exam.delete({
-      where: { id: params.id },
+    const relatedGradesCount = await prisma.grade.count({
+      where: { examId: params.id },
     });
 
-    return NextResponse.json({ success: true, message: "Exam deleted" });
+    if (relatedGradesCount > 0) {
+      return NextResponse.json(
+        { error: `Cannot delete exam. It has ${relatedGradesCount} recorded grades.` },
+        { status: 400 }
+      );
+    }
+
+    await prisma.exam.delete({ where: { id: params.id } });
+
+    return NextResponse.json({ success: true, message: "Exam deleted successfully" });
   } catch (error) {
     console.error("[DELETE_EXAM]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

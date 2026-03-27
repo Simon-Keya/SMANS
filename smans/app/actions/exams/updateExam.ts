@@ -15,8 +15,9 @@ const updateExamSchema = z.object({
 export async function updateExam(input: unknown) {
   const user = await getCurrentUser();
 
-  if (!user || !["ADMIN", "ACCOUNTANT"].includes(user.role)) {
-    throw new Error("Unauthorized: Only admins and accountants can update exams");
+  // Only ADMIN and TEACHER can update exams
+  if (!user || !["ADMIN", "TEACHER"].includes(user.role)) {
+    throw new Error("Unauthorized: Only admins and teachers can update exams");
   }
 
   const validated = updateExamSchema.safeParse(input);

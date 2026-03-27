@@ -16,8 +16,9 @@ const createExamSchema = z.object({
 export async function createExam(input: unknown) {
   const user = await getCurrentUser();
 
-  if (!user || !["ADMIN", "ACCOUNTANT"].includes(user.role)) {
-    throw new Error("Unauthorized: Only admins and accountants can create exams");
+  // Only ADMIN and TEACHER can create exams
+  if (!user || !["ADMIN", "TEACHER"].includes(user.role)) {
+    throw new Error("Unauthorized: Only admins and teachers can create exams");
   }
 
   const validated = createExamSchema.safeParse(input);
@@ -44,7 +45,6 @@ export async function createExam(input: unknown) {
         term: term?.trim() || null,
         date,
         classId,
-        // year can be derived from date if not provided
       },
       include: {
         class: { select: { name: true } },

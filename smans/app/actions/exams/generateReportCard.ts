@@ -19,7 +19,7 @@ export async function generateReportCard(input: ReportCardInput) {
 
   const { studentId, term, year } = input;
 
-  // Fetch student with rollNumber (as per your schema)
+  // Fetch student with rollNumber
   const student = await prisma.student.findUnique({
     where: { id: studentId },
     select: {
@@ -66,8 +66,8 @@ export async function generateReportCard(input: ReportCardInput) {
     throw new Error(`No results found for ${term} ${year}`);
   }
 
-  // Group by subject with explicit typing
-  const subjectPerformance = grades.reduce((acc: Record<string, any>, grade) => {
+  // Group by subject with explicit typing (this fixes the error)
+  const subjectPerformance = grades.reduce((acc: Record<string, any>, grade: any) => {
     const subjectName = grade.subject.name;
 
     if (!acc[subjectName]) {

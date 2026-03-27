@@ -1,19 +1,17 @@
 // app/api/exams/route.ts
-import { authOptions } from "@/lib/auth/auth"; // FIXED: correct path
+import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 const createExamSchema = z.object({
-  name: z.string().min(3, "Name must be at least 3 characters").trim(),
+  name: z.string().min(3, "Exam name must be at least 3 characters").trim(),
   subjectId: z.string().min(1, "Subject is required"),
   classId: z.string().min(1, "Class is required"),
-  date: z.string().refine((val) => !isNaN(Date.parse(val)), {
-    message: "Invalid date format",
-  }),
-  duration: z.number().min(15, "Duration must be at least 15 minutes"),
-  maxScore: z.number().min(1, "Max score must be greater than 0"),
+  date: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Invalid date format" }),
+  duration: z.number().min(15).optional().default(120),
+  maxScore: z.number().min(1).optional().default(100),
 });
 
 export async function GET() {
@@ -26,7 +24,7 @@ export async function GET() {
   try {
     const exams = await prisma.exam.findMany({
       include: {
-        subject: { select: { name: true } },
+        subject: { select: { name: true, code: true } },
         class: { select: { name: true } },
       },
       orderBy: { date: "desc" },
@@ -51,19 +49,18 @@ export async function POST(request: NextRequest) {
     const parsed = createExamSchema.safeParse(body);
 
     if (!parsed.success) {
-      // FIXED: proper Zod error handling
-      const firstIssue = parsed.error.issues[0];
       return NextResponse.json(
-        { error: firstIssue?.message || "Invalid input" },
+        { error: parsed.error.issues[0]?.message || "Validation failed" },
         { status: 400 }
       );
     }
 
     const { name, subjectId, classId, date, duration, maxScore } = parsed.data;
 
-    // Verify subject and class exist
-    const subject = await prisma.subject.findUnique({ where: { id: subjectId } });
-    const cls = await prisma.class.findUnique({ where: { id: classId } });
+    const [subject, cls] = await Promise.all([
+      prisma.subject.findUnique({ where: { id: subjectId } }),
+      prisma.class.findUnique({ where: { id: classId } }),
+    ]);
 
     if (!subject || !cls) {
       return NextResponse.json({ error: "Subject or class not found" }, { status: 404 });
@@ -71,12 +68,16 @@ export async function POST(request: NextRequest) {
 
     const exam = await prisma.exam.create({
       data: {
-        name,
+        name: name.trim(),
         subjectId,
         classId,
         date: new Date(date),
-        duration,
-        maxScore,
+        duration: duration ?? 120,
+        maxScore: maxScore ?? 100,
+      },
+      include: {
+        subject: { select: { name: true } },
+        class: { select: { name: true } },
       },
     });
 
