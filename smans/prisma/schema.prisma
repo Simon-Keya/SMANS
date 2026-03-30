@@ -246,25 +246,46 @@ model Exam {
   @@map("exams")
 }
 
-model Grade {
-  id            String    @id @default(cuid())
-  marks         Int
-  maxMarks      Int       @default(100)
-  studentId     String
-  student       Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  subjectId     String
-  subject       Subject   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  examId        String
-  exam          Exam      @relation(fields: [examId], references: [id], onDelete: Cascade)
-  published     Boolean   @default(false)
-  comments      String?   // Teacher remarks
-  weightedScore Float?    // For weighted grading systems
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
 
+
+model Grade {
+  id                String   @id @default(cuid())
+  
+  // Core fields
+  studentId         String
+  student           Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  subjectId         String
+  subject           Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  
+  examId            String
+  exam              Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+
+  // Assessment Scores
+  marks             Int      // Actual score obtained
+  maxMarks          Int      @default(100)
+
+  
+  assessmentType    String?  // TEST, PROJECT, PRACTICAL, OBSERVATION, ORAL, PORTFOLIO, GROUP_WORK, ASSIGNMENT
+  competencyLevel   String?  // EXCEEDING_EXPECTATIONS, MEETING_EXPECTATIONS, APPROACHING_EXPECTATIONS, BELOW_EXPECTATIONS
+  
+  // Teacher feedback
+  remarks           String?  // Detailed observations and comments
+
+  // Additional useful fields
+  published         Boolean  @default(false)
+  weightedScore     Float?   // For subjects with different weights
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Unique constraint to prevent duplicate entries
   @@unique([studentId, subjectId, examId])
+  
   @@index([studentId])
   @@index([examId])
+  @@index([subjectId])
+  
   @@map("grades")
 }
 

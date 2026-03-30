@@ -25,14 +25,17 @@ export async function sendNotification({
 }: SendNotificationInput): Promise<SendNotificationOutput> {
   const session = await getServerSession(authOptions);
 
+  // 🔐 Authorization - Updated to include ACCOUNTANT as well (recommended)
   if (
     !session?.user ||
-    !["ADMIN", "TEACHER"].includes(session.user.role)
+    !["ADMIN", "TEACHER", "ACCOUNTANT"].includes(session.user.role)
   ) {
-    throw new Error("Unauthorized: Only admins and teachers can send notifications");
+    throw new Error(
+      "Unauthorized: Only admins, teachers, and accountants can send notifications"
+    );
   }
 
-  // Input validation
+  // 🧪 Validation
   if (!userIds || userIds.length === 0) {
     throw new Error("At least one recipient is required");
   }
@@ -50,20 +53,22 @@ export async function sendNotification({
   }
 
   try {
-    // Verify all target users actually exist
+    // Fetch existing users to validate IDs
     const existingUsers = await prisma.user.findMany({
       where: { id: { in: userIds } },
       select: { id: true },
     });
 
-    const validUserIds = existingUsers.map((u) => u.id);
+    // ✅ FIXED: Explicit type for 'u' to remove implicit any error
+    const validUserIds: string[] = existingUsers.map((u: { id: string }) => u.id);
 
     if (validUserIds.length === 0) {
       throw new Error("No valid recipients found");
     }
 
+    // Create notifications in bulk
     const result = await prisma.notification.createMany({
-      data: validUserIds.map((id) => ({
+      data: validUserIds.map((id: string) => ({
         userId: id,
         title: title.trim(),
         message: message.trim(),
@@ -78,9 +83,19 @@ export async function sendNotification({
       title,
     });
 
-    return { success: true, count: result.count };
-  } catch (error: any) {
-    logger.error("sendNotification error", { error: error.message });
-    throw new Error(error.message || "Failed to send notifications");
+    return { 
+      success: true, 
+      count: result.count 
+    };
+  } catch (error: unknown) {
+    const err = error as Error;
+
+    logger.error("sendNotification error", {
+      error: err.message,
+      userIds,
+      title,
+    });
+
+    throw new Error(err.message || "Failed to send notifications");
   }
 }
