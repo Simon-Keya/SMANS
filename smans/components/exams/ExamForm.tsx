@@ -1,4 +1,3 @@
-// components/exams/ExamForm.tsx
 "use client";
 
 import { Button } from "@/components/ui/Button";
@@ -7,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/Popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/Select";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
 import { CalendarIcon, Loader2 } from "lucide-react";
@@ -15,33 +15,35 @@ import { useTransition } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
-const examSchema = z.object({
+const assessmentSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
-  subjectId: z.string().min(1, "Subject is required"),
+  learningAreaId: z.string().min(1, "Learning Area is required"),
   classId: z.string().min(1, "Class is required"),
   date: z.date(),
   duration: z.number().min(15, "Duration must be at least 15 minutes"),
   maxScore: z.number().min(1, "Max score must be greater than 0"),
+  assessmentType: z.enum(["FORMATIVE", "SUMMATIVE", "CBC_CHECK"]),
 });
 
-type ExamFormData = z.infer<typeof examSchema>;
+type AssessmentFormData = z.infer<typeof assessmentSchema>;
 
-interface ExamFormProps {
-  exam?: {
+interface AssessmentFormProps {
+  assessment?: {
     id: string;
     title: string;
-    subjectId: string;
+    learningAreaId: string;
     classId: string;
     date: Date;
     duration: number;
     maxScore: number;
+    assessmentType?: "FORMATIVE" | "SUMMATIVE" | "CBC_CHECK";
   };
 }
 
-export default function ExamForm({ exam }: ExamFormProps = {}) {
+export default function AssessmentForm({ assessment }: AssessmentFormProps = {}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const isEdit = !!exam;
+  const isEdit = !!assessment;
 
   const {
     register,
@@ -49,45 +51,50 @@ export default function ExamForm({ exam }: ExamFormProps = {}) {
     setValue,
     watch,
     formState: { errors },
-  } = useForm<ExamFormData>({
-    resolver: zodResolver(examSchema),
-    defaultValues: exam
+  } = useForm<AssessmentFormData>({
+    resolver: zodResolver(assessmentSchema),
+    defaultValues: assessment
       ? {
-          title: exam.title,
-          subjectId: exam.subjectId,
-          classId: exam.classId,
-          date: exam.date,
-          duration: exam.duration,
-          maxScore: exam.maxScore,
+          title: assessment.title,
+          learningAreaId: assessment.learningAreaId,
+          classId: assessment.classId,
+          date: assessment.date,
+          duration: assessment.duration,
+          maxScore: assessment.maxScore,
+          assessmentType: assessment.assessmentType || "SUMMATIVE",
         }
       : {
           title: "",
-          subjectId: "",
+          learningAreaId: "",
           classId: "",
           date: new Date(),
           duration: 120,
           maxScore: 100,
+          assessmentType: "SUMMATIVE",
         },
   });
 
   const selectedDate = watch("date");
 
-  const onSubmit = async (data: ExamFormData) => {
+  const onSubmit = async (data: AssessmentFormData) => {
     startTransition(async () => {
       try {
-        const res = await fetch(isEdit ? `/api/exams/${exam?.id}` : "/api/exams", {
-          method: isEdit ? "PUT" : "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
-        });
+        const res = await fetch(
+          isEdit ? `/api/exams/${assessment?.id}` : "/api/exams",
+          {
+            method: isEdit ? "PUT" : "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+          }
+        );
 
-        if (!res.ok) throw new Error("Failed to save exam");
+        if (!res.ok) throw new Error("Failed to save assessment");
 
         router.push("/dashboard/exams");
         router.refresh();
       } catch (err) {
         console.error(err);
-        alert("Failed to save exam. Please try again.");
+        alert("Failed to save assessment. Please try again.");
       }
     });
   };
@@ -97,22 +104,52 @@ export default function ExamForm({ exam }: ExamFormProps = {}) {
       <CardContent className="pt-6">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <div className="grid gap-6 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="title">Exam Title *</Label>
-              <Input id="title" placeholder="Mid-Term Exam - Mathematics" {...register("title")} />
-              {errors.title && <p className="text-sm text-error">{errors.title.message}</p>}
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="title">Assessment Title *</Label>
+              <Input 
+                id="title" 
+                placeholder="End of Term CBC Assessment - Mathematics" 
+                {...register("title")} 
+              />
+              {errors.title && <p className="text-sm text-destructive">{errors.title.message}</p>}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="subjectId">Subject *</Label>
-              <Input id="subjectId" placeholder="Subject ID or name" {...register("subjectId")} />
-              {errors.subjectId && <p className="text-sm text-error">{errors.subjectId.message}</p>}
+              <Label htmlFor="learningAreaId">Learning Area *</Label>
+              <Input 
+                id="learningAreaId" 
+                placeholder="e.g., Mathematics Activities" 
+                {...register("learningAreaId")} 
+              />
+              {errors.learningAreaId && <p className="text-sm text-destructive">{errors.learningAreaId.message}</p>}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="classId">Class/Group *</Label>
-              <Input id="classId" placeholder="Class ID or name" {...register("classId")} />
-              {errors.classId && <p className="text-sm text-error">{errors.classId.message}</p>}
+              <Input 
+                id="classId" 
+                placeholder="Grade 4A" 
+                {...register("classId")} 
+              />
+              {errors.classId && <p className="text-sm text-destructive">{errors.classId.message}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="assessmentType">Assessment Type *</Label>
+              <Select 
+                onValueChange={(value) => setValue("assessmentType", value as "FORMATIVE" | "SUMMATIVE" | "CBC_CHECK")} 
+                defaultValue={watch("assessmentType")}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="FORMATIVE">Formative Assessment</SelectItem>
+                  <SelectItem value="SUMMATIVE">Summative Assessment</SelectItem>
+                  <SelectItem value="CBC_CHECK">CBC Progress Check</SelectItem>
+                </SelectContent>
+              </Select>
+              {errors.assessmentType && <p className="text-sm text-destructive">{errors.assessmentType.message}</p>}
             </div>
 
             <div className="space-y-2">
@@ -136,7 +173,6 @@ export default function ExamForm({ exam }: ExamFormProps = {}) {
                   />
                 </PopoverContent>
               </Popover>
-              {errors.date && <p className="text-sm text-error">{errors.date.message}</p>}
             </div>
 
             <div className="space-y-2">
@@ -146,7 +182,7 @@ export default function ExamForm({ exam }: ExamFormProps = {}) {
                 type="number"
                 {...register("duration", { valueAsNumber: true })}
               />
-              {errors.duration && <p className="text-sm text-error">{errors.duration.message}</p>}
+              {errors.duration && <p className="text-sm text-destructive">{errors.duration.message}</p>}
             </div>
 
             <div className="space-y-2">
@@ -156,7 +192,7 @@ export default function ExamForm({ exam }: ExamFormProps = {}) {
                 type="number"
                 {...register("maxScore", { valueAsNumber: true })}
               />
-              {errors.maxScore && <p className="text-sm text-error">{errors.maxScore.message}</p>}
+              {errors.maxScore && <p className="text-sm text-destructive">{errors.maxScore.message}</p>}
             </div>
           </div>
 
@@ -170,16 +206,16 @@ export default function ExamForm({ exam }: ExamFormProps = {}) {
               Cancel
             </Button>
 
-            <Button type="submit" className="btn-primary" disabled={isPending}>
+            <Button type="submit" disabled={isPending}>
               {isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Saving...
                 </>
               ) : isEdit ? (
-                "Update Exam"
+                "Update Assessment"
               ) : (
-                "Schedule Exam"
+                "Schedule Assessment"
               )}
             </Button>
           </div>

@@ -4,33 +4,30 @@ export interface StudentBase {
   name: string;
   rollNumber: string;
   dateOfBirth?: Date | null;
-  gender?: 'MALE' | 'FEMALE' | 'OTHER';
-  status: 'ACTIVE' | 'GRADUATED' | 'LEFT' | 'SUSPENDED';
-  promotionDate?: Date | null;
-  graduationDate?: Date | null;
-  currentClassId?: string | null;
+  gender?: 'MALE' | 'FEMALE';
+  gradeLevel: string;                    // e.g., "Grade 4", "PP2"
+  status: 'ACTIVE' | 'GRADUATED' | 'LEFT';
+  admissionNumber?: string;
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface StudentWithRelations extends StudentBase {
-  user?: {
-    id: string;
-    email: string;
-  };
   currentClass?: {
     id: string;
     name: string;
-    level?: string;
+    level: string;
   } | null;
-  grades?: Array<{
-    id: string;
-    marks: number;
-    subject: { name: string; code: string };
-  }>;
+
   parent?: {
     id: string;
     name: string;
     phone: string | null;
   } | null;
+
+  // CBC specific
+  coreCompetencies?: Array<{
+    competency: string;
+    level: 'Exceeding' | 'Meeting' | 'Approaching' | 'Below';
+  }>;
 }

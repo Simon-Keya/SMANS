@@ -1,44 +1,43 @@
-// components/exams/ExamSubjectsSelector.tsx
 "use client";
 
 import { Button } from "@/components/ui/Button";
 import {
-    Command,
-    CommandEmpty,
-    CommandGroup,
-    CommandInput,
-    CommandItem,
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
 } from "@/components/ui/Command";
 import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
 } from "@/components/ui/Popover";
 import { cn } from "@/lib/utils";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { useState } from "react";
 
-interface Subject {
+interface LearningArea {
   id: string;
   name: string;
 }
 
-interface ExamSubjectsSelectorProps {
-  subjects: Subject[];
+interface LearningAreaSelectorProps {
+  learningAreas: LearningArea[];
   selected: string[];
   onChange: (selected: string[]) => void;
 }
 
-export default function ExamSubjectsSelector({
-  subjects,
+export default function LearningAreaSelector({
+  learningAreas,
   selected,
   onChange,
-}: ExamSubjectsSelectorProps) {
+}: LearningAreaSelectorProps) {
   const [open, setOpen] = useState(false);
 
   return (
     <div className="space-y-2">
-      <label className="text-sm font-medium">Subjects Covered</label>
+      <label className="text-sm font-medium">Learning Areas Covered</label>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -48,34 +47,34 @@ export default function ExamSubjectsSelector({
             className="w-full justify-between"
           >
             {selected.length === 0
-              ? "Select subjects..."
-              : `${selected.length} subject${selected.length > 1 ? "s" : ""} selected`}
+              ? "Select learning areas..."
+              : `${selected.length} learning area${selected.length > 1 ? "s" : ""} selected`}
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-full p-0">
           <Command>
-            <CommandInput placeholder="Search subjects..." />
-            <CommandEmpty>No subject found.</CommandEmpty>
+            <CommandInput placeholder="Search learning areas..." />
+            <CommandEmpty>No learning area found.</CommandEmpty>
             <CommandGroup>
-              {subjects.map((subject) => (
+              {learningAreas.map((area) => (
                 <CommandItem
-                  key={subject.id}
-                  value={subject.name}
+                  key={area.id}
+                  value={area.name}
                   onSelect={() => {
-                    const newSelected = selected.includes(subject.id)
-                      ? selected.filter((id) => id !== subject.id)
-                      : [...selected, subject.id];
+                    const newSelected = selected.includes(area.id)
+                      ? selected.filter((id) => id !== area.id)
+                      : [...selected, area.id];
                     onChange(newSelected);
                   }}
                 >
                   <Check
                     className={cn(
                       "mr-2 h-4 w-4",
-                      selected.includes(subject.id) ? "opacity-100" : "opacity-0"
+                      selected.includes(area.id) ? "opacity-100" : "opacity-0"
                     )}
                   />
-                  {subject.name}
+                  {area.name}
                 </CommandItem>
               ))}
             </CommandGroup>

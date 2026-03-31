@@ -1,47 +1,46 @@
-// components/exams/ExamTable.tsx
 "use client";
 
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/Table";
 import { Edit, Eye, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
-
-interface Exam {
+interface Assessment {
   id: string;
   title: string;
-  subject: { name: string };
+  learningArea: { name: string };     // Changed from subject
   class: { name: string };
   date: Date;
   status: string;
+  assessmentType?: string;            // CBC-specific: Formative, Summative, CBC Check
 }
 
-interface ExamTableProps {
-  exams: Exam[];
+interface AssessmentTableProps {
+  assessments: Assessment[];
   onDelete?: (id: string) => Promise<void>;
 }
 
-export default function ExamTable({ exams, onDelete }: ExamTableProps) {
+export default function AssessmentTable({ assessments, onDelete }: AssessmentTableProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const handleDelete = async (id: string) => {
@@ -61,45 +60,60 @@ export default function ExamTable({ exams, onDelete }: ExamTableProps) {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Title</TableHead>
-            <TableHead>Subject</TableHead>
+            <TableHead>Assessment Title</TableHead>
+            <TableHead>Learning Area</TableHead>
             <TableHead>Class</TableHead>
             <TableHead>Date</TableHead>
+            <TableHead>Type</TableHead>
             <TableHead>Status</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {exams.length === 0 ? (
+          {assessments.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                No exams scheduled.
+              <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                No assessments scheduled yet.
               </TableCell>
             </TableRow>
           ) : (
-            exams.map((exam) => (
-              <TableRow key={exam.id}>
-                <TableCell className="font-medium">{exam.title}</TableCell>
-                <TableCell>{exam.subject?.name ?? "—"}</TableCell>
-                <TableCell>{exam.class?.name ?? "—"}</TableCell>
-                <TableCell>{new Date(exam.date).toLocaleDateString()}</TableCell>
+            assessments.map((assessment) => (
+              <TableRow key={assessment.id}>
+                <TableCell className="font-medium">{assessment.title}</TableCell>
+                <TableCell>{assessment.learningArea?.name ?? "—"}</TableCell>
+                <TableCell>{assessment.class?.name ?? "—"}</TableCell>
+                <TableCell>{new Date(assessment.date).toLocaleDateString()}</TableCell>
+                
                 <TableCell>
-                  <Badge
-                    variant={exam.status === "upcoming" ? "default" : "secondary"}
-                    className="capitalize"
-                  >
-                    {exam.status}
+                  <Badge variant="outline" className="capitalize">
+                    {assessment.assessmentType || "Summative"}
                   </Badge>
                 </TableCell>
+
+                <TableCell>
+                  <Badge
+                    variant={
+                      assessment.status === "upcoming" || assessment.status === "scheduled"
+                        ? "default"
+                        : assessment.status === "completed"
+                        ? "secondary"
+                        : "destructive"
+                    }
+                    className="capitalize"
+                  >
+                    {assessment.status}
+                  </Badge>
+                </TableCell>
+
                 <TableCell className="text-right space-x-2">
-                  <Button variant="ghost" size="icon" asChild aria-label="View exam">
-                    <Link href={`/dashboard/exams/${exam.id}`}>
+                  <Button variant="ghost" size="icon" asChild aria-label="View assessment">
+                    <Link href={`/dashboard/exams/${assessment.id}`}>
                       <Eye className="h-4 w-4" />
                     </Link>
                   </Button>
 
-                  <Button variant="ghost" size="icon" asChild aria-label="Edit exam">
-                    <Link href={`/dashboard/exams/${exam.id}/edit`}>
+                  <Button variant="ghost" size="icon" asChild aria-label="Edit assessment">
+                    <Link href={`/dashboard/exams/${assessment.id}/edit`}>
                       <Edit className="h-4 w-4" />
                     </Link>
                   </Button>
@@ -111,10 +125,10 @@ export default function ExamTable({ exams, onDelete }: ExamTableProps) {
                           variant="ghost"
                           size="icon"
                           className="text-destructive hover:text-destructive"
-                          disabled={deletingId === exam.id}
-                          aria-label="Delete exam"
+                          disabled={deletingId === assessment.id}
+                          aria-label="Delete assessment"
                         >
-                          {deletingId === exam.id ? (
+                          {deletingId === assessment.id ? (
                             <span className="loading loading-spinner loading-sm" />
                           ) : (
                             <Trash2 className="h-4 w-4" />
@@ -123,16 +137,16 @@ export default function ExamTable({ exams, onDelete }: ExamTableProps) {
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>Delete Exam?</AlertDialogTitle>
+                          <AlertDialogTitle>Delete Assessment?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            This will permanently delete <strong>{exam.title}</strong>.
+                            This will permanently delete <strong>{assessment.title}</strong>.
                             This action cannot be undone.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
                           <AlertDialogAction
-                            onClick={() => handleDelete(exam.id)}
+                            onClick={() => handleDelete(assessment.id)}
                             className="bg-destructive hover:bg-destructive/90"
                           >
                             Delete

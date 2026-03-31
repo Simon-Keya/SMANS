@@ -1,5 +1,5 @@
 // types/teacher.ts
-import type { Role } from './role'; // ← Add this import
+import type { Role } from './role';
 
 export interface TeacherBase {
   id: string;
@@ -7,8 +7,7 @@ export interface TeacherBase {
   email: string;
   staffNo: string | null;
   phone: string | null;
-  subjectSpecialization?: string | null;
-  qualification?: string | null;
+  tscNumber?: string | null;               // Kenya-specific
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -18,19 +17,17 @@ export interface TeacherWithRelations extends TeacherBase {
   user?: {
     id: string;
     email: string;
-    role: Role;                    // ← Now correctly typed
+    role: Role;
   };
 
-  teacherClasses: Array<{
+  learningAreas: Array<{
     id: string;
-    name: string;
-    level?: string;
-    capacity?: number;
+    name: string;           // e.g., "Mathematics Activities", "Environmental Activities"
   }>;
 
-  subjects?: Array<{
+  assignedClasses: Array<{
     id: string;
     name: string;
-    code: string;
+    gradeLevel: string;
   }>;
 }

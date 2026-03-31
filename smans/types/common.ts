@@ -5,19 +5,16 @@ export interface BaseEntity {
   updatedAt: Date;
 }
 
+export type PerformanceLevel = 'Exceeding Expectations' | 'Meeting Expectations' | 'Approaching Expectations' | 'Below Expectations';
+
 export interface SelectOption {
   value: string;
   label: string;
 }
 
-export type Status = 'ACTIVE' | 'INACTIVE' | 'PENDING' | 'COMPLETED' | 'CANCELLED';
+export type AcademicTerm = 'Term 1' | 'Term 2' | 'Term 3';
 
 export interface DateRange {
   from: Date;
   to: Date;
-}
-
-// Common metadata for audit logs
-export interface AuditMetadata {
-  [key: string]: any;
 }
