@@ -1,18 +1,35 @@
 // types/assignment.ts
 export interface AssignmentBase {
+  id: string;
+  title: string;
+  description?: string | null;
+  subjectId: string;
+  classId: string;
+  dueDate: Date;
+  maxMarks: number;
+  createdById: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface AssignmentWithRelations extends AssignmentBase {
+  subject: {
     id: string;
-    title: string;
-    description: string | null;
-    dueDate: Date;
-    classId: string;
-    subjectId: string;
-    createdBy: string | null;
-    createdAt: Date;
-    updatedAt: Date;
-  }
-  
-  export interface AssignmentWithRelations extends AssignmentBase {
-    class: { id: string; name: string };
-    subject: { id: string; name: string; code: string };
-    createdByUser: { id: string; name: string } | null;
-  }
+    name: string;
+    code: string;
+  };
+  class: {
+    id: string;
+    name: string;
+  };
+  createdBy: {
+    id: string;
+    name: string;
+  };
+  submissions?: Array<{
+    id: string;
+    studentId: string;
+    marks?: number | null;
+    submittedAt: Date;
+  }>;
+}

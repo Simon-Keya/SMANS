@@ -1,14 +1,28 @@
 // types/class.ts
 export interface ClassBase {
+  id: string;
+  name: string;
+  level?: string;
+  capacity?: number;
+  academicYear?: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ClassWithRelations extends ClassBase {
+  students: Array<{
     id: string;
     name: string;
-    level: string;
-    teacherId: string | null;
-    createdAt: Date;
-    updatedAt: Date;
-  }
-  
-  export interface ClassWithRelations extends ClassBase {
-    teacher: { name: string; email: string } | null;
-    _count?: { students: number };
-  }
+    rollNumber: string;
+  }>;
+  teacher?: {
+    id: string;
+    name: string;
+  } | null;
+  subjects?: Array<{
+    id: string;
+    name: string;
+    code: string;
+  }>;
+}

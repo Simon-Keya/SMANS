@@ -1,13 +1,12 @@
 // types/notification.ts
-export type NotificationType = 'INFO' | 'WARNING' | 'SUCCESS' | 'ERROR';
+export type NotificationType = 'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR';
 
-export interface Notification {
+export interface NotificationBase {
   id: string;
+  userId: string;
   title: string;
   message: string;
   type: NotificationType;
   read: boolean;
-  userId: string;
   createdAt: Date;
-  updatedAt: Date;
 }

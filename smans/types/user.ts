@@ -1,17 +1,23 @@
 // types/user.ts
-export type Role = 'ADMIN' | 'TEACHER' | 'STUDENT' | 'PARENT';
+import type { ParentBase } from './parent';
+import type { Role } from './role';
+import type { StudentBase } from './student';
+import type { TeacherBase } from './teacher';
 
 export interface UserBase {
   id: string;
   name: string | null;
   email: string;
   role: Role;
+  isActive: boolean;
+  phone?: string | null;
+  image?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface UserWithRelations extends UserBase {
-  teacherClasses?: Array<{ id: string; name: string }>;
-  student?: { id: string; name: string; rollNumber: string } | null;
-  parent?: { id: string; name: string; phone: string | null } | null;
+  teacher?: TeacherBase | null;
+  student?: StudentBase | null;
+  parent?: ParentBase | null;
 }
