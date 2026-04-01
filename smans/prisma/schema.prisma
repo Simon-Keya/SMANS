@@ -189,6 +189,32 @@ model Student {
   @@map("students")
 }
 
+
+model Assessment {
+  id              String   @id @default(cuid())
+  title           String
+  learningAreaId  String
+  classId         String
+  date            DateTime
+  duration        Int      // in minutes
+  maxScore        Int
+  assessmentType  AssessmentType @default(SUMMATIVE)
+
+  learningArea    LearningArea @relation(fields: [learningAreaId], references: [id])
+  class           Class        @relation(fields: [classId], references: [id])
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@map("assessments")
+}
+
+enum AssessmentType {
+  FORMATIVE
+  SUMMATIVE
+  CBC_CHECK
+}
+
 // ───────────────────────────────────────────────
 // ASSIGNMENT
 // ───────────────────────────────────────────────

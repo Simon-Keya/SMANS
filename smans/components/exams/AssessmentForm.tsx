@@ -80,7 +80,7 @@ export default function AssessmentForm({ assessment }: AssessmentFormProps = {})
     startTransition(async () => {
       try {
         const res = await fetch(
-          isEdit ? `/api/exams/${assessment?.id}` : "/api/exams",
+          isEdit ? `/api/assessments/${assessment?.id}` : "/api/assessments",
           {
             method: isEdit ? "PUT" : "POST",
             headers: { "Content-Type": "application/json" },
@@ -90,7 +90,7 @@ export default function AssessmentForm({ assessment }: AssessmentFormProps = {})
 
         if (!res.ok) throw new Error("Failed to save assessment");
 
-        router.push("/dashboard/exams");
+        router.push("/dashboard/assessments");
         router.refresh();
       } catch (err) {
         console.error(err);
@@ -168,7 +168,7 @@ export default function AssessmentForm({ assessment }: AssessmentFormProps = {})
                   <Calendar
                     mode="single"
                     selected={selectedDate}
-                    onSelect={(day) => setValue("date", day ?? new Date())}
+                    onSelect={(day: Date | undefined) => setValue("date", day || new Date())}  // ← FIXED: explicit type
                     initialFocus
                   />
                 </PopoverContent>
