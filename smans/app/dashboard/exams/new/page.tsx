@@ -1,4 +1,4 @@
-import ExamForm from "@/components/exams/ExamForm";
+import ExamForm from "@/components/exams/AssessmentForm";
 import { authOptions } from "@/lib/auth/auth";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
