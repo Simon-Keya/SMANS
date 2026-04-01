@@ -14,10 +14,12 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
+import LearningAreaSelector from "./LearningAreaSelector"; // ← Import the selector
 
 const assessmentSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
-  learningAreaId: z.string().min(1, "Learning Area is required"),
+  learningAreaId: z.string().min(1, "Learning Area is required"),   // Keep single for simplicity
+  // If you want multiple learning areas, change to: learningAreaIds: z.array(z.string())
   classId: z.string().min(1, "Class is required"),
   date: z.date(),
   duration: z.number().min(15, "Duration must be at least 15 minutes"),
@@ -38,9 +40,16 @@ interface AssessmentFormProps {
     maxScore: number;
     assessmentType?: "FORMATIVE" | "SUMMATIVE" | "CBC_CHECK";
   };
+  // Pass these from the parent page
+  learningAreas: Array<{ id: string; name: string }>;
+  classes: Array<{ id: string; name: string }>;
 }
 
-export default function AssessmentForm({ assessment }: AssessmentFormProps = {}) {
+export default function AssessmentForm({ 
+  assessment, 
+  learningAreas, 
+  classes 
+}: AssessmentFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const isEdit = !!assessment;
@@ -114,23 +123,30 @@ export default function AssessmentForm({ assessment }: AssessmentFormProps = {})
               {errors.title && <p className="text-sm text-destructive">{errors.title.message}</p>}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="learningAreaId">Learning Area *</Label>
-              <Input 
-                id="learningAreaId" 
-                placeholder="e.g., Mathematics Activities" 
-                {...register("learningAreaId")} 
+            {/* Learning Area Selector - Replaced simple Input */}
+            <div className="space-y-2 md:col-span-2">
+              <LearningAreaSelector
+                learningAreas={learningAreas}
+                selected={watch("learningAreaId") ? [watch("learningAreaId")] : []}
+                onChange={(selectedIds) => setValue("learningAreaId", selectedIds[0] || "")}
               />
               {errors.learningAreaId && <p className="text-sm text-destructive">{errors.learningAreaId.message}</p>}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="classId">Class/Group *</Label>
-              <Input 
-                id="classId" 
-                placeholder="Grade 4A" 
-                {...register("classId")} 
-              />
+              <Select onValueChange={(value) => setValue("classId", value)} defaultValue={watch("classId")}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select class" />
+                </SelectTrigger>
+                <SelectContent>
+                  {classes.map((cls) => (
+                    <SelectItem key={cls.id} value={cls.id}>
+                      {cls.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {errors.classId && <p className="text-sm text-destructive">{errors.classId.message}</p>}
             </div>
 
@@ -149,7 +165,6 @@ export default function AssessmentForm({ assessment }: AssessmentFormProps = {})
                   <SelectItem value="CBC_CHECK">CBC Progress Check</SelectItem>
                 </SelectContent>
               </Select>
-              {errors.assessmentType && <p className="text-sm text-destructive">{errors.assessmentType.message}</p>}
             </div>
 
             <div className="space-y-2">
@@ -168,7 +183,7 @@ export default function AssessmentForm({ assessment }: AssessmentFormProps = {})
                   <Calendar
                     mode="single"
                     selected={selectedDate}
-                    onSelect={(day: Date | undefined) => setValue("date", day || new Date())}  // ← FIXED: explicit type
+                    onSelect={(day: Date | undefined) => setValue("date", day || new Date())}
                     initialFocus
                   />
                 </PopoverContent>
