@@ -1,24 +1,29 @@
-import { prisma } from "@/lib/prisma";
-import "@testing-library/jest-dom";
+// tests/setup.ts
+import '@testing-library/jest-dom';
+import { prisma } from './helpers/test-prisma';
 
-// Clean DB before each test suite
+// Global test setup
 beforeAll(async () => {
-  await prisma.$connect();
+  console.log('🧪 Starting SMANS test suite...');
 });
 
+// Clean up after each test
+afterEach(async () => {
+  // Optional: You can choose to clean specific tables instead of full cleanup
+  // await prisma.notification.deleteMany({});
+});
+
+// Final cleanup
 afterAll(async () => {
   await prisma.$disconnect();
+  console.log('✅ All tests completed. Database disconnected.');
 });
 
-afterEach(async () => {
-  // Clear all tables (adjust as needed)
-  await prisma.$transaction([
-    prisma.attendance.deleteMany(),
-    prisma.grade.deleteMany(),
-    prisma.exam.deleteMany(),
-    prisma.student.deleteMany(),
-    prisma.parent.deleteMany(),
-    prisma.user.deleteMany(),
-    // add other models
-  ]);
-});
+// Mock Next.js server-only features if needed
+jest.mock('next/cache', () => ({
+  revalidatePath: jest.fn(),
+  revalidateTag: jest.fn(),
+}));
+
+// Mock server actions environment
+process.env.NODE_ENV = 'test';
