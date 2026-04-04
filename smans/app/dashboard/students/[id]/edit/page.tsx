@@ -7,12 +7,11 @@ import { notFound, redirect } from "next/navigation";
 async function updateStudent(id: string, data: any) {
   "use server";
 
-  // Make sure to map form data to actual Prisma fields
   await prisma.student.update({
     where: { id },
     data: {
       name: data.name,
-      rollNumber: data.rollNumber,
+      admissionNumber: data.admissionNumber,     // ← Changed
       email: data.email ?? null,
       phone: data.phone ?? null,
       classId: data.classId,
@@ -24,32 +23,30 @@ async function updateStudent(id: string, data: any) {
 }
 
 export default async function EditStudentPage({ params }: { params: { id: string } }) {
-  // Fetch student with related class name and parent details
   const student = await prisma.student.findUnique({
     where: { id: params.id },
     include: {
       class: {
-        select: { name: true }, // only need class name
+        select: { name: true },
       },
       parent: {
-        select: { name: true, phone: true }, // parent's name & phone
+        select: { name: true, phone: true },
       },
     },
   });
 
   if (!student) notFound();
 
-  // Normalize Prisma data to match your StudentForm defaultValues
   const normalizedStudent = {
     name: student.name,
-    rollNumber: student.rollNumber,
-    classId: student.classId,          // ← use classId for form select
-    className: student.class?.name || "Not assigned", // optional display only
+    admissionNumber: student.admissionNumber,    // ← Changed
+    classId: student.classId,
+    className: student.class?.name || "Not assigned",
     email: student.email ?? undefined,
     phone: student.phone ?? undefined,
     parentId: student.parentId ?? undefined,
-    parentName: student.parent?.name ?? undefined,   // ← from parent relation
-    parentPhone: student.parent?.phone ?? undefined, // ← from parent relation
+    parentName: student.parent?.name ?? undefined,
+    parentPhone: student.parent?.phone ?? undefined,
   };
 
   return (
