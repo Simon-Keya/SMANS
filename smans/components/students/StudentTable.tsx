@@ -21,12 +21,12 @@ import {
   TableRow,
 } from "@/components/ui/Table";
 import { Edit, Trash2 } from "lucide-react";
-import { useState } from "react"; // ← FIXED: import useState
+import { useState } from "react";
 
 export interface Student {
   id: string;
   name: string;
-  rollNumber: string;
+  admissionNumber: string;
   class: string;
   email?: string | null;
   phone?: string | null;
@@ -48,18 +48,17 @@ export default function StudentTable({ students, onEdit, onDelete }: Props) {
       await onDelete(id);
     } catch (err) {
       console.error("Delete failed:", err);
-      // Optional: show toast error here
     } finally {
       setDeletingId(null);
     }
   };
 
   return (
-    <div className="rounded-md border">
+    <div className="rounded-md border border-neutral/30">
       <Table>
         <TableHeader>
-          <TableRow>
-            <TableHead>Roll No</TableHead>
+          <TableRow className="bg-base-200">
+            <TableHead>Adm No.</TableHead>
             <TableHead>Name</TableHead>
             <TableHead>Class</TableHead>
             <TableHead>Email</TableHead>
@@ -71,18 +70,23 @@ export default function StudentTable({ students, onEdit, onDelete }: Props) {
         <TableBody>
           {students.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+              <TableCell
+                colSpan={6}
+                className="h-24 text-center text-base-content/60"
+              >
                 No students found
               </TableCell>
             </TableRow>
           ) : (
             students.map((student) => (
-              <TableRow key={student.id}>
-                <TableCell className="font-medium">{student.rollNumber}</TableCell>
+              <TableRow key={student.id} className="hover:bg-base-200/50">
+                <TableCell className="font-medium">
+                  {student.admissionNumber}
+                </TableCell>
                 <TableCell>{student.name}</TableCell>
                 <TableCell>{student.class}</TableCell>
-                <TableCell>{student.email ?? "-"}</TableCell>
-                <TableCell>{student.parentPhone ?? "-"}</TableCell>
+                <TableCell>{student.email ?? "—"}</TableCell>
+                <TableCell>{student.parentPhone ?? "—"}</TableCell>
                 <TableCell className="text-right space-x-2">
                   <Button
                     variant="ghost"
@@ -98,7 +102,7 @@ export default function StudentTable({ students, onEdit, onDelete }: Props) {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        className="text-error hover:text-error hover:bg-error/10"
                         disabled={deletingId === student.id}
                         aria-label="Delete student"
                       >
@@ -113,15 +117,17 @@ export default function StudentTable({ students, onEdit, onDelete }: Props) {
                       <AlertDialogHeader>
                         <AlertDialogTitle>Delete Student?</AlertDialogTitle>
                         <AlertDialogDescription>
-                          This will permanently delete <strong>{student.name}</strong> (Roll: {student.rollNumber}).
-                          This action cannot be undone.
+                          This will permanently delete{" "}
+                          <strong>{student.name}</strong> (Adm:{" "}
+                          {student.admissionNumber}). This action cannot be
+                          undone.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
                         <AlertDialogAction
                           onClick={() => handleDelete(student.id)}
-                          className="bg-destructive hover:bg-destructive/90"
+                          className="bg-error hover:bg-error/90 text-white"
                         >
                           Delete
                         </AlertDialogAction>

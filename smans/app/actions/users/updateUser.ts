@@ -1,4 +1,3 @@
-// app/actions/users/updateUser.ts
 "use server";
 
 import { authOptions } from "@/lib/auth/auth";
@@ -9,11 +8,11 @@ import { z } from "zod";
 const allowedRoles = ["ADMIN", "TEACHER", "STUDENT", "PARENT", "ACCOUNTANT"] as const;
 
 const updateUserSchema = z.object({
-  name: z.string().min(2).optional(),
+  name: z.string().min(2).trim().optional(),
   phone: z.string().min(9).optional(),
   role: z.enum(allowedRoles).optional(),
   staffNo: z.string().min(3).optional(),
-  rollNumber: z.string().min(3).optional(),
+  admissionNumber: z.string().min(3).optional(), // ← Changed
   classId: z.string().optional(),
   parentId: z.string().optional(),
   occupation: z.string().optional(),
@@ -24,16 +23,12 @@ const updateUserSchema = z.object({
 export async function updateUser(userId: string, rawData: unknown) {
   const session = await getServerSession(authOptions);
 
-  if (!session?.user) {
-    throw new Error("Unauthorized");
-  }
+  if (!session?.user) throw new Error("Unauthorized");
 
   const isAdmin = session.user.role === "ADMIN";
   const isSelf = session.user.id === userId;
 
-  if (!isAdmin && !isSelf) {
-    throw new Error("Forbidden: You can only update your own profile");
-  }
+  if (!isAdmin && !isSelf) throw new Error("Forbidden: You can only update your own profile");
 
   const data = updateUserSchema.safeParse(rawData);
   if (!data.success) {
@@ -42,40 +37,28 @@ export async function updateUser(userId: string, rawData: unknown) {
 
   const updateFields = data.data;
 
-  // Only admin can change role
-  if (updateFields.role && !isAdmin) {
-    throw new Error("Only administrators can change user roles");
-  }
-
-  // Prevent self role downgrade
+  if (updateFields.role && !isAdmin) throw new Error("Only administrators can change roles");
   if (isSelf && updateFields.role && updateFields.role !== session.user.role) {
     throw new Error("You cannot change your own role");
   }
 
-  // Build sanitized update object
   const updateData: any = {};
 
   if (updateFields.name !== undefined) updateData.name = updateFields.name.trim();
-  if (updateFields.phone !== undefined) updateData.phone = updateFields.phone.trim();
+  if (updateFields.phone !== undefined) updateData.phone = updateFields.phone.trim() || null;
 
-  if (updateFields.role !== undefined && isAdmin) {
-    updateData.role = updateFields.role;
-  }
+  if (updateFields.role !== undefined && isAdmin) updateData.role = updateFields.role;
 
   if (updateFields.staffNo !== undefined) updateData.staffNo = updateFields.staffNo.trim();
-  if (updateFields.rollNumber !== undefined) updateData.rollNumber = updateFields.rollNumber.trim();
+  if (updateFields.admissionNumber !== undefined) updateData.admissionNumber = updateFields.admissionNumber.trim(); // ← Changed
   if (updateFields.classId !== undefined) updateData.classId = updateFields.classId;
   if (updateFields.parentId !== undefined) updateData.parentId = updateFields.parentId;
   if (updateFields.occupation !== undefined) updateData.occupation = updateFields.occupation.trim();
   if (updateFields.relationship !== undefined) updateData.relationship = updateFields.relationship.trim();
 
-  if (updateFields.isActive !== undefined && isAdmin) {
-    updateData.isActive = updateFields.isActive;
-  }
+  if (updateFields.isActive !== undefined && isAdmin) updateData.isActive = updateFields.isActive;
 
-  if (Object.keys(updateData).length === 0) {
-    throw new Error("No valid fields provided for update");
-  }
+  if (Object.keys(updateData).length === 0) throw new Error("No valid fields provided");
 
   try {
     const updatedUser = await prisma.user.update({
@@ -88,7 +71,7 @@ export async function updateUser(userId: string, rawData: unknown) {
         phone: true,
         role: true,
         staffNo: true,
-        rollNumber: true,
+        admissionNumber: true, // ← Changed
         classId: true,
         parentId: true,
         occupation: true,
@@ -98,26 +81,17 @@ export async function updateUser(userId: string, rawData: unknown) {
       },
     });
 
-    // Audit log
     await prisma.auditLog.create({
       data: {
         userId: session.user.id,
         action: "UPDATE_USER",
         entity: "User",
         entityId: userId,
-        metadata: {
-          updatedFields: Object.keys(updateData),
-          targetEmail: updatedUser.email,
-          targetRole: updatedUser.role,
-        },
+        metadata: { updatedFields: Object.keys(updateData), targetRole: updatedUser.role },
       },
     });
 
-    return {
-      success: true,
-      user: updatedUser,
-      message: "User updated successfully",
-    };
+    return { success: true, user: updatedUser, message: "User updated successfully" };
   } catch (error: any) {
     console.error("Update user error:", error);
     throw new Error("Failed to update user. Please try again.");
