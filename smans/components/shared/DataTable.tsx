@@ -54,7 +54,7 @@ export default function DataTable<T extends Record<string, any>>({
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDirection>(null);
 
-  // ── Search ──────────────────────────────────────────────────────────────
+  // Search
   const filtered = useMemo(() => {
     if (!search.trim()) return data;
 
@@ -69,7 +69,7 @@ export default function DataTable<T extends Record<string, any>>({
     );
   }, [data, search, searchKeys, columns]);
 
-  // ── Sort ─────────────────────────────────────────────────────────────────
+  // Sort
   const sorted = useMemo(() => {
     if (!sortKey || !sortDir) return filtered;
 
@@ -110,7 +110,6 @@ export default function DataTable<T extends Record<string, any>>({
 
   return (
     <div className="w-full space-y-4">
-      {/* Search bar */}
       {searchable && (
         <div className="relative max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content/40" />
@@ -123,7 +122,6 @@ export default function DataTable<T extends Record<string, any>>({
         </div>
       )}
 
-      {/* Table container */}
       <div className="rounded-xl border border-neutral/30 overflow-hidden shadow-sm">
         {loading ? (
           <div className="py-24 flex items-center justify-center bg-base-100">
@@ -206,7 +204,6 @@ export default function DataTable<T extends Record<string, any>>({
         )}
       </div>
 
-      {/* Row count */}
       {!loading && sorted.length > 0 && (
         <p className="text-xs text-base-content/50 pl-1">
           Showing {sorted.length} of {data.length} record{data.length !== 1 ? "s" : ""}

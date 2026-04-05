@@ -1,21 +1,25 @@
 // tests/helpers/render-with-providers.tsx
-import { AuthSessionProvider } from '@/components/providers/AuthSessionProvider';
-import { ThemeProvider } from '@/components/providers/ThemeProvider';
-import { ToastProvider } from '@/components/providers/ToastProvider';
+import ThemeProvider from '@/components/providers/ThemeProvider';
+import ToastProvider from '@/components/providers/ToastProvider';
 import { render } from '@testing-library/react';
+
+// Simple mock for AuthSessionProvider (since it's just a wrapper around SessionProvider)
+function MockAuthSessionProvider({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
+}
 
 export function renderWithProviders(ui: React.ReactElement) {
   return render(
     <ThemeProvider>
-      <AuthSessionProvider>
+      <MockAuthSessionProvider>
         <ToastProvider>
           {ui}
         </ToastProvider>
-      </AuthSessionProvider>
+      </MockAuthSessionProvider>
     </ThemeProvider>
   );
 }
 
-// For convenience with custom options
+// Re-export testing-library utilities
 export * from '@testing-library/react';
 export { renderWithProviders as render };

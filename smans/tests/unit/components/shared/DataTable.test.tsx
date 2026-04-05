@@ -1,10 +1,10 @@
 // tests/unit/components/shared/DataTable.test.tsx
-import { DataTable } from '@/components/shared/DataTable';
+import DataTable from '@/components/shared/DataTable'; // ← Fixed: default import
 import { render, screen } from '@testing-library/react';
 
 const mockColumns = [
-  { accessorKey: 'name', header: 'Name' },
-  { accessorKey: 'role', header: 'Role' },
+  { key: 'name', label: 'Name' },
+  { key: 'role', label: 'Role' },
 ];
 
 const mockData = [

@@ -27,7 +27,7 @@ export async function GET() {
   try {
     const grades = await prisma.grade.findMany({
       include: {
-        student: { select: { name: true, admissionNumber: true } }, // ← Changed
+        student: { select: { name: true, admissionNumber: true } },
         subject: { select: { name: true, code: true } },
         exam: { select: { name: true, date: true } },
       },
@@ -79,6 +79,8 @@ export async function POST(request: NextRequest) {
     }
 
     const subjectIds = grades.map((g) => g.subjectId);
+
+    // Fixed: Explicit type to remove implicit 'any'
     const validSubjects = await prisma.subject.findMany({
       where: {
         id: { in: subjectIds },
@@ -87,7 +89,7 @@ export async function POST(request: NextRequest) {
       select: { id: true },
     });
 
-    const validSubjectIds = new Set(validSubjects.map((s) => s.id));
+    const validSubjectIds = new Set(validSubjects.map((s: { id: string }) => s.id));
 
     const validGrades = grades.filter((g) => validSubjectIds.has(g.subjectId));
 
@@ -106,7 +108,7 @@ export async function POST(request: NextRequest) {
             maxMarks: g.maxMarks || 100,
           },
           include: {
-            student: { select: { name: true, admissionNumber: true } }, // ← Changed
+            student: { select: { name: true, admissionNumber: true } },
             subject: { select: { name: true } },
             exam: { select: { name: true } },
           },

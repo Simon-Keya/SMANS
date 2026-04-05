@@ -1,5 +1,5 @@
 // app/api/notifications/route.ts
-import { authOptions } from "@/lib/auth/auth"; // FIXED: correct path
+import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
@@ -8,8 +8,10 @@ import { z } from "zod";
 const createNotificationSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters").trim(),
   message: z.string().min(10, "Message must be at least 10 characters").trim(),
-  recipientIds: z.array(z.string()).optional(), // if not provided, send to all
+  recipientIds: z.array(z.string()).optional(),
 });
+
+type UserIdOnly = { id: string };
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -44,9 +46,8 @@ export async function POST(request: NextRequest) {
     const parsed = createNotificationSchema.safeParse(body);
 
     if (!parsed.success) {
-      const firstIssue = parsed.error.issues[0];
       return NextResponse.json(
-        { error: firstIssue?.message || "Invalid input" },
+        { error: parsed.error.issues[0]?.message || "Invalid input" },
         { status: 400 }
       );
     }
@@ -56,33 +57,26 @@ export async function POST(request: NextRequest) {
     let recipients: string[];
 
     if (recipientIds && recipientIds.length > 0) {
-      // Validate provided recipient IDs exist
       const validRecipients = await prisma.user.findMany({
         where: { id: { in: recipientIds } },
         select: { id: true },
       });
-      recipients = validRecipients.map(u => u.id);
+      recipients = validRecipients.map((u: UserIdOnly) => u.id);
     } else {
-      // Send to all users
       const allUsers = await prisma.user.findMany({
         select: { id: true },
       });
-      recipients = allUsers.map(u => u.id);
+      recipients = allUsers.map((u: UserIdOnly) => u.id);
     }
 
     if (recipients.length === 0) {
       return NextResponse.json({ error: "No valid recipients found" }, { status: 400 });
     }
 
-    // Create notifications for each recipient in a transaction
     const notifications = await prisma.$transaction(
-      recipients.map(recipientId =>
+      recipients.map((recipientId) =>
         prisma.notification.create({
-          data: {
-            title,
-            message,
-            userId: recipientId,
-          },
+          data: { title, message, userId: recipientId },
         })
       )
     );

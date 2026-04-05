@@ -6,7 +6,7 @@ import { useState } from "react";
 type Student = {
   id: string;
   name: string;
-  rollNumber: string;
+  admissionNumber: string;        // ← Changed
   className: string;
   email?: string;
   studentPhone?: string;
@@ -23,7 +23,7 @@ export default function StudentsClient({ students }: Props) {
   const filtered = students.filter(
     (s) =>
       s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.rollNumber.toLowerCase().includes(search.toLowerCase()) ||
+      s.admissionNumber.toLowerCase().includes(search.toLowerCase()) ||   // ← Changed
       s.className.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -31,7 +31,7 @@ export default function StudentsClient({ students }: Props) {
     <div className="space-y-4">
       <input
         type="text"
-        placeholder="Search students..."
+        placeholder="Search students by name, admission number or class..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         className="w-full max-w-md p-2 border rounded"
@@ -42,7 +42,7 @@ export default function StudentsClient({ students }: Props) {
           <thead>
             <tr className="bg-gray-100">
               <th className="p-3 text-left">Name</th>
-              <th className="p-3 text-left">Roll No</th>
+              <th className="p-3 text-left">Admission No</th>   {/* ← Changed */}
               <th className="p-3 text-left">Class</th>
               <th className="p-3 text-left">Email</th>
               <th className="p-3 text-left">Parent Phone</th>
@@ -52,7 +52,7 @@ export default function StudentsClient({ students }: Props) {
             {filtered.map((student) => (
               <tr key={student.id} className="border-b hover:bg-gray-50">
                 <td className="p-3">{student.name}</td>
-                <td className="p-3">{student.rollNumber}</td>
+                <td className="p-3 font-medium">{student.admissionNumber}</td>   {/* ← Changed */}
                 <td className="p-3">{student.className}</td>
                 <td className="p-3">{student.email || "-"}</td>
                 <td className="p-3">{student.parentPhone || "-"}</td>
