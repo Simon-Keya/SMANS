@@ -1,3 +1,4 @@
+// components/grades/GradeEntryForm.tsx
 "use client";
 
 import { recordResults } from "@/app/actions/exams/recordResults";
@@ -7,7 +8,6 @@ import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
-import { Toast, ToastDescription, ToastTitle } from "@/components/ui/Toast";
 import { useState } from "react";
 
 const assessmentTypes = [
@@ -24,7 +24,7 @@ const competencyLevels = [
 
 interface GradeEntryFormProps {
   examId: string;
-  students: Array<{ id: string; name: string }>;
+  students: Array<{ id: string; name: string; admissionNumber?: string }>;
   subjects: Array<{ id: string; name: string }>;
   onSuccess?: () => void;
 }
@@ -69,22 +69,17 @@ export default function GradeEntryForm({
     try {
       await recordResults({
         examId,
-        term: "TERM_2", // You can make this dynamic
+        term: "TERM_2",           // Make this dynamic later
         results: entries,
       });
 
-      <Toast>
-        <ToastTitle>Success</ToastTitle>
-        <ToastDescription>CBC results saved successfully.</ToastDescription>
-      </Toast>;
-
-      setEntries([]); // Clear form
+      alert("CBC results saved successfully!");
+      
+      setEntries([]); 
       onSuccess?.();
     } catch (error: any) {
-      <Toast variant="destructive">
-        <ToastTitle>Error</ToastTitle>
-        <ToastDescription>{error.message}</ToastDescription>
-      </Toast>;
+      alert(`Error: ${error.message || "Failed to save results"}`);
+      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -94,10 +89,15 @@ export default function GradeEntryForm({
     <Card>
       <CardHeader>
         <CardTitle>CBC Grade Entry Form</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Record learner performance across learning areas
+        </p>
       </CardHeader>
       <CardContent className="space-y-6">
         {entries.map((entry, index) => (
-          <div key={index} className="grid grid-cols-1 md:grid-cols-7 gap-4 p-4 border rounded-lg">
+          <div key={index} className="grid grid-cols-1 md:grid-cols-7 gap-4 p-5 border rounded-xl bg-card">
+            
+            {/* Student */}
             <div className="md:col-span-2">
               <Label>Student</Label>
               <Select 
@@ -108,13 +108,16 @@ export default function GradeEntryForm({
                   <SelectValue placeholder="Select student" />
                 </SelectTrigger>
                 <SelectContent>
-                  {students.map(s => (
-                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  {students.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name} {s.admissionNumber && `(${s.admissionNumber})`}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
+            {/* Subject / Learning Area */}
             <div>
               <Label>Learning Area</Label>
               <Select 
@@ -125,22 +128,26 @@ export default function GradeEntryForm({
                   <SelectValue placeholder="Select area" />
                 </SelectTrigger>
                 <SelectContent>
-                  {subjects.map(s => (
+                  {subjects.map((s) => (
                     <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
+            {/* Marks */}
             <div>
-              <Label>Marks</Label>
+              <Label>Marks Scored</Label>
               <Input
                 type="number"
                 value={entry.marks}
                 onChange={(e) => updateEntry(index, "marks", Number(e.target.value))}
+                min={0}
+                max={100}
               />
             </div>
 
+            {/* Assessment Type */}
             <div>
               <Label>Assessment Type</Label>
               <Select 
@@ -151,24 +158,25 @@ export default function GradeEntryForm({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {assessmentTypes.map(t => (
-                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  {assessmentTypes.map((t) => (
+                    <SelectItem key={t} value={t}>{t.replace("_", " ")}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
+            {/* Competency Level */}
             <div>
-              <Label>Competency</Label>
+              <Label>Competency Level</Label>
               <Select 
                 value={entry.competencyLevel} 
                 onValueChange={(v) => updateEntry(index, "competencyLevel", v)}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Level" />
+                  <SelectValue placeholder="Select level" />
                 </SelectTrigger>
                 <SelectContent>
-                  {competencyLevels.map(l => (
+                  {competencyLevels.map((l) => (
                     <SelectItem key={l} value={l}>
                       {l.replace(/_/g, " ")}
                     </SelectItem>
@@ -177,17 +185,18 @@ export default function GradeEntryForm({
               </Select>
             </div>
 
+            {/* Remarks */}
             <div className="md:col-span-2">
-              <Label>Remarks</Label>
+              <Label>Remarks / Observations</Label>
               <Textarea
                 value={entry.remarks}
                 onChange={(e) => updateEntry(index, "remarks", e.target.value)}
-                placeholder="Observations..."
+                placeholder="Additional comments..."
                 rows={2}
               />
             </div>
 
-            <div className="flex items-end">
+            <div className="flex items-end justify-end">
               <Button 
                 variant="destructive" 
                 size="sm"
@@ -199,7 +208,7 @@ export default function GradeEntryForm({
           </div>
         ))}
 
-        <div className="flex gap-4">
+        <div className="flex gap-4 pt-4">
           <Button onClick={addEntry} variant="outline" className="flex-1">
             + Add New Entry
           </Button>
@@ -208,7 +217,7 @@ export default function GradeEntryForm({
             disabled={loading || entries.length === 0}
             className="flex-1"
           >
-            {loading ? "Saving..." : "Save All CBC Results"}
+            {loading ? "Saving Results..." : "Save All CBC Results"}
           </Button>
         </div>
       </CardContent>
