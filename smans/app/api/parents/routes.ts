@@ -1,5 +1,5 @@
 // app/api/parents/route.ts
-import { authOptions } from "@/lib/auth/auth"; // FIXED: correct path
+import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
@@ -28,7 +28,11 @@ export async function GET() {
         phone: true,
         createdAt: true,
         students: {
-          select: { id: true, name: true, rollNumber: true },
+          select: { 
+            id: true, 
+            name: true, 
+            admissionNumber: true   // ← Changed from rollNumber
+          },
         },
       },
       orderBy: { name: "asc" },
@@ -53,19 +57,19 @@ export async function POST(request: NextRequest) {
     const parsed = createParentSchema.safeParse(body);
 
     if (!parsed.success) {
-      const firstIssue = parsed.error.issues[0];
       return NextResponse.json(
-        { error: firstIssue?.message || "Invalid input" },
+        { error: parsed.error.issues[0]?.message || "Invalid input" },
         { status: 400 }
       );
     }
 
     const { name, email, phone, password } = parsed.data;
 
-    // Check if email already exists (in User or Parent)
+    // Check email uniqueness
     if (email) {
       const existingUser = await prisma.user.findUnique({ where: { email } });
-      const existingParent = await prisma.parent.findFirst({ where: { email } }); // FIXED: findFirst
+      const existingParent = await prisma.parent.findFirst({ where: { email } });
+
       if (existingUser || existingParent) {
         return NextResponse.json({ error: "Email already in use" }, { status: 409 });
       }
@@ -73,16 +77,17 @@ export async function POST(request: NextRequest) {
 
     let userId: string | undefined;
 
-    // Optional: auto-create User account for parent (uncomment if needed)
+    // Optional: Auto-create User account for parent (uncomment if you want this feature)
     /*
     if (email && password) {
-      const hashedPassword = await bcrypt.hash(password, 10);
+      const hashedPassword = await bcrypt.hash(password, 12);
       const newUser = await prisma.user.create({
         data: {
-          email,
           name,
+          email,
           password: hashedPassword,
           role: "PARENT",
+          isActive: true,
         },
       });
       userId = newUser.id;
@@ -92,12 +97,14 @@ export async function POST(request: NextRequest) {
     const parent = await prisma.parent.create({
       data: {
         name,
-        email,
+        email: email || null,
         phone,
         userId,
       },
       include: {
-        students: { select: { name: true } },
+        students: { 
+          select: { id: true, name: true, admissionNumber: true }   // ← Changed
+        },
       },
     });
 

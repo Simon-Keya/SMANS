@@ -1,5 +1,5 @@
 // app/api/parents/[id]/route.ts
-import { authOptions } from "@/lib/auth/auth"; // FIXED: correct path
+import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
@@ -26,9 +26,13 @@ export async function GET(
       where: { id: params.id },
       include: {
         students: {
-          select: { id: true, name: true, rollNumber: true },
+          select: { 
+            id: true, 
+            name: true, 
+            admissionNumber: true   // ← Changed from rollNumber
+          },
         },
-        user: { select: { email: true } }, // if linked
+        user: { select: { email: true } },
       },
     });
 
@@ -58,21 +62,21 @@ export async function PUT(
     const parsed = updateParentSchema.safeParse(body);
 
     if (!parsed.success) {
-      const firstIssue = parsed.error.issues[0];
       return NextResponse.json(
-        { error: firstIssue?.message || "Validation failed" },
+        { error: parsed.error.issues[0]?.message || "Validation failed" },
         { status: 400 }
       );
     }
 
     const { email } = parsed.data;
 
-    // Optional: prevent email conflict with existing users/parents
+    // Prevent email conflict
     if (email) {
       const existingUser = await prisma.user.findUnique({ where: { email } });
       const existingParent = await prisma.parent.findFirst({
         where: { email, id: { not: params.id } },
       });
+
       if (existingUser || existingParent) {
         return NextResponse.json({ error: "Email already in use" }, { status: 409 });
       }
@@ -82,7 +86,9 @@ export async function PUT(
       where: { id: params.id },
       data: parsed.data,
       include: {
-        students: { select: { name: true } },
+        students: { 
+          select: { id: true, name: true, admissionNumber: true }   // ← Changed
+        },
       },
     });
 
@@ -113,7 +119,6 @@ export async function DELETE(
       return NextResponse.json({ error: "Parent not found" }, { status: 404 });
     }
 
-    // Optional safety: prevent delete if linked students exist
     if (parent.students.length > 0) {
       return NextResponse.json(
         { error: "Cannot delete parent with linked students" },
@@ -121,18 +126,14 @@ export async function DELETE(
       );
     }
 
-    // Optional: delete linked User account if exists
+    // Delete linked user if exists
     if (parent.userId) {
-      await prisma.user.delete({
-        where: { id: parent.userId },
-      });
+      await prisma.user.delete({ where: { id: parent.userId } });
     }
 
-    await prisma.parent.delete({
-      where: { id: params.id },
-    });
+    await prisma.parent.delete({ where: { id: params.id } });
 
-    return NextResponse.json({ success: true, message: "Parent deleted" });
+    return NextResponse.json({ success: true, message: "Parent deleted successfully" });
   } catch (error) {
     console.error("[DELETE_PARENT]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

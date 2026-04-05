@@ -16,7 +16,7 @@ export async function getReportCard(studentId: string) {
     select: {
       id: true,
       name: true,
-      rollNumber: true,
+      admissionNumber: true,        // ← Changed from rollNumber
       class: { select: { name: true, level: true } },
     },
   });
@@ -29,7 +29,7 @@ export async function getReportCard(studentId: string) {
   });
 
   const reportCards = await Promise.all(
-    transcripts.map(async (transcript: any) => {   // explicit type
+    transcripts.map(async (transcript: any) => {
       const grades = await prisma.grade.findMany({
         where: {
           studentId,
@@ -45,9 +45,10 @@ export async function getReportCard(studentId: string) {
         orderBy: { subject: { name: "asc" } },
       });
 
-      // Group by subject
+      // Group grades by subject
       const grouped = grades.reduce((acc: Record<string, any>, grade: any) => {
         const key = grade.subject.name;
+
         if (!acc[key]) {
           acc[key] = {
             subject: grade.subject.name,
@@ -87,7 +88,12 @@ export async function getReportCard(studentId: string) {
 
   return {
     success: true,
-    student,
+    student: {
+      id: student.id,
+      name: student.name,
+      admissionNumber: student.admissionNumber,   // ← Changed
+      class: student.class,
+    },
     reportCards,
   };
 }

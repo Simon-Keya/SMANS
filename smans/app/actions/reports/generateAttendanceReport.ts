@@ -1,4 +1,3 @@
-// app/actions/reports/generateAttendanceReport.ts
 "use server";
 
 import { getCurrentUser } from "@/lib/auth/session";
@@ -39,7 +38,7 @@ export async function generateAttendanceReport(input: unknown) {
           select: {
             id: true,
             name: true,
-            rollNumber: true,
+            admissionNumber: true, // ← Changed
           },
         },
       },
@@ -49,7 +48,6 @@ export async function generateAttendanceReport(input: unknown) {
       ],
     });
 
-    // Explicit typing to fix implicit any
     const summary = attendance.reduce((acc: Record<string, any>, record: any) => {
       const studentId = record.student.id;
 
@@ -57,7 +55,7 @@ export async function generateAttendanceReport(input: unknown) {
         acc[studentId] = {
           studentId,
           studentName: record.student.name,
-          rollNumber: record.student.rollNumber,
+          admissionNumber: record.student.admissionNumber, // ← Changed
           totalDays: 0,
           presentDays: 0,
           absentDays: 0,

@@ -1,5 +1,5 @@
 // app/api/grades/[id]/route.ts
-import { authOptions } from "@/lib/auth/auth"; // FIXED: correct path
+import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
@@ -25,7 +25,7 @@ export async function GET(
     const grade = await prisma.grade.findUnique({
       where: { id: params.id },
       include: {
-        student: { select: { name: true, rollNumber: true } },
+        student: { select: { name: true, admissionNumber: true } }, // ← Changed
         subject: { select: { name: true, code: true } },
         exam: { select: { name: true, date: true } },
       },
@@ -57,9 +57,8 @@ export async function PUT(
     const parsed = updateGradeSchema.safeParse(body);
 
     if (!parsed.success) {
-      const firstIssue = parsed.error.issues[0];
       return NextResponse.json(
-        { error: firstIssue?.message || "Validation failed" },
+        { error: parsed.error.issues[0]?.message || "Validation failed" },
         { status: 400 }
       );
     }
@@ -76,7 +75,7 @@ export async function PUT(
       where: { id: params.id },
       data: parsed.data,
       include: {
-        student: { select: { name: true } },
+        student: { select: { name: true, admissionNumber: true } }, // ← Changed
         subject: { select: { name: true } },
         exam: { select: { name: true } },
       },

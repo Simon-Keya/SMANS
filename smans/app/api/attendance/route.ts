@@ -1,7 +1,6 @@
 // app/api/attendance/route.ts
-import { authOptions } from "@/lib/auth/auth"; // correct import path
+import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
-import { AttendanceStatus } from "@prisma/client"; // ← import the enum
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -22,7 +21,11 @@ export async function GET() {
   const records = await prisma.attendance.findMany({
     include: {
       student: {
-        select: { name: true, rollNumber: true, class: { select: { name: true } } },
+        select: { 
+          name: true, 
+          admissionNumber: true, 
+          class: { select: { name: true } } 
+        },
       },
     },
     orderBy: { date: "desc" },
@@ -47,8 +50,8 @@ export async function POST(request: NextRequest) {
   }
 
   // Validate student + class combinations
-  const studentIds = records.map(r => r.studentId);
-  const classIds = records.map(r => r.classId);
+  const studentIds = records.map((r) => r.studentId);
+  const classIds = records.map((r) => r.classId);
 
   const validStudents = await prisma.student.findMany({
     where: {
@@ -58,19 +61,25 @@ export async function POST(request: NextRequest) {
     select: { id: true, classId: true },
   });
 
-  const validMap = new Map(validStudents.map(s => [`${s.id}-${s.classId}`, true]));
+  // Fixed: Explicit type for 's' to remove implicit 'any'
+  const validMap = new Map(
+    validStudents.map((s: { id: string; classId: string }) => [
+      `${s.id}-${s.classId}`,
+      true,
+    ])
+  );
 
-  const validRecords = records.filter(r => validMap.has(`${r.studentId}-${r.classId}`));
+  const validRecords = records.filter((r) => validMap.has(`${r.studentId}-${r.classId}`));
 
   if (validRecords.length === 0) {
     return NextResponse.json({ error: "No valid student-class combinations found" }, { status: 400 });
   }
 
-  const attendanceData = validRecords.map(r => ({
+  const attendanceData = validRecords.map((r) => ({
     studentId: r.studentId,
     classId: r.classId,
     date: new Date(date),
-    status: r.present ? AttendanceStatus.PRESENT : AttendanceStatus.ABSENT, // ← FIXED: use enum
+    status: r.present ? "PRESENT" : "ABSENT",
   }));
 
   try {

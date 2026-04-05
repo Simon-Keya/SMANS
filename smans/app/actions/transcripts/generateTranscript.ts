@@ -21,7 +21,11 @@ export async function generateTranscript(input: GenerateTranscriptInput) {
 
   const student = await prisma.student.findUnique({
     where: { id: studentId },
-    select: { id: true, name: true, rollNumber: true },
+    select: { 
+      id: true, 
+      name: true, 
+      admissionNumber: true   // ← Changed from rollNumber
+    },
   });
 
   if (!student) throw new Error("Student not found");
@@ -42,7 +46,7 @@ export async function generateTranscript(input: GenerateTranscriptInput) {
     throw new Error(`No CBC assessments found for ${term} ${year}`);
   }
 
-  // Explicit typing to fix implicit any
+  // Group and calculate performance per subject
   const subjectPerformance = grades.reduce((acc: Record<string, any>, grade: any) => {
     const subjectName = grade.subject.name;
 
@@ -92,13 +96,27 @@ export async function generateTranscript(input: GenerateTranscriptInput) {
         studentId_term_year: { studentId, term, year },
       },
       update: {
-        gpa: Number((Object.values(subjectPerformance).reduce((sum: number, s: any) => sum + s.averagePercentage, 0) / Object.keys(subjectPerformance).length).toFixed(2)),
+        gpa: Number(
+          (
+            Object.values(subjectPerformance).reduce(
+              (sum: number, s: any) => sum + s.averagePercentage, 
+              0
+            ) / Object.keys(subjectPerformance).length
+          ).toFixed(2)
+        ),
       },
       create: {
         studentId,
         term,
         year,
-        gpa: Number((Object.values(subjectPerformance).reduce((sum: number, s: any) => sum + s.averagePercentage, 0) / Object.keys(subjectPerformance).length).toFixed(2)),
+        gpa: Number(
+          (
+            Object.values(subjectPerformance).reduce(
+              (sum: number, s: any) => sum + s.averagePercentage, 
+              0
+            ) / Object.keys(subjectPerformance).length
+          ).toFixed(2)
+        ),
       },
     });
 
@@ -106,6 +124,11 @@ export async function generateTranscript(input: GenerateTranscriptInput) {
       success: true,
       transcript,
       subjectPerformance: Object.values(subjectPerformance),
+      student: {
+        id: student.id,
+        name: student.name,
+        admissionNumber: student.admissionNumber,   // ← Added for frontend convenience
+      },
       message: `CBC Transcript generated for ${term} ${year}`,
     };
   } catch (error) {

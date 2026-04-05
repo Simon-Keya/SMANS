@@ -1,4 +1,3 @@
-// app/actions/students/promoteStudents.ts
 "use server";
 
 import { getCurrentUser } from "@/lib/auth/session";
@@ -28,7 +27,6 @@ export async function promoteStudents(input: unknown) {
   const { classId, nextClassId, promotionDate, remarks } = validated.data;
 
   try {
-    // Verify both classes exist
     const [currentClass, nextClass] = await Promise.all([
       prisma.class.findUnique({
         where: { id: classId },
@@ -44,20 +42,17 @@ export async function promoteStudents(input: unknown) {
       throw new Error("One or both classes not found");
     }
 
-    // Get students in current class
     const students = await prisma.student.findMany({
       where: { classId },
-      select: { id: true, name: true, rollNumber: true },
+      select: { id: true, name: true, admissionNumber: true }, // ← Changed
     });
 
     if (students.length === 0) {
       throw new Error("No students found in the current class");
     }
 
-    // Perform promotion in a transaction
     const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      // 1. Update students to new class
-      const updatedStudents = await tx.student.updateMany({
+      await tx.student.updateMany({
         where: { classId },
         data: {
           classId: nextClassId,
@@ -65,9 +60,8 @@ export async function promoteStudents(input: unknown) {
         },
       });
 
-      // 2. Create promotion logs
       await tx.promotionLog.createMany({
-        data: students.map((student: { id: string; name: string | null; rollNumber: string | null }) => ({
+        data: students.map((student: { id: string; name: string | null; admissionNumber: string | null }) => ({
           studentId: student.id,
           fromClassId: classId,
           toClassId: nextClassId,
@@ -77,7 +71,6 @@ export async function promoteStudents(input: unknown) {
         })),
       });
 
-      // 3. Audit log
       await tx.auditLog.create({
         data: {
           userId: user.id,
@@ -93,7 +86,7 @@ export async function promoteStudents(input: unknown) {
         },
       });
 
-      return updatedStudents;
+      return { count: students.length };
     });
 
     return {

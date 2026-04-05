@@ -1,5 +1,5 @@
 // app/api/attendance/[id]/route.ts
-import { authOptions } from "@/lib/auth/auth"; // ← FIXED: correct path
+import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
@@ -18,7 +18,11 @@ export async function GET(
     where: { id: params.id },
     include: {
       student: {
-        select: { name: true, rollNumber: true, class: { select: { name: true } } },
+        select: { 
+          name: true, 
+          admissionNumber: true,   // ← Changed from rollNumber
+          class: { select: { name: true } } 
+        },
       },
     },
   });
@@ -44,7 +48,6 @@ export async function PUT(
   try {
     const data = await request.json();
 
-    // Only allow updating status (or other allowed fields)
     const allowedFields = ["status"];
     const updateData = Object.fromEntries(
       Object.entries(data).filter(([key]) => allowedFields.includes(key))
@@ -57,7 +60,11 @@ export async function PUT(
     const updated = await prisma.attendance.update({
       where: { id: params.id },
       data: updateData,
-      include: { student: true },
+      include: { 
+        student: { 
+          select: { name: true, admissionNumber: true }   // ← Changed
+        } 
+      },
     });
 
     return NextResponse.json(updated);

@@ -1,4 +1,3 @@
-// app/actions/reports/generateFinanceReport.ts
 "use server";
 
 import { getCurrentUser } from "@/lib/auth/session";
@@ -18,7 +17,7 @@ export async function generateFinanceReport() {
           select: {
             id: true,
             name: true,
-            rollNumber: true,
+            admissionNumber: true, // ← Changed
             class: { select: { name: true } },
           },
         },
@@ -36,7 +35,6 @@ export async function generateFinanceReport() {
       orderBy: { dueDate: "desc" },
     });
 
-    // Explicit typing for reduce operations
     const totalAmountDue = invoices.reduce((sum: number, inv: any) => sum + inv.amount, 0);
 
     const totalPaid = invoices.reduce((sum: number, inv: any) => {

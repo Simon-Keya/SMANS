@@ -1,5 +1,5 @@
 // app/api/grades/route.ts
-import { authOptions } from "@/lib/auth/auth"; // FIXED: correct path
+import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
@@ -27,7 +27,7 @@ export async function GET() {
   try {
     const grades = await prisma.grade.findMany({
       include: {
-        student: { select: { name: true, rollNumber: true } },
+        student: { select: { name: true, admissionNumber: true } }, // ← Changed
         subject: { select: { name: true, code: true } },
         exam: { select: { name: true, date: true } },
       },
@@ -54,16 +54,14 @@ export async function POST(request: NextRequest) {
     const parsed = createGradeSchema.safeParse(body);
 
     if (!parsed.success) {
-      const firstIssue = parsed.error.issues[0];
       return NextResponse.json(
-        { error: firstIssue?.message || "Invalid input" },
+        { error: parsed.error.issues[0]?.message || "Invalid input" },
         { status: 400 }
       );
     }
 
     const { studentId, examId, grades } = parsed.data;
 
-    // Verify student exists
     const student = await prisma.student.findUnique({
       where: { id: studentId },
     });
@@ -72,7 +70,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Student not found" }, { status: 404 });
     }
 
-    // Verify exam exists
     const exam = await prisma.exam.findUnique({
       where: { id: examId },
     });
@@ -81,8 +78,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Exam not found" }, { status: 404 });
     }
 
-    // Verify all subjects exist and belong to the class
-    const subjectIds = grades.map(g => g.subjectId);
+    const subjectIds = grades.map((g) => g.subjectId);
     const validSubjects = await prisma.subject.findMany({
       where: {
         id: { in: subjectIds },
@@ -91,16 +87,16 @@ export async function POST(request: NextRequest) {
       select: { id: true },
     });
 
-    const validSubjectIds = new Set(validSubjects.map(s => s.id));
+    const validSubjectIds = new Set(validSubjects.map((s) => s.id));
 
-    const validGrades = grades.filter(g => validSubjectIds.has(g.subjectId));
+    const validGrades = grades.filter((g) => validSubjectIds.has(g.subjectId));
 
     if (validGrades.length === 0) {
       return NextResponse.json({ error: "No valid subjects found for this class" }, { status: 400 });
     }
 
     const createdGrades = await prisma.$transaction(
-      validGrades.map(g =>
+      validGrades.map((g) =>
         prisma.grade.create({
           data: {
             studentId,
@@ -110,7 +106,7 @@ export async function POST(request: NextRequest) {
             maxMarks: g.maxMarks || 100,
           },
           include: {
-            student: { select: { name: true } },
+            student: { select: { name: true, admissionNumber: true } }, // ← Changed
             subject: { select: { name: true } },
             exam: { select: { name: true } },
           },

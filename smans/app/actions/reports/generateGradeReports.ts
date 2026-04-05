@@ -1,4 +1,3 @@
-// app/actions/reports/generateGradeReport.ts
 "use server";
 
 import { getCurrentUser } from "@/lib/auth/session";
@@ -19,7 +18,7 @@ export async function generateGradeReport(examId: string) {
           select: {
             id: true,
             name: true,
-            rollNumber: true,
+            admissionNumber: true, // ← Changed
           },
         },
         subject: {
@@ -48,7 +47,6 @@ export async function generateGradeReport(examId: string) {
       throw new Error("No grades found for this exam");
     }
 
-    // Explicit typing for reduce
     const studentGrades = grades.reduce((acc: Record<string, any>, grade: any) => {
       const studentId = grade.student.id;
 
@@ -56,7 +54,7 @@ export async function generateGradeReport(examId: string) {
         acc[studentId] = {
           studentId,
           studentName: grade.student.name,
-          rollNumber: grade.student.rollNumber,
+          admissionNumber: grade.student.admissionNumber, // ← Changed
           subjects: [],
         };
       }
