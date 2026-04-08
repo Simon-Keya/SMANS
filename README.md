@@ -2,7 +2,7 @@
 
 A modern, full-stack school management application built with **Next.js 14/15**, **Prisma**, **NextAuth v5**, **Tailwind CSS + daisyUI**, and **Shadcn/UI**.
 
-SMANS helps schools manage students, teachers, classes, attendance, exams, grades, fees, invoices, payments, notifications, and more — with role-based dashboards for admins, teachers, parents, and students.
+SMANS helps schools manage students, teachers, classes, attendance, exams, grades, fees, invoices, payments, notifications, and more — with role-based dashboards for admins, teachers, parents, and students..
 
 ## Features
 
