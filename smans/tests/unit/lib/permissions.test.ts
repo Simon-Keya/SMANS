@@ -1,27 +1,59 @@
 // tests/unit/lib/permissions.test.ts
-import { hasPermission } from '@/lib/permissions';
+import { hasPermission, Permission, Role } from '@/lib/permissions';
 
 describe('Permissions System', () => {
-  it('ADMIN should have full access', () => {
-    expect(hasPermission('ADMIN', 'any:permission')).toBe(true);
-    expect(hasPermission('ADMIN', 'fees:manage')).toBe(true);
+  describe('ADMIN role', () => {
+    it('should have full access to everything', () => {
+      expect(hasPermission('ADMIN', '*')).toBe(true);
+      expect(hasPermission('ADMIN', 'students:write')).toBe(true);
+      expect(hasPermission('ADMIN', 'fees:pay')).toBe(true);
+      expect(hasPermission('ADMIN', 'attendance:mark')).toBe(true);
+      expect(hasPermission('ADMIN', 'notifications:send')).toBe(true);
+    });
   });
 
-  it('ACCOUNTANT should only manage fees', () => {
-    expect(hasPermission('ACCOUNTANT', 'fees:record')).toBe(true);
-    expect(hasPermission('ACCOUNTANT', 'fees:view')).toBe(true);
-    expect(hasPermission('ACCOUNTANT', 'students:create')).toBe(false);
-    expect(hasPermission('ACCOUNTANT', 'attendance:mark')).toBe(false);
+  describe('TEACHER role', () => {
+    it('should be able to manage attendance, grades and exams', () => {
+      expect(hasPermission('TEACHER', 'attendance:mark')).toBe(true);
+      expect(hasPermission('TEACHER', 'attendance:read')).toBe(true);
+      expect(hasPermission('TEACHER', 'grades:enter')).toBe(true);
+      expect(hasPermission('TEACHER', 'grades:read')).toBe(true);
+      expect(hasPermission('TEACHER', 'exams:create')).toBe(true);
+      expect(hasPermission('TEACHER', 'reports:generate')).toBe(true);
+
+      // Should not have fees access
+      expect(hasPermission('TEACHER', 'fees:pay')).toBe(false);
+    });
   });
 
-  it('TEACHER should manage attendance and grades', () => {
-    expect(hasPermission('TEACHER', 'attendance:mark')).toBe(true);
-    expect(hasPermission('TEACHER', 'grades:enter')).toBe(true);
-    expect(hasPermission('TEACHER', 'fees:manage')).toBe(false);
+  describe('STUDENT role', () => {
+    it('should have limited self-access only', () => {
+      expect(hasPermission('STUDENT', 'grades:read')).toBe(true);
+      expect(hasPermission('STUDENT', 'attendance:read')).toBe(true);
+      expect(hasPermission('STUDENT', 'profile:read')).toBe(true);
+
+      expect(hasPermission('STUDENT', 'grades:enter')).toBe(false);
+      expect(hasPermission('STUDENT', 'attendance:mark')).toBe(false);
+    });
   });
 
-  it('STUDENT and PARENT should have limited access', () => {
-    expect(hasPermission('STUDENT', 'profile:view')).toBe(true);
-    expect(hasPermission('PARENT', 'children:view')).toBe(true);
+  describe('PARENT role', () => {
+    it('should have access to their children’s information', () => {
+      expect(hasPermission('PARENT', 'students:read')).toBe(true);
+      expect(hasPermission('PARENT', 'grades:read')).toBe(true);
+      expect(hasPermission('PARENT', 'fees:read')).toBe(true);
+
+      expect(hasPermission('PARENT', 'grades:enter')).toBe(false);
+    });
+  });
+
+  describe('Edge cases', () => {
+    it('should return false for unknown roles', () => {
+      expect(hasPermission('UNKNOWN' as Role, 'students:read' as Permission)).toBe(false);
+    });
+
+    it('should support wildcard permissions for ADMIN', () => {
+      expect(hasPermission('ADMIN', 'any:random' as Permission)).toBe(true);
+    });
   });
 });

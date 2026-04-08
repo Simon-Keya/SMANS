@@ -1,17 +1,22 @@
 // tests/integration/api/fees.api.test.ts
-import { POST } from '@/app/api/fees/record/route'; // Adjust if your route path differs
+import { POST as recordPayment } from '@/app/api/fees/payments/route';
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
+import { NextRequest } from 'next/server';
 
 jest.mock('next-auth');
 
-describe('Fees API Integration', () => {
+describe('Fees & Payments API Integration', () => {
   beforeEach(async () => {
     await prisma.payment.deleteMany({});
     await prisma.invoice.deleteMany({});
   });
 
-  it('should record a payment and update invoice', async () => {
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
+  it('should record a payment and update invoice status', async () => {
     const mockSession = { user: { id: 'acc-1', role: 'ACCOUNTANT' } };
     (getServerSession as jest.Mock).mockResolvedValue(mockSession);
 
@@ -28,27 +33,57 @@ describe('Fees API Integration', () => {
     const paymentData = {
       invoiceId: invoice.id,
       amount: 12500,
-      paymentMethod: 'MPESA',
-      transactionRef: 'MPESA_TEST_98765',
+      method: 'MPESA',
+      paymentDate: new Date().toISOString(),
     };
 
-    const request = new Request('http://localhost/api/fees/record', {
+    // Use NextRequest (required by your route)
+    const request = new NextRequest('http://localhost/api/payments', {
       method: 'POST',
       body: JSON.stringify(paymentData),
       headers: { 'Content-Type': 'application/json' },
     });
 
-    const response = await POST(request);
+    const response = await recordPayment(request);
     const result = await response.json();
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(201);
     expect(result.success).toBe(true);
+    expect(result.data).toBeDefined();
 
     // Verify payment was created
     const payment = await prisma.payment.findFirst({
       where: { invoiceId: invoice.id },
     });
+
     expect(payment).toBeTruthy();
     expect(payment?.amount).toBe(12500);
+    expect(payment?.status).toBe('COMPLETED');
+
+    // Verify invoice status was updated
+    const updatedInvoice = await prisma.invoice.findUnique({
+      where: { id: invoice.id },
+    });
+
+    expect(updatedInvoice?.status).toBe('PAID');
+  });
+
+  it('should return 401 for non-accountant/admin users', async () => {
+    const mockSession = { user: { id: 'teacher-1', role: 'TEACHER' } };
+    (getServerSession as jest.Mock).mockResolvedValue(mockSession);
+
+    const request = new NextRequest('http://localhost/api/payments', {
+      method: 'POST',
+      body: JSON.stringify({
+        invoiceId: 'fake-id',
+        amount: 5000,
+        method: 'CASH',
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    const response = await recordPayment(request);
+
+    expect(response.status).toBe(401);
   });
 });
