@@ -8,11 +8,22 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:reset": "prisma migrate reset",
     "prisma:studio": "prisma studio",
-    "postinstall": "prisma generate"
+    "prisma:db-push": "prisma db push",
+    "postinstall": "prisma generate",
+
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:unit": "jest tests/unit",
+    "test:integration": "jest tests/integration",
+    "test:prisma": "jest tests/integration/prisma",
+
+    "test:specific": "jest"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -33,8 +44,6 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
-    "crypto": "^1.0.1",
-    "daisyui": "^4.12.24",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.563.0",
     "next": "^16.1.6",
@@ -71,7 +80,6 @@
     "@types/uuid": "^11.0.0",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.37.0",
-    "@vitest/coverage-v8": "^4.1.0",
     "autoprefixer": "^10.4.27",
     "bullmq": "^5.70.1",
     "eslint": "^10.0.0",
@@ -87,7 +95,6 @@
     "ts-jest": "^29.4.9",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
-    "uuid": "^13.0.0",
-    "vitest": "^4.1.0"
+    "uuid": "^13.0.0"
   }
 }
