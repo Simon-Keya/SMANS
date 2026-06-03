@@ -6,13 +6,16 @@ import Footer from "@/components/layout/Footer";
 import Header from "@/components/layout/Header";
 import AuthSessionProvider from "@/components/providers/AuthSessionProviders";
 import { ToastProvider, ToastViewport } from "@/components/ui/Toast";
-import { cn } from "@/lib/utils";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "SMANS - School Management System",
-  description: "A modern school management system for administrators, teachers, students, and parents.",
+  description:
+    "A modern school management system for administrators, teachers, students, and parents.",
 };
 
 export default function RootLayout({
@@ -21,13 +24,23 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" data-theme="smans" className="h-full" suppressHydrationWarning>
-      <body className={cn("min-h-screen flex flex-col bg-base-100 font-sans antialiased", inter.className)}>
+    <html
+      lang="en"
+      data-theme="smans"
+      className="h-full"
+      suppressHydrationWarning
+    >
+      <body
+        className="min-h-screen flex flex-col bg-base-100 antialiased"
+      >
         <AuthSessionProvider>
           <ToastProvider>
             <Header />
+
             <main className="flex-1">{children}</main>
+
             <Footer />
+
             <ToastViewport />
           </ToastProvider>
         </AuthSessionProvider>
