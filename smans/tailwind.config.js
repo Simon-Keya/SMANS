@@ -1,13 +1,12 @@
 /** @type {import('tailwindcss').Config} */
 
-const daisyui = require("daisyui")
-
 module.exports = {
   content: [
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx}",
     "./pages/**/*.{js,ts,jsx,tsx}",
     "./src/**/*.{js,ts,jsx,tsx}",
+    "./**/*.{js,ts,jsx,tsx,mdx}", // ✅ extra safety for scanning issues
   ],
 
   darkMode: "class",
@@ -21,24 +20,20 @@ module.exports = {
   },
 
   plugins: [
-    require("tailwindcss-animate"),
-    daisyui
+    require("tailwindcss-animate"), // animations
+    require("daisyui"), // ✅ direct require (more stable for v5)
   ],
 
   daisyui: {
+    // ✅ safer ordering for v5
     themes: [
+      "light",
+      "dark",
       {
         smans: {
           primary: "#1e40af",
-          "primary-focus": "#1e3a8a",
-          "primary-content": "#ffffff",
-
           secondary: "#0d9488",
-          "secondary-focus": "#0f766e",
-          "secondary-content": "#ffffff",
-
           accent: "#ea580c",
-
           neutral: "#1f2937",
 
           "base-100": "#f8fafc",
@@ -52,10 +47,9 @@ module.exports = {
           error: "#ef4444",
         },
       },
-      "light",
-      "dark",
     ],
 
     defaultTheme: "smans",
+    darkTheme: "dark",
   },
-}
+};
