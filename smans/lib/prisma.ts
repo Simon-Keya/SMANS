@@ -1,35 +1,21 @@
-// lib/prisma.ts  (or prisma.ts — both are fine)
-
+// lib/prisma.ts
 import { PrismaClient } from '@prisma/client';
 
-// Add prisma to the Node.js global type so we can access it in development
-// This prevents multiple PrismaClient instances during hot-reloading
-declare global {
-  // eslint-disable-next-line no-var
-  var prisma: PrismaClient | undefined;
-}
-
-// Create or reuse PrismaClient instance
-const prismaClientSingleton = () => {
-  return new PrismaClient({
-    // Optional: enable query logging in development
-    log: process.env.NODE_ENV === 'development' ? ['query', 'info', 'warn', 'error'] : ['error'],
-  });
-};
-
-// Type for the prisma global variable
-type PrismaSingleton = ReturnType<typeof prismaClientSingleton>;
-
-// Use globalThis to store the singleton in development
 const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaSingleton | undefined;
+  prisma: PrismaClient | undefined;
 };
 
-// Export the singleton instance
-const prisma = globalForPrisma.prisma ?? prismaClientSingleton();
+export const prisma = globalForPrisma.prisma ?? new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL!,
+    },
+  },
+  log: process.env.NODE_ENV === 'development' 
+    ? ['query', 'info', 'warn', 'error'] 
+    : ['error'],
+});
 
-// In development, attach to global to prevent multiple instances on hot reload
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
-
-export { prisma };
-
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma;
+}

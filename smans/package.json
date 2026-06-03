@@ -8,14 +8,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:reset": "prisma migrate reset",
     "prisma:studio": "prisma studio",
     "prisma:db-push": "prisma db push",
     "postinstall": "prisma generate",
-
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
@@ -43,6 +41,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
+    "daisyui": "^5.5.20",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.563.0",
     "next": "^16.1.6",
@@ -62,7 +61,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
-    "@prisma/client": "^5.22.0",
+    "@prisma/client": "^5.15.0",
     "@sentry/nextjs": "^10.40.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -87,7 +86,7 @@
     "jest-environment-jsdom": "^30.3.0",
     "next-test-api-route-handler": "^5.0.3",
     "postcss": "^8.5.8",
-    "prisma": "^7.5.0",
+    "prisma": "^5.15.0",
     "stripe": "^20.3.1",
     "supertest": "^7.2.2",
     "tailwindcss": "^3.4.19",
@@ -99,16 +98,24 @@
   "jest": {
     "preset": "ts-jest",
     "testEnvironment": "jsdom",
-    "setupFilesAfterEnv": ["<rootDir>/jest.setup.ts"],
+    "setupFilesAfterEnv": [
+      "<rootDir>/jest.setup.ts"
+    ],
     "moduleNameMapper": {
       "^@/(.*)$": "<rootDir>/$1"
     },
     "transform": {
-      "^.+\\.(ts|tsx)$": ["ts-jest", {
-        "tsconfig": "tsconfig.json"
-      }]
+      "^.+\\.(ts|tsx)$": [
+        "ts-jest",
+        {
+          "tsconfig": "tsconfig.json"
+        }
+      ]
     },
-    "testPathIgnorePatterns": ["/node_modules/", "/.next/"],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/.next/"
+    ],
     "collectCoverageFrom": [
       "**/*.{ts,tsx}",
       "!**/*.d.ts",
