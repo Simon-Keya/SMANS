@@ -14,8 +14,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "SMANS - School Management System",
-  description:
-    "A modern school management system for administrators, teachers, students, and parents.",
+  description: "A modern school management system",
 };
 
 export default function RootLayout({
@@ -26,21 +25,16 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      data-theme="smans"
+      data-theme="smans"           // ← This is important
       className="h-full"
       suppressHydrationWarning
     >
-      <body
-        className="min-h-screen flex flex-col bg-base-100 antialiased"
-      >
+      <body className="min-h-screen flex flex-col bg-base-100 antialiased">
         <AuthSessionProvider>
           <ToastProvider>
             <Header />
-
             <main className="flex-1">{children}</main>
-
             <Footer />
-
             <ToastViewport />
           </ToastProvider>
         </AuthSessionProvider>
