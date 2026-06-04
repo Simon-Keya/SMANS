@@ -31,27 +31,26 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
 
-    const res = await signIn("credentials", {
+    const result = await signIn("credentials", {
       email,
       password,
       redirect: false,
       callbackUrl,
     });
 
-    if (res?.error) {
+    if (result?.error) {
       setError("Invalid email or password. Please try again.");
-    } else {
+    } else if (result?.ok) {
       router.push(callbackUrl);
+      router.refresh(); // Refresh to update session
     }
     setLoading(false);
   };
 
   return (
     <div className="min-h-screen flex bg-base-100">
-
-      {/* ── Left panel (branding) ── */}
+      {/* Left Branding Panel */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-primary via-primary-focus to-primary flex-col items-center justify-center p-16 text-primary-content">
-        {/* Decorative background */}
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-white/5 blur-3xl" />
           <div className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full bg-white/5 blur-3xl" />
@@ -70,11 +69,9 @@ export default function LoginPage() {
             <GraduationCap className="w-8 h-8 text-primary-content" />
           </div>
 
-          <h1 className="text-4xl font-black tracking-tight mb-4 text-white">
-            Welcome to SMANS
-          </h1>
+          <h1 className="text-4xl font-black tracking-tight mb-4">Welcome to SMANS</h1>
           <p className="text-white/70 text-base leading-relaxed mb-12">
-            Sign in to access your personalized school dashboard and stay connected with everything that matters.
+            Sign in to access your personalized school dashboard.
           </p>
 
           <ul className="space-y-4 text-left">
@@ -93,11 +90,10 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* ── Right panel (form) ── */}
+      {/* Form Panel */}
       <div className="flex-1 flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-md">
-
-          {/* Mobile logo */}
+          {/* Mobile Logo */}
           <div className="flex items-center gap-3 mb-10 lg:hidden">
             <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center">
               <GraduationCap className="w-5 h-5 text-primary-content" />
@@ -105,39 +101,33 @@ export default function LoginPage() {
             <span className="text-xl font-black text-base-content">SMANS</span>
           </div>
 
-          {/* Heading */}
           <div className="mb-8">
-            <h2 className="text-3xl font-black text-base-content mb-1.5">Sign in to your account</h2>
-            <p className="text-base-content opacity-50 text-sm">
-              Enter your credentials to access your dashboard.
+            <h2 className="text-3xl font-black text-base-content mb-1.5">Sign in</h2>
+            <p className="text-base-content/60 text-sm">
+              Enter your credentials to continue
             </p>
           </div>
 
-          {/* Success alert */}
+          {/* Success Message */}
           {searchParams.get("success") === "account_created" && (
-            <div className="flex items-center gap-3 bg-success/10 border border-success/30 text-success rounded-xl px-4 py-3 text-sm mb-6">
-              <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+            <div className="flex items-center gap-3 bg-success/10 border border-success text-success rounded-xl px-4 py-3 text-sm mb-6">
+              <CheckCircle2 className="w-4 h-4" />
               Account created successfully! Please sign in.
             </div>
           )}
 
-          {/* Error alert */}
+          {/* Error Message */}
           {error && (
-            <div className="bg-error/10 border border-error/30 text-error rounded-xl px-4 py-3 text-sm mb-6">
+            <div className="bg-error/10 border border-error text-error rounded-xl px-4 py-3 text-sm mb-6">
               {error}
             </div>
           )}
 
-          {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
-
-            {/* Email */}
             <div className="space-y-1.5">
-              <Label htmlFor="email" className="text-sm font-semibold text-base-content">
-                Email Address
-              </Label>
+              <Label htmlFor="email">Email Address</Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content opacity-30" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content/40" />
                 <Input
                   id="email"
                   type="email"
@@ -145,27 +135,23 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  autoFocus
-                  className="pl-9 rounded-xl bg-base-200 border-neutral/40 focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all"
+                  className="pl-10"
                 />
               </div>
             </div>
 
-            {/* Password */}
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password" className="text-sm font-semibold text-base-content">
-                  Password
-                </Label>
+              <div className="flex justify-between">
+                <Label htmlFor="password">Password</Label>
                 <Link
                   href="/auth/forgot-password"
-                  className="text-xs text-primary font-medium hover:underline"
+                  className="text-xs text-primary hover:underline"
                 >
                   Forgot password?
                 </Link>
               </div>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content opacity-30" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content/40" />
                 <Input
                   id="password"
                   type="password"
@@ -173,20 +159,16 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="pl-9 rounded-xl bg-base-200 border-neutral/40 focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all"
+                  className="pl-10"
                 />
               </div>
             </div>
 
-            <Button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-primary hover:bg-primary-focus text-primary-content font-bold py-3 rounded-xl shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all flex items-center justify-center gap-2 mt-2"
-            >
+            <Button type="submit" disabled={loading} className="w-full">
               {loading ? (
                 <>
                   <span className="loading loading-spinner loading-sm" />
-                  Signing in…
+                  Signing in...
                 </>
               ) : (
                 <>
@@ -194,22 +176,20 @@ export default function LoginPage() {
                 </>
               )}
             </Button>
-
           </form>
 
-          <div className="flex items-center gap-3 my-7">
+          <div className="flex items-center gap-3 my-8">
             <div className="flex-1 h-px bg-base-300" />
-            <span className="text-xs text-base-content opacity-40 font-medium">OR</span>
+            <span className="text-xs text-base-content/40">OR</span>
             <div className="flex-1 h-px bg-base-300" />
           </div>
 
-          <p className="text-center text-sm text-base-content opacity-50">
+          <p className="text-center text-sm">
             Don't have an account?{" "}
-            <Link href="/auth/signup" className="text-primary font-semibold hover:underline opacity-100">
+            <Link href="/auth/signup" className="text-primary font-medium hover:underline">
               Sign up now
             </Link>
           </p>
-
         </div>
       </div>
     </div>

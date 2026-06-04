@@ -1,12 +1,12 @@
+// app/actions/auth/signIn.ts
 "use server";
 
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { signIn as nextAuthSignIn } from "next-auth/react"; // Not used directly in server
 import { redirect } from "next/navigation";
-
-// Rate limiting (optional – requires Upstash Redis)
-import { redis } from "@/lib/upstash/redis";
 import { Ratelimit } from "@upstash/ratelimit";
+import { redis } from "@/lib/upstash/redis";
 
 const loginLimiter = new Ratelimit({
   redis,
@@ -26,16 +26,15 @@ export async function signInAction({ email, password, callbackUrl = "/dashboard"
     return { success: false, error: "Email and password are required" };
   }
 
-  const normalizedEmail = email.trim().toLowerCase();
+  const normalizedEmail = email.toLowerCase().trim();
 
-  // Rate limit by email (or IP in production)
-  const { success } = await loginLimiter.limit(normalizedEmail);
-  if (!success) {
-    return { success: false, error: "Too many login attempts. Please try again later." };
+  // Rate limiting
+  const { success: rateLimitOk } = await loginLimiter.limit(normalizedEmail);
+  if (!rateLimitOk) {
+    return { success: false, error: "Too many login attempts. Try again later." };
   }
 
   try {
-    // 1. Find user
     const user = await prisma.user.findUnique({
       where: { email: normalizedEmail },
     });
@@ -44,22 +43,29 @@ export async function signInAction({ email, password, callbackUrl = "/dashboard"
       return { success: false, error: "Invalid email or password" };
     }
 
-    // 2. Verify password
-    const isValid = await bcrypt.compare(password, user.password);
-    if (!isValid) {
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
       return { success: false, error: "Invalid email or password" };
     }
 
-    // 3. Manually sign in using NextAuth's server-side flow
-    // Note: In v4, we can't directly create session in server action.
-    // Best workaround: redirect to NextAuth's signin endpoint with credentials
+    // Check if email is verified (except for ADMIN)
+    if (!user.emailVerified && user.role !== "ADMIN") {
+      return { 
+        success: false, 
+        error: "Please verify your email before logging in." 
+      };
+    }
 
-    // Build sign-in URL with credentials (NextAuth handles session creation)
-    const signInUrl = `/api/auth/signin?email=${encodeURIComponent(normalizedEmail)}&password=${encodeURIComponent(password)}&callbackUrl=${encodeURIComponent(callbackUrl)}`;
+    // Use NextAuth to create session (this is the clean way)
+    await nextAuthSignIn("credentials", {
+      email: normalizedEmail,
+      password,
+      redirect: false,
+    });
 
-    redirect(signInUrl);
+    redirect(callbackUrl);
   } catch (error) {
-    console.error("[SIGN_IN_ERROR]", error);
-    return { success: false, error: "An unexpected error occurred. Please try again." };
+    console.error("[SIGNIN_ACTION_ERROR]", error);
+    return { success: false, error: "Something went wrong. Please try again." };
   }
 }
