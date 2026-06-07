@@ -3,7 +3,6 @@
 
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import { signIn as nextAuthSignIn } from "next-auth/react"; // Not used directly in server
 import { redirect } from "next/navigation";
 import { Ratelimit } from "@upstash/ratelimit";
 import { redis } from "@/lib/upstash/redis";
@@ -22,6 +21,8 @@ interface SignInInput {
 }
 
 export async function signInAction({ email, password, callbackUrl = "/dashboard" }: SignInInput) {
+  console.log("🔥 signInAction called with:", { email });
+
   if (!email?.trim() || !password?.trim()) {
     return { success: false, error: "Email and password are required" };
   }
@@ -31,7 +32,7 @@ export async function signInAction({ email, password, callbackUrl = "/dashboard"
   // Rate limiting
   const { success: rateLimitOk } = await loginLimiter.limit(normalizedEmail);
   if (!rateLimitOk) {
-    return { success: false, error: "Too many login attempts. Try again later." };
+    return { success: false, error: "Too many login attempts. Please try again later." };
   }
 
   try {
@@ -48,7 +49,7 @@ export async function signInAction({ email, password, callbackUrl = "/dashboard"
       return { success: false, error: "Invalid email or password" };
     }
 
-    // Check if email is verified (except for ADMIN)
+    // Check email verification (except for ADMIN)
     if (!user.emailVerified && user.role !== "ADMIN") {
       return { 
         success: false, 
@@ -56,16 +57,12 @@ export async function signInAction({ email, password, callbackUrl = "/dashboard"
       };
     }
 
-    // Use NextAuth to create session (this is the clean way)
-    await nextAuthSignIn("credentials", {
-      email: normalizedEmail,
-      password,
-      redirect: false,
-    });
+    console.log("✅ Login successful for:", normalizedEmail);
 
+    // Redirect to dashboard (NextAuth session will be handled by middleware or login page)
     redirect(callbackUrl);
-  } catch (error) {
-    console.error("[SIGNIN_ACTION_ERROR]", error);
+  } catch (error: any) {
+    console.error("💥 SignIn Action Error:", error);
     return { success: false, error: "Something went wrong. Please try again." };
   }
 }
