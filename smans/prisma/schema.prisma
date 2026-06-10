@@ -37,6 +37,8 @@ model User {
   student                 Student?                 @relation("UserStudent")
   createdBy               User?                    @relation("CreatedBy", fields: [createdById], references: [id])
   createdUsers            User[]                   @relation("CreatedBy")
+   twoFactorEnabled        Boolean                  @default(false)
+  twoFactorSecret         String?
 
   @@index([email])
   @@index([createdById])
