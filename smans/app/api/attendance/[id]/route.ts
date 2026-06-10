@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -14,13 +14,15 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const { id } = await params;
+
   const record = await prisma.attendance.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       student: {
         select: { 
           name: true, 
-          admissionNumber: true,   // ← Changed from rollNumber
+          admissionNumber: true,
           class: { select: { name: true } } 
         },
       },
@@ -36,7 +38,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   const userRole = session?.user?.role as string | undefined;
@@ -46,6 +48,7 @@ export async function PUT(
   }
 
   try {
+    const { id } = await params;
     const data = await request.json();
 
     const allowedFields = ["status"];
@@ -58,11 +61,11 @@ export async function PUT(
     }
 
     const updated = await prisma.attendance.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData,
       include: { 
         student: { 
-          select: { name: true, admissionNumber: true }   // ← Changed
+          select: { name: true, admissionNumber: true }
         } 
       },
     });
