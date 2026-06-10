@@ -42,7 +42,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    requireRole("TEACHER", "ADMIN")
+    // Fix: requireRole expects an array as a single argument
+    await requireRole(["TEACHER", "ADMIN"]);
 
     const body = await request.json();
 
