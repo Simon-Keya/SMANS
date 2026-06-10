@@ -2,7 +2,7 @@ import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { getServerSession } from "next-auth";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import * as z from "zod";
 
 const allowedRoles = ["ADMIN", "TEACHER", "STUDENT", "PARENT", "ACCOUNTANT"] as const;
@@ -30,21 +30,46 @@ export async function GET() {
       role: true,
       isActive: true,
       staffNo: true,
-      admissionNumber: true, // ← Changed
-      classId: true,
-      parentId: true,
-      occupation: true,
-      relationship: true,
+      // Remove role-specific fields that don't exist in User model
       createdAt: true,
       updatedAt: true,
     },
     orderBy: { name: "asc" },
   });
 
-  return NextResponse.json({ success: true, data: users });
+  // If you need student/parent specific info, fetch it separately
+  const usersWithDetails = await Promise.all(
+    users.map(async (user) => {
+      let studentInfo = null;
+      let parentInfo = null;
+      
+      if (user.role === "STUDENT") {
+        studentInfo = await prisma.student.findUnique({
+          where: { userId: user.id },
+          select: { admissionNumber: true, classId: true, parentId: true }
+        });
+      } else if (user.role === "PARENT") {
+        parentInfo = await prisma.parent.findUnique({
+          where: { userId: user.id },
+          select: { occupation: true, relationship: true }
+        });
+      }
+      
+      return {
+        ...user,
+        admissionNumber: studentInfo?.admissionNumber || null,
+        classId: studentInfo?.classId || null,
+        parentId: studentInfo?.parentId || null,
+        occupation: parentInfo?.occupation || null,
+        relationship: parentInfo?.relationship || null,
+      };
+    })
+  );
+
+  return NextResponse.json({ success: true, data: usersWithDetails });
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -54,13 +79,18 @@ export async function POST(request: Request) {
   const parsed = createUserSchema.safeParse(body);
 
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid input" }, { status: 400 });
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message || "Invalid input" }, 
+      { status: 400 }
+    );
   }
 
   const { name, email, password, phone, role } = parsed.data;
 
   const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) return NextResponse.json({ error: "Email already exists" }, { status: 409 });
+  if (existing) {
+    return NextResponse.json({ error: "Email already exists" }, { status: 409 });
+  }
 
   const hashedPassword = await bcrypt.hash(password, 12);
 
@@ -73,7 +103,14 @@ export async function POST(request: Request) {
       role,
       isActive: true,
     },
-    select: { id: true, name: true, email: true, phone: true, role: true, createdAt: true },
+    select: { 
+      id: true, 
+      name: true, 
+      email: true, 
+      phone: true, 
+      role: true, 
+      createdAt: true 
+    },
   });
 
   await prisma.auditLog.create({
