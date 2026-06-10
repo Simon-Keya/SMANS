@@ -9,7 +9,7 @@ const attendanceRecordSchema = z.object({
   studentId: z.string().min(1, "Student ID is required"),
   classId: z.string().min(1, "Class ID is required"),
   present: z.boolean(),
-  remarks: z.string().max(200).optional(),   // Optional teacher note (useful in CBC)
+  // remarks field removed - not in schema
 });
 
 const markAttendanceSchema = z.object({
@@ -43,22 +43,20 @@ export async function markAttendance(input: unknown) {
           },
           update: {
             status: r.present ? "PRESENT" : "ABSENT",
-            remarks: r.remarks?.trim() || null,
-            markedById: user.id,
+            // removed remarks and markedById - not in schema
           },
           create: {
             studentId: r.studentId,
             classId: r.classId,
             date,
             status: r.present ? "PRESENT" : "ABSENT",
-            remarks: r.remarks?.trim() || null,
-            markedById: user.id,
+            // removed remarks and markedById - not in schema
           },
         })
       )
     );
 
-    // Audit log
+    // Audit log to track who marked attendance
     await prisma.auditLog.create({
       data: {
         userId: user.id,
@@ -68,7 +66,10 @@ export async function markAttendance(input: unknown) {
         metadata: {
           recordCount: records.length,
           date: date.toISOString(),
-          term: "CURRENT", // you can make this dynamic
+          records: records.map(r => ({
+            studentId: r.studentId,
+            status: r.present ? "PRESENT" : "ABSENT"
+          })),
         },
       },
     });
