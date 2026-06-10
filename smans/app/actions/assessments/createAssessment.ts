@@ -33,11 +33,27 @@ export async function createAssessment(input: unknown) {
       duration: data.duration,
       maxScore: data.maxScore,
       assessmentType: data.assessmentType,
-      createdById: user.id,
+      // Removed createdById - it doesn't exist in the schema
     },
     include: {
       learningArea: true,
       class: true,
+    },
+  });
+
+  // Optionally create an audit log to track who created the assessment
+  await prisma.auditLog.create({
+    data: {
+      userId: user.id,
+      action: "CREATE_ASSESSMENT",
+      entity: "Assessment",
+      entityId: assessment.id,
+      metadata: {
+        title: assessment.title,
+        classId: assessment.classId,
+        learningAreaId: assessment.learningAreaId,
+        assessmentType: assessment.assessmentType,
+      },
     },
   });
 
