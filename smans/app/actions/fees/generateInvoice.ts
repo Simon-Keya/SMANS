@@ -10,7 +10,7 @@ const generateInvoiceSchema = z.object({
   feeItemId: z.string().optional(), // optional – can be custom invoice
   amount: z.number().positive("Amount must be greater than 0"),
   dueDate: z.coerce.date().min(new Date(), "Due date must be in the future"),
-  description: z.string().optional(),
+  // description field removed - not in schema
 });
 
 export async function generateInvoice(input: unknown) {
@@ -25,7 +25,7 @@ export async function generateInvoice(input: unknown) {
     throw new Error(validated.error.issues[0]?.message || "Invalid input");
   }
 
-  const { studentId, feeItemId, amount, dueDate, description } = validated.data;
+  const { studentId, feeItemId, amount, dueDate } = validated.data;
 
   try {
     const invoice = await prisma.invoice.create({
@@ -34,7 +34,7 @@ export async function generateInvoice(input: unknown) {
         feeItemId: feeItemId || null,
         amount,
         dueDate,
-        description: description?.trim(),
+        // description removed - not in schema
         status: "PENDING", // matches your InvoiceStatus enum
         createdById: user.id,
         approvedById: user.role === "ACCOUNTANT" ? user.id : null,
@@ -42,6 +42,24 @@ export async function generateInvoice(input: unknown) {
       include: {
         student: { select: { name: true } },
         feeItem: { select: { name: true } },
+      },
+    });
+
+    // Create audit log to track invoice generation with any description
+    await prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: "GENERATE_INVOICE",
+        entity: "Invoice",
+        entityId: invoice.id,
+        metadata: {
+          studentId,
+          feeItemId,
+          amount,
+          dueDate: dueDate.toISOString(),
+          // Store description in metadata if provided
+          // description: description?.trim(),
+        },
       },
     });
 
