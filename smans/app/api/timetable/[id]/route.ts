@@ -13,17 +13,22 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = await params;
-  
-  const period = await prisma.timetable.findUnique({
-    where: { id },
-  });
+  try {
+    const { id } = await params;
+    
+    const period = await prisma.timetable.findUnique({
+      where: { id },
+    });
 
-  if (!period) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!period) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    return NextResponse.json(period);
+  } catch (error) {
+    console.error("GET timetable period error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-
-  return NextResponse.json(period);
 }
 
 export async function PUT(
@@ -37,15 +42,29 @@ export async function PUT(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { id } = await params;
-  const data = await request.json();
+  try {
+    const { id } = await params;
+    const data = await request.json();
 
-  const updated = await prisma.timetable.update({
-    where: { id },
-    data,
-  });
+    // Validate that the period exists
+    const existing = await prisma.timetable.findUnique({
+      where: { id },
+    });
 
-  return NextResponse.json(updated);
+    if (!existing) {
+      return NextResponse.json({ error: "Period not found" }, { status: 404 });
+    }
+
+    const updated = await prisma.timetable.update({
+      where: { id },
+      data,
+    });
+
+    return NextResponse.json(updated);
+  } catch (error) {
+    console.error("PUT timetable period error:", error);
+    return NextResponse.json({ error: "Failed to update period" }, { status: 500 });
+  }
 }
 
 export async function DELETE(
@@ -59,9 +78,22 @@ export async function DELETE(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { id } = await params;
-  
-  await prisma.timetable.delete({ where: { id } });
+  try {
+    const { id } = await params;
+    
+    const existing = await prisma.timetable.findUnique({
+      where: { id },
+    });
 
-  return NextResponse.json({ success: true });
+    if (!existing) {
+      return NextResponse.json({ error: "Period not found" }, { status: 404 });
+    }
+
+    await prisma.timetable.delete({ where: { id } });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("DELETE timetable period error:", error);
+    return NextResponse.json({ error: "Failed to delete period" }, { status: 500 });
+  }
 }
