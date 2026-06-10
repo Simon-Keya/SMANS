@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 
 type ReportCardInput = {
   studentId: string;
-  term: "TERM_1" | "TERM_2" | "TERM_3";
+  term: string; // Changed from specific union to string since term is String? in schema
   year: number;
 };
 
@@ -19,13 +19,13 @@ export async function generateReportCard(input: ReportCardInput) {
 
   const { studentId, term, year } = input;
 
-  // Fetch student with admissionNumber (changed from rollNumber)
+  // Fetch student with admissionNumber
   const student = await prisma.student.findUnique({
     where: { id: studentId },
     select: {
       id: true,
       name: true,
-      admissionNumber: true, // Changed from rollNumber to admissionNumber
+      admissionNumber: true,
       class: {
         select: {
           name: true,
@@ -39,13 +39,12 @@ export async function generateReportCard(input: ReportCardInput) {
     throw new Error("Student not found");
   }
 
-  // Fetch grades with year filter
+  // Fetch grades - removed year filter since it doesn't exist in Exam model
   const grades = await prisma.grade.findMany({
     where: {
       studentId,
       exam: {
-        term,
-        year,
+        term: term, // Only filter by term since year doesn't exist
       },
     },
     include: {
@@ -53,7 +52,7 @@ export async function generateReportCard(input: ReportCardInput) {
         select: { id: true, name: true, code: true },
       },
       exam: {
-        select: { id: true, name: true, date: true, term: true, year: true },
+        select: { id: true, name: true, date: true, term: true },
       },
     },
     orderBy: [
@@ -62,12 +61,19 @@ export async function generateReportCard(input: ReportCardInput) {
     ],
   });
 
-  if (grades.length === 0) {
+  // Optionally filter by year using exam date if needed
+  const filteredGrades = grades.filter(grade => {
+    if (!year) return true;
+    // Filter by year from exam date
+    return grade.exam.date.getFullYear() === year;
+  });
+
+  if (filteredGrades.length === 0) {
     throw new Error(`No results found for ${term} ${year}`);
   }
 
-  // Group by subject with explicit typing (this fixes the error)
-  const subjectPerformance = grades.reduce((acc: Record<string, any>, grade: any) => {
+  // Group by subject with explicit typing
+  const subjectPerformance = filteredGrades.reduce((acc: Record<string, any>, grade: any) => {
     const subjectName = grade.subject.name;
 
     if (!acc[subjectName]) {
@@ -118,7 +124,7 @@ export async function generateReportCard(input: ReportCardInput) {
       student: {
         id: student.id,
         name: student.name,
-        admissionNumber: student.admissionNumber, // Changed from rollNumber to admissionNumber
+        admissionNumber: student.admissionNumber,
         className: student.class?.name,
         level: student.class?.level,
       },
