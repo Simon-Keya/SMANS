@@ -13,7 +13,7 @@ const roleSchema = z.object({
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -22,8 +22,10 @@ export async function GET(
   }
 
   try {
+    const { id } = await params;
+    
     const role = await prisma.role.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         _count: {
           select: { users: true },
@@ -44,7 +46,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -53,11 +55,12 @@ export async function PUT(
   }
 
   try {
+    const { id } = await params;
     const body = await request.json();
     const validated = roleSchema.parse(body);
 
     const existing = await prisma.role.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!existing) {
@@ -70,7 +73,7 @@ export async function PUT(
     }
 
     const role = await prisma.role.update({
-      where: { id: params.id },
+      where: { id },
       data: validated,
     });
 
@@ -86,7 +89,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -95,8 +98,10 @@ export async function DELETE(
   }
 
   try {
+    const { id } = await params;
+    
     const existing = await prisma.role.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: { _count: { select: { users: true } } },
     });
 
@@ -117,7 +122,7 @@ export async function DELETE(
     }
 
     await prisma.role.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({ success: true });
