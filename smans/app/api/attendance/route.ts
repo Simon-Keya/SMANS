@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
+import { AttendanceStatus } from "@prisma/client"; // Import the enum
 
 type AttendanceRecordInput = {
   studentId: string;
@@ -61,7 +62,6 @@ export async function POST(request: NextRequest) {
     select: { id: true, classId: true },
   });
 
-  // Fixed: Explicit type for 's' to remove implicit 'any'
   const validMap = new Map(
     validStudents.map((s: { id: string; classId: string }) => [
       `${s.id}-${s.classId}`,
@@ -75,11 +75,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "No valid student-class combinations found" }, { status: 400 });
   }
 
+  // Fix: Explicitly type the status as AttendanceStatus enum
   const attendanceData = validRecords.map((r) => ({
     studentId: r.studentId,
     classId: r.classId,
     date: new Date(date),
-    status: r.present ? "PRESENT" : "ABSENT",
+    status: r.present ? AttendanceStatus.PRESENT : AttendanceStatus.ABSENT, // Use enum values
   }));
 
   try {
