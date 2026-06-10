@@ -18,7 +18,7 @@ const createUserSchema = z.object({
   }),
   // Role-specific fields
   staffNo: z.string().min(3, "Staff number is required").optional(),
-  admissionNumber: z.string().min(3, "Admission number is required").optional(), // ← Changed
+  admissionNumber: z.string().min(3, "Admission number is required").optional(),
   classId: z.string().optional(),
   parentId: z.string().optional(),
   occupation: z.string().optional(),
@@ -72,6 +72,7 @@ export async function createUser(rawData: unknown) {
   const hashedPassword = await bcrypt.hash(password, 12);
 
   try {
+    // Create the user first
     const newUser = await prisma.user.create({
       data: {
         name: name?.trim(),
@@ -80,28 +81,43 @@ export async function createUser(rawData: unknown) {
         phone: phone?.trim() || null,
         role,
         staffNo: role === "TEACHER" ? staffNo?.trim() : null,
-        admissionNumber: role === "STUDENT" ? admissionNumber?.trim() : null, // ← Changed
-        classId: role === "STUDENT" ? classId : null,
-        parentId: role === "STUDENT" ? parentId : null,
-        occupation: role === "PARENT" ? occupation?.trim() : null,
-        relationship: role === "PARENT" ? relationship?.trim() : null,
         isActive: true,
       },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        role: true,
-        staffNo: true,
-        admissionNumber: true, // ← Changed
-        classId: true,
-        parentId: true,
-        occupation: true,
-        relationship: true,
-        createdAt: true,
-      },
     });
+
+    // Create role-specific records
+    if (role === "STUDENT") {
+      // Check if admission number is unique
+      const existingStudent = await prisma.student.findUnique({
+        where: { admissionNumber: admissionNumber! },
+      });
+      if (existingStudent) {
+        throw new Error("Admission number already exists");
+      }
+
+      await prisma.student.create({
+        data: {
+          userId: newUser.id,
+          name: name || "Unknown",
+          admissionNumber: admissionNumber!,
+          classId: classId!,
+          parentId: parentId || null,
+          email: email,
+          phone: phone?.trim() || null,
+        },
+      });
+    } else if (role === "PARENT") {
+      await prisma.parent.create({
+        data: {
+          userId: newUser.id,
+          name: name || "Unknown",
+          email: email,
+          phone: phone?.trim() || null,
+          occupation: occupation?.trim() || null,
+          relationship: relationship?.trim() || null,
+        },
+      });
+    }
 
     // Audit log
     await prisma.auditLog.create({
@@ -110,18 +126,30 @@ export async function createUser(rawData: unknown) {
         action: "CREATE_USER",
         entity: "User",
         entityId: newUser.id,
-        metadata: { email: newUser.email, role: newUser.role },
+        metadata: { 
+          email: newUser.email, 
+          role: newUser.role,
+          admissionNumber: role === "STUDENT" ? admissionNumber : null,
+        },
       },
     });
 
     return {
       success: true,
-      user: newUser,
+      user: {
+        id: newUser.id,
+        name: newUser.name,
+        email: newUser.email,
+        phone: newUser.phone,
+        role: newUser.role,
+        staffNo: newUser.staffNo,
+        createdAt: newUser.createdAt,
+      },
       message: `User "${name || email}" created successfully as ${role}`,
     };
   } catch (error: any) {
     if (error.code === "P2002") throw new Error("Duplicate entry (email or admission number)");
     console.error("Create user error:", error);
-    throw new Error("Failed to create user. Please try again.");
+    throw new Error(error.message || "Failed to create user. Please try again.");
   }
 }
