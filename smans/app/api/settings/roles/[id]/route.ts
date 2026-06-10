@@ -43,7 +43,7 @@ export async function GET(
   try {
     const { id } = await params;
     
-    // Since Role is an enum, the id should be the role name
+  
     const roleName = id;
     const validRoles = ["ADMIN", "TEACHER", "STUDENT", "PARENT", "ACCOUNTANT"];
     
