@@ -8,7 +8,7 @@ import { z } from "zod";
 const updateAttendanceSchema = z.object({
   attendanceId: z.string().min(1, "Attendance ID is required"),
   status: z.enum(["PRESENT", "ABSENT", "LATE"]),
-  remarks: z.string().max(200).optional(),
+  // remarks field removed - not in schema
 });
 
 export async function updateAttendance(input: unknown) {
@@ -23,26 +23,29 @@ export async function updateAttendance(input: unknown) {
     throw new Error(validated.error.issues[0]?.message || "Invalid input");
   }
 
-  const { attendanceId, status, remarks } = validated.data;
+  const { attendanceId, status } = validated.data;
 
   try {
     const updated = await prisma.attendance.update({
       where: { id: attendanceId },
       data: {
         status,
-        remarks: remarks?.trim() || null,
-        markedById: user.id,
+        // removed remarks and markedById - not in schema
       },
     });
 
-    // Audit log
+    // Audit log to track who updated attendance
     await prisma.auditLog.create({
       data: {
         userId: user.id,
         action: "UPDATE_ATTENDANCE",
         entity: "Attendance",
         entityId: attendanceId,
-        metadata: { status, remarks },
+        metadata: { 
+          status, 
+          updatedBy: user.id,
+          updatedAt: new Date().toISOString()
+        },
       },
     });
 
