@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { InvoiceStatus } from "@prisma/client"; // Import the enum
 
 // Explicit type for selected invoice
 type SelectedInvoice = {
@@ -11,25 +12,26 @@ type SelectedInvoice = {
   student: { name: string | null };
   amount: number;
   dueDate: Date;
-  status: string;
+  status: InvoiceStatus;
 };
 
-export default async function InvoicesPage({
-  searchParams,
-}: {
-  searchParams: { status?: string; startDate?: string; endDate?: string };
-}) {
+interface InvoicesPageProps {
+  searchParams: Promise<{ status?: string; startDate?: string; endDate?: string }>;
+}
+
+export default async function InvoicesPage({ searchParams }: InvoicesPageProps) {
   const session = await getServerSession(authOptions);
 
   if (!session || session.user.role !== "ADMIN") {
     redirect("/dashboard");
   }
 
-  const statusFilter = searchParams.status || undefined;
-  const startDateFilter = searchParams.startDate ? new Date(searchParams.startDate) : undefined;
-  const endDateFilter = searchParams.endDate ? new Date(searchParams.endDate) : undefined;
+  const params = await searchParams;
+  const statusFilter = params.status as InvoiceStatus | undefined;
+  const startDateFilter = params.startDate ? new Date(params.startDate) : undefined;
+  const endDateFilter = params.endDate ? new Date(params.endDate) : undefined;
 
-  const invoices: SelectedInvoice[] = await prisma.invoice.findMany({
+  const invoices = await prisma.invoice.findMany({
     where: {
       status: statusFilter,
       dueDate: {
@@ -47,6 +49,8 @@ export default async function InvoicesPage({
     orderBy: { dueDate: "desc" },
   });
 
+  const typedInvoices: SelectedInvoice[] = invoices as SelectedInvoice[];
+
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
@@ -62,7 +66,7 @@ export default async function InvoicesPage({
           <label className="block text-sm font-medium mb-1">Status</label>
           <select
             name="status"
-            defaultValue={statusFilter || ""}
+            defaultValue={params.status || ""}
             className="border rounded px-3 py-2 bg-base-100"
             onChange={(e) => {
               const url = new URL(window.location.href);
@@ -83,7 +87,7 @@ export default async function InvoicesPage({
           <label className="block text-sm font-medium mb-1">Start Date</label>
           <input
             type="date"
-            defaultValue={searchParams.startDate || ""}
+            defaultValue={params.startDate || ""}
             onChange={(e) => {
               const url = new URL(window.location.href);
               if (e.target.value) url.searchParams.set("startDate", e.target.value);
@@ -98,7 +102,7 @@ export default async function InvoicesPage({
           <label className="block text-sm font-medium mb-1">End Date</label>
           <input
             type="date"
-            defaultValue={searchParams.endDate || ""}
+            defaultValue={params.endDate || ""}
             onChange={(e) => {
               const url = new URL(window.location.href);
               if (e.target.value) url.searchParams.set("endDate", e.target.value);
@@ -110,7 +114,7 @@ export default async function InvoicesPage({
         </div>
       </div>
 
-      {invoices.length === 0 ? (
+      {typedInvoices.length === 0 ? (
         <div className="text-center py-12 text-base-content/60 bg-base-200 rounded-lg">
           No invoices match the current filters.
         </div>
@@ -127,7 +131,7 @@ export default async function InvoicesPage({
               </tr>
             </thead>
             <tbody>
-              {invoices.map((inv) => (
+              {typedInvoices.map((inv) => (
                 <tr key={inv.id} className="border-b hover:bg-base-300/50 transition-colors">
                   <td className="p-4">{inv.student.name || "—"}</td>
                   <td className="p-4 font-medium">{inv.amount.toLocaleString()}</td>
@@ -139,7 +143,9 @@ export default async function InvoicesPage({
                           ? "bg-success/20 text-success"
                           : inv.status === "PARTIAL"
                           ? "bg-warning/20 text-warning"
-                          : "bg-error/20 text-error"
+                          : inv.status === "OVERDUE"
+                          ? "bg-error/20 text-error"
+                          : "bg-warning/20 text-warning"
                       }`}
                     >
                       {inv.status}

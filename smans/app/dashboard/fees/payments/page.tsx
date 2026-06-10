@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { PaymentStatus } from "@prisma/client";
 
 // Explicit type for selected payment data
 type SelectedPayment = {
@@ -16,25 +17,26 @@ type SelectedPayment = {
   amount: number;
   paymentDate: Date;
   method: string;
-  status: string;
+  status: PaymentStatus;
 };
 
-export default async function PaymentsPage({
-  searchParams,
-}: {
-  searchParams: { status?: string; startDate?: string; endDate?: string };
-}) {
+interface PaymentsPageProps {
+  searchParams: Promise<{ status?: string; startDate?: string; endDate?: string }>;
+}
+
+export default async function PaymentsPage({ searchParams }: PaymentsPageProps) {
   const session = await getServerSession(authOptions);
 
   if (!session || session.user.role !== "ADMIN") {
     redirect("/dashboard");
   }
 
-  const statusFilter = searchParams.status || undefined;
-  const startDateFilter = searchParams.startDate ? new Date(searchParams.startDate) : undefined;
-  const endDateFilter = searchParams.endDate ? new Date(searchParams.endDate) : undefined;
+  const params = await searchParams;
+  const statusFilter = params.status as PaymentStatus | undefined;
+  const startDateFilter = params.startDate ? new Date(params.startDate) : undefined;
+  const endDateFilter = params.endDate ? new Date(params.endDate) : undefined;
 
-  const payments: SelectedPayment[] = await prisma.payment.findMany({
+  const payments = await prisma.payment.findMany({
     where: {
       status: statusFilter,
       paymentDate: {
@@ -55,7 +57,9 @@ export default async function PaymentsPage({
       status: true,
     },
     orderBy: { paymentDate: "desc" },
-  }) satisfies SelectedPayment[];
+  });
+
+  const typedPayments = payments as SelectedPayment[];
 
   return (
     <div className="space-y-6 p-6">
@@ -67,7 +71,7 @@ export default async function PaymentsPage({
           <label className="block text-sm font-medium mb-1">Status</label>
           <select
             name="status"
-            defaultValue={statusFilter || ""}
+            defaultValue={params.status || ""}
             className="border rounded px-3 py-2 bg-base-100"
             onChange={(e) => {
               const url = new URL(window.location.href);
@@ -87,7 +91,7 @@ export default async function PaymentsPage({
           <label className="block text-sm font-medium mb-1">Start Date</label>
           <input
             type="date"
-            defaultValue={searchParams.startDate || ""}
+            defaultValue={params.startDate || ""}
             onChange={(e) => {
               const url = new URL(window.location.href);
               if (e.target.value) url.searchParams.set("startDate", e.target.value);
@@ -102,7 +106,7 @@ export default async function PaymentsPage({
           <label className="block text-sm font-medium mb-1">End Date</label>
           <input
             type="date"
-            defaultValue={searchParams.endDate || ""}
+            defaultValue={params.endDate || ""}
             onChange={(e) => {
               const url = new URL(window.location.href);
               if (e.target.value) url.searchParams.set("endDate", e.target.value);
@@ -114,7 +118,7 @@ export default async function PaymentsPage({
         </div>
       </div>
 
-      {payments.length === 0 ? (
+      {typedPayments.length === 0 ? (
         <div className="text-center py-12 text-base-content/60 bg-base-200 rounded-lg">
           No payments match the current filters.
         </div>
@@ -132,17 +136,19 @@ export default async function PaymentsPage({
               </tr>
             </thead>
             <tbody>
-              {payments.map((pay) => (
+              {typedPayments.map((pay) => (
                 <tr key={pay.id} className="border-b hover:bg-base-300/50 transition-colors">
                   <td className="p-4">{pay.invoice.student.name || "—"}</td>
                   <td className="p-4 font-medium">{pay.amount.toLocaleString()}</td>
                   <td className="p-4">{new Date(pay.paymentDate).toLocaleDateString()}</td>
-                  <td className="p-4 capitalize">{pay.method}</td>
+                  <td className="p-4 capitalize">{pay.method.toLowerCase()}</td>
                   <td className="p-4">
                     <span
                       className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${
                         pay.status === "COMPLETED"
                           ? "bg-success/20 text-success"
+                          : pay.status === "PENDING"
+                          ? "bg-warning/20 text-warning"
                           : "bg-error/20 text-error"
                       }`}
                     >

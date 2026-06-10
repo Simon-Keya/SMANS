@@ -15,16 +15,40 @@ export default async function ParentsPage() {
   }
 
   const parents = await prisma.user.findMany({
-    where: { role: "parent" },
+    where: { role: "PARENT" }, // Changed from "parent" to "PARENT" (uppercase)
     select: {
       id: true,
       name: true,
       email: true,
       role: true,
       createdAt: true,
+      // Include parent relation to get additional parent-specific data
+      parent: {
+        select: {
+          phone: true,
+          occupation: true,
+          relationship: true,
+          _count: {
+            select: { students: true }
+          }
+        }
+      }
     },
     orderBy: { name: "asc" },
   });
+
+  // Transform data to include parent-specific fields at the root level if needed
+  const parentsWithDetails = parents.map(parent => ({
+    id: parent.id,
+    name: parent.name,
+    email: parent.email,
+    role: parent.role,
+    createdAt: parent.createdAt,
+    phone: parent.parent?.phone,
+    occupation: parent.parent?.occupation,
+    relationship: parent.parent?.relationship,
+    studentCount: parent.parent?._count.students || 0,
+  }));
 
   return (
     <div className="space-y-6">
@@ -43,7 +67,7 @@ export default async function ParentsPage() {
           No parents registered yet. Add your first parent.
         </div>
       ) : (
-        <ParentTable parents={parents} />
+        <ParentTable parents={parentsWithDetails} />
       )}
     </div>
   );

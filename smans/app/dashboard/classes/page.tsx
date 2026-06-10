@@ -22,10 +22,21 @@ export default async function ClassesPage() {
       teacher: {
         select: { name: true },
       },
-      studentCount: true,
+      _count: {
+        select: { students: true },
+      },
     },
     orderBy: { name: "asc" },
   });
+
+  // Transform the data to match ClassTable expectations
+  const classesWithCount = classes.map(cls => ({
+    id: cls.id,
+    name: cls.name,
+    level: cls.level,
+    teacher: cls.teacher ? { name: cls.teacher.name || "Unassigned" } : { name: "Unassigned" },
+    studentCount: cls._count.students,
+  }));
 
   return (
     <div className="space-y-6">
@@ -46,7 +57,7 @@ export default async function ClassesPage() {
           No classes created yet.
         </div>
       ) : (
-        <ClassTable classes={classes} />
+        <ClassTable classes={classesWithCount} />
       )}
     </div>
   );

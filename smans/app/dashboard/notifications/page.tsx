@@ -12,10 +12,19 @@ type Notification = {
   title: string;
   message: string;
   read: boolean;
-  type?: "success" | "error" | "info" | "warning"; // optional, based on your schema
+  type?: string | null; // Allow string or null from database
   createdAt: Date;
   userId: string;
 };
+
+// Helper function to get icon based on notification type
+function getNotificationIcon(type: string | null | undefined) {
+  if (type === "success") {
+    return <CheckCircle className="h-5 w-5 text-success mt-0.5" />;
+  }
+  // Default to AlertCircle for error, warning, info, or null
+  return <AlertCircle className="h-5 w-5 text-info mt-0.5" />;
+}
 
 export default async function NotificationsPage() {
   const session = await getServerSession(authOptions);
@@ -24,8 +33,8 @@ export default async function NotificationsPage() {
     redirect("/auth/login");
   }
 
-  // Explicitly select only the fields we need (helps TypeScript infer correctly)
-  const notifications: Notification[] = await prisma.notification.findMany({
+  // Explicitly select only the fields we need
+  const notifications = await prisma.notification.findMany({
     where: { userId: session.user.id },
     orderBy: { createdAt: "desc" },
     take: 20,
@@ -34,11 +43,17 @@ export default async function NotificationsPage() {
       title: true,
       message: true,
       read: true,
-      type: true,        // include if your schema has this field
+      type: true,
       createdAt: true,
-      userId: true,      // optional, but included for completeness
+      userId: true,
     },
   });
+
+  // Transform the data to ensure type is properly handled
+  const typedNotifications: Notification[] = notifications.map(notif => ({
+    ...notif,
+    type: notif.type || undefined, // Convert null to undefined
+  }));
 
   return (
     <div className="space-y-6 p-6">
@@ -52,13 +67,13 @@ export default async function NotificationsPage() {
         </Button>
       </div>
 
-      {notifications.length === 0 ? (
+      {typedNotifications.length === 0 ? (
         <div className="text-center py-12 text-base-content/60 bg-base-200 rounded-lg">
           No notifications yet.
         </div>
       ) : (
         <div className="space-y-4">
-          {notifications.map((notif) => (
+          {typedNotifications.map((notif) => (
             <div
               key={notif.id}
               className={`p-4 rounded-lg border ${
@@ -66,11 +81,7 @@ export default async function NotificationsPage() {
               }`}
             >
               <div className="flex items-start gap-3">
-                {notif.type === "success" ? (
-                  <CheckCircle className="h-5 w-5 text-success mt-0.5" />
-                ) : (
-                  <AlertCircle className="h-5 w-5 text-error mt-0.5" />
-                )}
+                {getNotificationIcon(notif.type)}
                 <div className="flex-1">
                   <h3 className="font-medium">{notif.title}</h3>
                   <p className="text-sm text-base-content/70">{notif.message}</p>

@@ -4,19 +4,43 @@ import { prisma } from "@/lib/prisma";
 import { ArrowLeft, Edit } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+
 interface ParentDetailPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default async function ParentDetailPage({ params }: ParentDetailPageProps) {
+  const { id } = await params;
+  
   const parent = await prisma.user.findUnique({
-    where: { id: params.id, role: "parent" },
+    where: { 
+      id, 
+      role: "PARENT" // Changed from lowercase "parent" to uppercase "PARENT"
+    },
     select: {
       id: true,
       name: true,
       email: true,
       role: true,
       createdAt: true,
+      // Include parent-specific data from the Parent model
+      parent: {
+        select: {
+          phone: true,
+          occupation: true,
+          relationship: true,
+          students: {
+            select: {
+              id: true,
+              name: true,
+              admissionNumber: true,
+              class: {
+                select: { name: true }
+              }
+            }
+          }
+        }
+      }
     },
   });
 
@@ -54,6 +78,18 @@ export default async function ParentDetailPage({ params }: ParentDetailPageProps
               <p className="font-medium">{parent.email}</p>
             </div>
             <div>
+              <p className="text-sm text-base-content/60">Phone</p>
+              <p className="font-medium">{parent.parent?.phone || "Not provided"}</p>
+            </div>
+            <div>
+              <p className="text-sm text-base-content/60">Occupation</p>
+              <p className="font-medium">{parent.parent?.occupation || "Not provided"}</p>
+            </div>
+            <div>
+              <p className="text-sm text-base-content/60">Relationship</p>
+              <p className="font-medium">{parent.parent?.relationship || "Not provided"}</p>
+            </div>
+            <div>
               <p className="text-sm text-base-content/60">Registered On</p>
               <p className="font-medium">
                 {new Date(parent.createdAt).toLocaleDateString()}
@@ -62,7 +98,36 @@ export default async function ParentDetailPage({ params }: ParentDetailPageProps
           </CardContent>
         </Card>
 
-        {/* You can add children list, contact info, etc. here */}
+        {/* Children Section */}
+        <Card className="bg-base-100 shadow-lg border border-base-200">
+          <CardHeader>
+            <CardTitle className="text-xl text-primary">Children</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {parent.parent?.students && parent.parent.students.length > 0 ? (
+              <div className="space-y-3">
+                {parent.parent.students.map((student) => (
+                  <div key={student.id} className="border-b pb-3 last:border-0">
+                    <p className="font-medium">{student.name}</p>
+                    <p className="text-sm text-base-content/60">
+                      Admission: {student.admissionNumber}
+                    </p>
+                    <p className="text-sm text-base-content/60">
+                      Class: {student.class?.name || "Not assigned"}
+                    </p>
+                    <Button variant="link" size="sm" asChild className="p-0 h-auto mt-1">
+                      <Link href={`/dashboard/students/${student.id}`}>
+                        View Profile
+                      </Link>
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-base-content/60">No children linked to this parent.</p>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

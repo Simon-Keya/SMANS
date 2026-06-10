@@ -4,6 +4,26 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import StudentsClient from "./students-client";
 
+type StudentWithRelations = {
+  id: string;
+  name: string;
+  admissionNumber: string;
+  email: string | null;
+  phone: string | null;
+  class: { name: string } | null;
+  parent: { phone: string | null } | null;
+};
+
+type NormalizedStudent = {
+  id: string;
+  name: string;
+  admissionNumber: string;
+  className: string;
+  email?: string;
+  studentPhone?: string;
+  parentPhone?: string;
+};
+
 export default async function StudentsPage() {
   // Fetch students with relations
   const rawStudents = await prisma.student.findMany({
@@ -18,16 +38,8 @@ export default async function StudentsPage() {
     },
   });
 
-  // Explicit typing to fix implicit 'any'
-  const students = rawStudents.map((s: {
-    id: string;
-    name: string;
-    admissionNumber: string;
-    email: string | null;
-    phone: string | null;
-    class: { name: string } | null;
-    parent: { phone: string } | null;
-  }) => ({
+  // Transform the data with proper null handling
+  const students: NormalizedStudent[] = rawStudents.map((s: StudentWithRelations) => ({
     id: s.id,
     name: s.name,
     admissionNumber: s.admissionNumber,

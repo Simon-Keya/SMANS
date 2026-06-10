@@ -7,6 +7,24 @@ import { Plus } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+// Helper function to determine assessment status
+function getAssessmentStatus(date: Date): "UPCOMING" | "COMPLETED" | "IN_PROGRESS" {
+  const today = new Date();
+  const assessmentDate = new Date(date);
+  
+  // Reset time part for accurate date comparison
+  today.setHours(0, 0, 0, 0);
+  assessmentDate.setHours(0, 0, 0, 0);
+  
+  if (assessmentDate > today) {
+    return "UPCOMING";
+  } else if (assessmentDate.getTime() === today.getTime()) {
+    return "IN_PROGRESS";
+  } else {
+    return "COMPLETED";
+  }
+}
+
 export default async function AssessmentsPage() {
   const user = await getCurrentUser();
 
@@ -22,6 +40,12 @@ export default async function AssessmentsPage() {
     orderBy: { date: "desc" },
   });
 
+  // Add computed status field to each assessment
+  const assessmentsWithStatus = assessments.map(assessment => ({
+    ...assessment,
+    status: getAssessmentStatus(assessment.date)
+  }));
+
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
@@ -31,8 +55,8 @@ export default async function AssessmentsPage() {
         </div>
 
         <Button asChild>
-          <Link href="/dashboard/assessments/new" className="gap-2">
-            <Plus className="h-4 w-4" />
+          <Link href="/dashboard/assessments/new">
+            <Plus className="mr-2 h-4 w-4" />
             New Assessment
           </Link>
         </Button>
@@ -44,7 +68,7 @@ export default async function AssessmentsPage() {
         </div>
       ) : (
         <AssessmentTable 
-          assessments={assessments} 
+          assessments={assessmentsWithStatus} 
           onDelete={async (id: string) => {
             "use server";
             // Call your delete action here later
