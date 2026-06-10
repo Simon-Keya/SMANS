@@ -13,7 +13,7 @@ const updateGradeSchema = z.object({
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -22,10 +22,12 @@ export async function GET(
   }
 
   try {
+    const { id } = await params;
+    
     const grade = await prisma.grade.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
-        student: { select: { name: true, admissionNumber: true } }, // ← Changed
+        student: { select: { name: true, admissionNumber: true } },
         subject: { select: { name: true, code: true } },
         exam: { select: { name: true, date: true } },
       },
@@ -44,7 +46,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -53,6 +55,7 @@ export async function PUT(
   }
 
   try {
+    const { id } = await params;
     const body = await request.json();
     const parsed = updateGradeSchema.safeParse(body);
 
@@ -64,7 +67,7 @@ export async function PUT(
     }
 
     const existing = await prisma.grade.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!existing) {
@@ -72,10 +75,10 @@ export async function PUT(
     }
 
     const updated = await prisma.grade.update({
-      where: { id: params.id },
+      where: { id },
       data: parsed.data,
       include: {
-        student: { select: { name: true, admissionNumber: true } }, // ← Changed
+        student: { select: { name: true, admissionNumber: true } },
         subject: { select: { name: true } },
         exam: { select: { name: true } },
       },
@@ -90,7 +93,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -99,8 +102,10 @@ export async function DELETE(
   }
 
   try {
+    const { id } = await params;
+    
     const grade = await prisma.grade.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!grade) {
@@ -108,7 +113,7 @@ export async function DELETE(
     }
 
     await prisma.grade.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({ success: true, message: "Grade deleted" });
