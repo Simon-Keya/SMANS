@@ -5,15 +5,23 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-export default async function EditAssessmentPage({ params }: { params: { id: string } }) {
+
+interface EditAssessmentPageProps {
+  params: Promise<{ id: string }>;
+}
+
+export default async function EditAssessmentPage({ params }: EditAssessmentPageProps) {
   const user = await getCurrentUser();
 
   if (!user || !["ADMIN", "TEACHER"].includes(user.role)) {
     redirect("/dashboard");
   }
 
+  const { id } = await params;
+
+  // Fetch the assessment data
   const assessment = await prisma.assessment.findUnique({
-    where: { id: params.id },
+    where: { id },
     select: {
       id: true,
       title: true,
@@ -28,6 +36,26 @@ export default async function EditAssessmentPage({ params }: { params: { id: str
 
   if (!assessment) notFound();
 
+  // Fetch learning areas for the form dropdown
+  const learningAreas = await prisma.learningArea.findMany({
+    select: {
+      id: true,
+      name: true,
+      code: true,
+    },
+    orderBy: { name: "asc" },
+  });
+
+  // Fetch classes for the form dropdown
+  const classes = await prisma.class.findMany({
+    select: {
+      id: true,
+      name: true,
+      level: true,
+    },
+    orderBy: [{ level: "asc" }, { name: "asc" }],
+  });
+
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
@@ -37,7 +65,11 @@ export default async function EditAssessmentPage({ params }: { params: { id: str
         </Button>
       </div>
 
-      <AssessmentForm assessment={assessment} />
+      <AssessmentForm 
+        assessment={assessment}
+        learningAreas={learningAreas}
+        classes={classes}
+      />
     </div>
   );
 }
