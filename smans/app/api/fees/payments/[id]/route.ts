@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { PaymentStatus } from "@prisma/client"; // Import enum
 
 const updatePaymentSchema = z.object({
   amount: z.number().min(1, "Amount must be greater than 0").optional(),
@@ -84,7 +85,7 @@ export async function PUT(
       data: {
         amount,
         method,
-        status,
+        status: status as PaymentStatus | undefined, // Cast to enum
       },
       include: {
         invoice: {

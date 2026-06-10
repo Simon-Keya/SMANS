@@ -1,9 +1,10 @@
 // app/api/payments/route.ts
-import { authOptions } from "@/lib/auth/auth"; // FIXED: correct path
+import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { PaymentStatus } from "@prisma/client"; // Import enum
 
 const createPaymentSchema = z.object({
   invoiceId: z.string().min(1, "Invoice is required"),
@@ -26,7 +27,7 @@ export async function GET() {
       include: {
         invoice: {
           include: {
-            student: { select: { name: true, rollNumber: true } },
+            student: { select: { name: true, admissionNumber: true } }, // Changed from rollNumber
           },
         },
       },
@@ -52,7 +53,6 @@ export async function POST(request: NextRequest) {
     const parsed = createPaymentSchema.safeParse(body);
 
     if (!parsed.success) {
-      // FIXED: proper Zod error handling
       const firstIssue = parsed.error.issues[0];
       return NextResponse.json(
         { error: firstIssue?.message || "Invalid input" },
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
         amount,
         method,
         paymentDate: paymentDate ? new Date(paymentDate) : new Date(),
-        status: "COMPLETED",
+        status: PaymentStatus.COMPLETED, // Use enum
       },
       include: {
         invoice: {
