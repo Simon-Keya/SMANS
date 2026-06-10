@@ -220,6 +220,7 @@ model Exam {
   name      String
   term      String?
   date      DateTime
+  year      Int?  
   classId   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
