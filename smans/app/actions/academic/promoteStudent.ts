@@ -44,7 +44,7 @@ export async function promoteStudents(input: unknown) {
 
     const students = await prisma.student.findMany({
       where: { classId },
-      select: { id: true, name: true, admissionNumber: true }, // ← Changed
+      select: { id: true, name: true, admissionNumber: true },
     });
 
     if (students.length === 0) {
@@ -52,25 +52,27 @@ export async function promoteStudents(input: unknown) {
     }
 
     const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      // Update students to new class (removed promotionDate since it doesn't exist in schema)
       await tx.student.updateMany({
         where: { classId },
         data: {
           classId: nextClassId,
-          promotionDate,
+          // promotionDate field doesn't exist in your Student model
         },
       });
 
+      // Create promotion logs using the correct schema fields
       await tx.promotionLog.createMany({
-        data: students.map((student: { id: string; name: string | null; admissionNumber: string | null }) => ({
+        data: students.map((student) => ({
           studentId: student.id,
-          fromClassId: classId,
-          toClassId: nextClassId,
-          promotionDate,
-          remarks: remarks || `Promoted from ${currentClass.name} to ${nextClass.name}`,
-          promotedById: user.id,
+          fromClass: currentClass.name,  // Using fromClass (String) not fromClassId
+          toClass: nextClass.name,        // Using toClass (String) not toClassId
+          date: promotionDate,            // Using 'date' field from your schema
+          approvedBy: user.id,            // Using 'approvedBy' field from your schema
         })),
       });
 
+      // Create audit log for the batch action
       await tx.auditLog.create({
         data: {
           userId: user.id,
@@ -82,6 +84,7 @@ export async function promoteStudents(input: unknown) {
             fromClass: currentClass.name,
             toClass: nextClass.name,
             promotionDate: promotionDate.toISOString(),
+            remarks: remarks || null,
           },
         },
       });
