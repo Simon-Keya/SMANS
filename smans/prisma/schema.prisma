@@ -199,20 +199,23 @@ model Assignment {
 }
 
 model Attendance {
-  id        String           @id @default(cuid())
-  date      DateTime
-  status    AttendanceStatus @default(PRESENT)
-  studentId String
-  classId   String
-  class     Class            @relation(fields: [classId], references: [id], onDelete: Cascade)
-  student   Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  id         String           @id @default(cuid())
+  date       DateTime
+  status     AttendanceStatus @default(PRESENT)
+  studentId  String
+  classId    String
+  remarks    String?          // Add this field for teacher notes
+  markedById String?          // Add this field to track who marked attendance
+  class      Class            @relation(fields: [classId], references: [id], onDelete: Cascade)
+  student    Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  markedBy   User?            @relation(fields: [markedById], references: [id]) // Add relation
 
   @@unique([studentId, date])
   @@index([studentId])
   @@index([classId, date])
+  @@index([markedById])
   @@map("attendance")
 }
-
 model Exam {
   id        String   @id @default(cuid())
   name      String
