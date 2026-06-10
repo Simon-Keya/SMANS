@@ -19,13 +19,13 @@ export async function generateReportCard(input: ReportCardInput) {
 
   const { studentId, term, year } = input;
 
-  // Fetch student with rollNumber
+  // Fetch student with admissionNumber (changed from rollNumber)
   const student = await prisma.student.findUnique({
     where: { id: studentId },
     select: {
       id: true,
       name: true,
-      rollNumber: true,
+      admissionNumber: true, // Changed from rollNumber to admissionNumber
       class: {
         select: {
           name: true,
@@ -118,7 +118,7 @@ export async function generateReportCard(input: ReportCardInput) {
       student: {
         id: student.id,
         name: student.name,
-        rollNumber: student.rollNumber,
+        admissionNumber: student.admissionNumber, // Changed from rollNumber to admissionNumber
         className: student.class?.name,
         level: student.class?.level,
       },
