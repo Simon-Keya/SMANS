@@ -37,10 +37,10 @@ export async function graduateStudents(input: unknown) {
       throw new Error("Class not found");
     }
 
-    // Get students in the class - FIXED: 'rollNumber' doesn't exist, use 'admissionNumber' instead
+    // Get students in the class
     const students = await prisma.student.findMany({
       where: { classId },
-      select: { id: true, name: true, admissionNumber: true }, // Changed from rollNumber to admissionNumber
+      select: { id: true, name: true, admissionNumber: true },
     });
 
     if (students.length === 0) {
@@ -49,32 +49,46 @@ export async function graduateStudents(input: unknown) {
 
     // Perform graduation in a transaction
     const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      // 1. Update student status to graduated
+      // 1. Move students to a new "Graduated" class or remove from current class
+      // Since there's no status field, we'll either:
+      // Option A: Move to a special "Graduated" class (recommended)
+      // First, find or create a "Graduated" class
+      let graduatedClass = await tx.class.findFirst({
+        where: { name: "GRADUATED", level: "N/A" },
+      });
+
+      if (!graduatedClass) {
+        graduatedClass = await tx.class.create({
+          data: {
+            name: "GRADUATED",
+            level: "N/A",
+          },
+        });
+      }
+
+      // Move all students to the graduated class
       const updatedStudents = await tx.student.updateMany({
         where: { classId },
         data: {
-          status: "GRADUATED",
-          graduationDate,
-          currentClassId: null, // remove from current class
+          classId: graduatedClass.id,
         },
       });
 
-      // 2. Create graduation logs - FIXED: Check if graduationLog model exists, or use auditLog instead
-      // If you have a GraduationLog model, uncomment the following:
-      /*
-      await tx.graduationLog.createMany({
-        data: students.map((student: { id: string; name: string | null; admissionNumber: string | null }) => ({
-          studentId: student.id,
-          fromClassId: classId,
-          graduationDate,
-          remarks: remarks || `Graduated from ${classExists.name}`,
-          graduatedById: user.id,
-        })),
-      });
-      */
+      // 2. Create promotion logs for each student
+      await Promise.all(students.map((student) =>
+        tx.promotionLog.create({
+          data: {
+            studentId: student.id,
+            fromClass: classExists.name,
+            toClass: "GRADUATED",
+            date: graduationDate,
+            approvedBy: user.id,
+          },
+        })
+      ));
 
-      // Alternative: Create individual audit logs for each student
-      await Promise.all(students.map((student: { id: string; name: string | null; admissionNumber: string | null }) => 
+      // 3. Create audit logs for each student
+      await Promise.all(students.map((student) =>
         tx.auditLog.create({
           data: {
             userId: user.id,
@@ -85,7 +99,7 @@ export async function graduateStudents(input: unknown) {
               studentName: student.name,
               admissionNumber: student.admissionNumber,
               fromClassId: classId,
-              className: classExists.name,
+              fromClassName: classExists.name,
               graduationDate: graduationDate.toISOString(),
               remarks: remarks || `Graduated from ${classExists.name}`,
             },
@@ -93,7 +107,7 @@ export async function graduateStudents(input: unknown) {
         })
       ));
 
-      // 3. Audit log for the batch action
+      // 4. Audit log for the batch action
       await tx.auditLog.create({
         data: {
           userId: user.id,
