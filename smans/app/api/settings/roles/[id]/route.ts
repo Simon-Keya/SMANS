@@ -24,7 +24,6 @@ async function getRoleData(roleName: string) {
   });
 
   return {
-    name: roleName,
     userCount,
     permissions: permissions.map(rp => rp.permission),
   };
@@ -43,7 +42,7 @@ export async function GET(
   try {
     const { id } = await params;
     
-  
+    // Since Role is an enum, the id should be the role name
     const roleName = id;
     const validRoles = ["ADMIN", "TEACHER", "STUDENT", "PARENT", "ACCOUNTANT"];
     
@@ -58,7 +57,8 @@ export async function GET(
       role: {
         id: roleName,
         name: roleName,
-        ...roleData
+        userCount: roleData.userCount,
+        permissions: roleData.permissions,
       }
     });
   } catch (error) {
@@ -122,7 +122,11 @@ export async function PUT(
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: "Validation failed", details: error.errors }, { status: 400 });
+      // Fix: Use 'issues' instead of 'errors'
+      return NextResponse.json(
+        { error: "Validation failed", details: error.issues },
+        { status: 400 }
+      );
     }
     console.error("Update role error:", error);
     return NextResponse.json({ error: "Failed to update role" }, { status: 500 });
