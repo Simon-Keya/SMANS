@@ -19,7 +19,7 @@ export async function getInvoiceByIdAction(invoiceId: string) {
       amount: true,
       dueDate: true,
       status: true,
-      description: true,
+      // description: true, // REMOVED - doesn't exist in schema
       createdAt: true,
       createdBy: { select: { name: true } },
       approvedBy: { select: { name: true } },
