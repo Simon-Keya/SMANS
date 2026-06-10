@@ -24,13 +24,28 @@ export async function GET() {
   try {
     const exams = await prisma.exam.findMany({
       include: {
-        subject: { select: { name: true, code: true } },
         class: { select: { name: true } },
+        grades: {
+          include: {
+            subject: { select: { name: true, code: true } }
+          },
+          distinct: ['subjectId'], // Get unique subjects per exam
+        }
       },
       orderBy: { date: "desc" },
     });
 
-    return NextResponse.json({ success: true, data: exams });
+    // Transform the response to include subject from grades
+    const examsWithSubject = exams.map(exam => {
+      const { grades, ...examData } = exam;
+      const subject = grades[0]?.subject || null;
+      return {
+        ...examData,
+        subject,
+      };
+    });
+
+    return NextResponse.json({ success: true, data: examsWithSubject });
   } catch (error) {
     console.error("[GET_EXAMS]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -66,22 +81,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Subject or class not found" }, { status: 404 });
     }
 
+    // Since Exam doesn't have subjectId field, we need to adjust
+    // Option 1: Create exam without subjectId (if your schema allows)
     const exam = await prisma.exam.create({
       data: {
         name: name.trim(),
-        subjectId,
         classId,
         date: new Date(date),
-        duration: duration ?? 120,
-        maxScore: maxScore ?? 100,
+        // subjectId is not in the Exam model
+        // duration and maxScore are not in the Exam model
       },
       include: {
-        subject: { select: { name: true } },
         class: { select: { name: true } },
       },
     });
 
-    return NextResponse.json({ success: true, data: exam }, { status: 201 });
+    // Option 2: Create grades for this exam with the subject
+    // This would link the exam to the subject through grades
+    // You might want to create placeholder grades or handle this differently
+
+    return NextResponse.json({ 
+      success: true, 
+      data: exam,
+      warning: "Subject association requires creating grades" 
+    }, { status: 201 });
   } catch (error) {
     console.error("[CREATE_EXAM]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
