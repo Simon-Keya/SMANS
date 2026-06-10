@@ -1,5 +1,5 @@
 // app/api/subjects/[id]/route.ts
-import { authOptions } from "@/lib/auth/auth"; // FIXED: correct path
+import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
@@ -13,7 +13,7 @@ const updateSubjectSchema = z.object({
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -22,8 +22,10 @@ export async function GET(
   }
 
   try {
+    const { id } = await params;
+    
     const subject = await prisma.subject.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         classes: { select: { name: true } },
         _count: { select: { classes: true } },
@@ -49,7 +51,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -58,6 +60,7 @@ export async function PUT(
   }
 
   try {
+    const { id } = await params;
     const body = await request.json();
     const parsed = updateSubjectSchema.safeParse(body);
 
@@ -76,7 +79,7 @@ export async function PUT(
       const existing = await prisma.subject.findFirst({
         where: {
           code,
-          id: { not: params.id },
+          id: { not: id },
         },
       });
 
@@ -86,7 +89,7 @@ export async function PUT(
     }
 
     const updated = await prisma.subject.update({
-      where: { id: params.id },
+      where: { id },
       data: parsed.data,
       include: {
         classes: { select: { name: true } },
@@ -109,7 +112,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -118,8 +121,10 @@ export async function DELETE(
   }
 
   try {
+    const { id } = await params;
+    
     const subject = await prisma.subject.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: { _count: { select: { classes: true } } },
     });
 
@@ -136,7 +141,7 @@ export async function DELETE(
     }
 
     await prisma.subject.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({ success: true, message: "Subject deleted" });

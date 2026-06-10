@@ -1,5 +1,5 @@
 // app/api/classes/[id]/route.ts
-import { authOptions } from "@/lib/auth/auth"; // FIXED: correct path
+import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
@@ -13,7 +13,7 @@ const updateClassSchema = z.object({
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -22,8 +22,10 @@ export async function GET(
   }
 
   try {
+    const { id } = await params;
+    
     const classRecord = await prisma.class.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         teacher: { select: { name: true } },
         _count: { select: { students: true } },
@@ -49,7 +51,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -58,11 +60,11 @@ export async function PUT(
   }
 
   try {
+    const { id } = await params;
     const body = await request.json();
     const parsed = updateClassSchema.safeParse(body);
 
     if (!parsed.success) {
-      // FIXED: proper Zod error handling
       const firstError = parsed.error.issues[0];
       return NextResponse.json(
         { error: firstError?.message || "Validation failed" },
@@ -71,7 +73,7 @@ export async function PUT(
     }
 
     const updatedClass = await prisma.class.update({
-      where: { id: params.id },
+      where: { id },
       data: parsed.data,
       include: { teacher: { select: { name: true } } },
     });
@@ -85,7 +87,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -94,8 +96,10 @@ export async function DELETE(
   }
 
   try {
+    const { id } = await params;
+    
     const classRecord = await prisma.class.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: { _count: { select: { students: true } } },
     });
 
@@ -111,7 +115,7 @@ export async function DELETE(
     }
 
     await prisma.class.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({ success: true, message: "Class deleted" });

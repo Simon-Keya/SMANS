@@ -16,7 +16,7 @@ const updateExamSchema = z.object({
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -25,8 +25,10 @@ export async function GET(
   }
 
   try {
+    const { id } = await params;
+    
     const exam = await prisma.exam.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         subject: { select: { name: true, code: true } },
         class: { select: { name: true } },
@@ -46,7 +48,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -55,6 +57,7 @@ export async function PUT(
   }
 
   try {
+    const { id } = await params;
     const body = await request.json();
     const parsed = updateExamSchema.safeParse(body);
 
@@ -68,7 +71,7 @@ export async function PUT(
     const { date, ...rest } = parsed.data;
 
     const updated = await prisma.exam.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         ...rest,
         date: date ? new Date(date) : undefined,
@@ -88,7 +91,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -97,8 +100,10 @@ export async function DELETE(
   }
 
   try {
+    const { id } = await params;
+    
     const exam = await prisma.exam.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: { id: true, name: true },
     });
 
@@ -107,7 +112,7 @@ export async function DELETE(
     }
 
     const relatedGradesCount = await prisma.grade.count({
-      where: { examId: params.id },
+      where: { examId: id },
     });
 
     if (relatedGradesCount > 0) {
@@ -117,7 +122,7 @@ export async function DELETE(
       );
     }
 
-    await prisma.exam.delete({ where: { id: params.id } });
+    await prisma.exam.delete({ where: { id } });
 
     return NextResponse.json({ success: true, message: "Exam deleted successfully" });
   } catch (error) {

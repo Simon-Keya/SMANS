@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -14,8 +14,10 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const { id } = await params;
+  
   const assessment = await prisma.assessment.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       learningArea: true,
       class: true,
@@ -31,7 +33,7 @@ export async function GET(
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -40,9 +42,11 @@ export async function PUT(
   }
 
   try {
+    const { id } = await params;
     const body = await req.json();
+    
     const assessment = await prisma.assessment.update({
-      where: { id: params.id },
+      where: { id },
       data: body,
       include: {
         learningArea: true,
@@ -52,13 +56,14 @@ export async function PUT(
 
     return NextResponse.json({ success: true, assessment });
   } catch (error) {
+    console.error("[UPDATE_ASSESSMENT]", error);
     return NextResponse.json({ error: "Failed to update assessment" }, { status: 500 });
   }
 }
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -67,12 +72,15 @@ export async function DELETE(
   }
 
   try {
+    const { id } = await params;
+    
     await prisma.assessment.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    console.error("[DELETE_ASSESSMENT]", error);
     return NextResponse.json({ error: "Failed to delete assessment" }, { status: 500 });
   }
 }

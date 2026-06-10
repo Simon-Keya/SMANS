@@ -1,11 +1,11 @@
 import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -13,8 +13,10 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const { id } = await params;
+  
   const period = await prisma.timetable.findUnique({
-    where: { id: params.id },
+    where: { id },
   });
 
   if (!period) {
@@ -25,20 +27,21 @@ export async function GET(
 }
 
 export async function PUT(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   const userRole = session?.user?.role as string | undefined;
 
-  if (!session || !userRole || !["admin", "teacher"].includes(userRole)) {
+  if (!session || !userRole || !["ADMIN", "TEACHER"].includes(userRole.toUpperCase())) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const { id } = await params;
   const data = await request.json();
 
   const updated = await prisma.timetable.update({
-    where: { id: params.id },
+    where: { id },
     data,
   });
 
@@ -46,17 +49,19 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   const userRole = session?.user?.role as string | undefined;
 
-  if (!session || userRole !== "admin") {
+  if (!session || userRole !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  await prisma.timetable.delete({ where: { id: params.id } });
+  const { id } = await params;
+  
+  await prisma.timetable.delete({ where: { id } });
 
   return NextResponse.json({ success: true });
 }

@@ -1,5 +1,5 @@
 // app/api/payments/[id]/route.ts
-import { authOptions } from "@/lib/auth/auth"; // FIXED: correct path
+import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
@@ -13,7 +13,7 @@ const updatePaymentSchema = z.object({
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -22,12 +22,14 @@ export async function GET(
   }
 
   try {
+    const { id } = await params;
+    
     const payment = await prisma.payment.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         invoice: {
           include: {
-            student: { select: { name: true, rollNumber: true } },
+            student: { select: { name: true, admissionNumber: true } },
           },
         },
       },
@@ -46,7 +48,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -55,11 +57,11 @@ export async function PUT(
   }
 
   try {
+    const { id } = await params;
     const body = await request.json();
     const parsed = updatePaymentSchema.safeParse(body);
 
     if (!parsed.success) {
-      // FIXED: proper Zod error handling
       const firstIssue = parsed.error.issues[0];
       return NextResponse.json(
         { error: firstIssue?.message || "Validation failed" },
@@ -70,7 +72,7 @@ export async function PUT(
     const { amount, method, status } = parsed.data;
 
     const existing = await prisma.payment.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!existing) {
@@ -78,7 +80,7 @@ export async function PUT(
     }
 
     const updated = await prisma.payment.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         amount,
         method,
@@ -102,7 +104,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -111,8 +113,10 @@ export async function DELETE(
   }
 
   try {
+    const { id } = await params;
+    
     const payment = await prisma.payment.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!payment) {
@@ -120,7 +124,7 @@ export async function DELETE(
     }
 
     await prisma.payment.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({ success: true, message: "Payment deleted" });

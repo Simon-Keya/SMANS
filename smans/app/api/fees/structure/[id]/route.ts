@@ -14,7 +14,7 @@ const updateFeeItemSchema = z.object({
 // GET: Fetch single fee item
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -23,8 +23,10 @@ export async function GET(
   }
 
   try {
+    const { id } = await params;
+    
     const feeItem = await prisma.feeItem.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: {
         id: true,
         name: true,
@@ -48,7 +50,7 @@ export async function GET(
 // PATCH: Update fee item
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -57,6 +59,7 @@ export async function PATCH(
   }
 
   try {
+    const { id } = await params;
     const body = await req.json();
     const validated = updateFeeItemSchema.safeParse(body);
 
@@ -70,7 +73,7 @@ export async function PATCH(
     const data = validated.data;
 
     const feeItem = await prisma.feeItem.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         name: data.name ? data.name.trim() : undefined,
         amount: data.amount,

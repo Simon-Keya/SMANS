@@ -13,7 +13,7 @@ const updateParentSchema = z.object({
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -22,14 +22,16 @@ export async function GET(
   }
 
   try {
+    const { id } = await params;
+    
     const parent = await prisma.parent.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         students: {
           select: { 
             id: true, 
             name: true, 
-            admissionNumber: true   // ← Changed from rollNumber
+            admissionNumber: true
           },
         },
         user: { select: { email: true } },
@@ -49,7 +51,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -58,6 +60,7 @@ export async function PUT(
   }
 
   try {
+    const { id } = await params;
     const body = await request.json();
     const parsed = updateParentSchema.safeParse(body);
 
@@ -74,7 +77,7 @@ export async function PUT(
     if (email) {
       const existingUser = await prisma.user.findUnique({ where: { email } });
       const existingParent = await prisma.parent.findFirst({
-        where: { email, id: { not: params.id } },
+        where: { email, id: { not: id } },
       });
 
       if (existingUser || existingParent) {
@@ -83,11 +86,11 @@ export async function PUT(
     }
 
     const updated = await prisma.parent.update({
-      where: { id: params.id },
+      where: { id },
       data: parsed.data,
       include: {
         students: { 
-          select: { id: true, name: true, admissionNumber: true }   // ← Changed
+          select: { id: true, name: true, admissionNumber: true }
         },
       },
     });
@@ -101,7 +104,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -110,8 +113,10 @@ export async function DELETE(
   }
 
   try {
+    const { id } = await params;
+    
     const parent = await prisma.parent.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: { students: true },
     });
 
@@ -131,7 +136,7 @@ export async function DELETE(
       await prisma.user.delete({ where: { id: parent.userId } });
     }
 
-    await prisma.parent.delete({ where: { id: params.id } });
+    await prisma.parent.delete({ where: { id } });
 
     return NextResponse.json({ success: true, message: "Parent deleted successfully" });
   } catch (error) {

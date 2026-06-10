@@ -2,11 +2,11 @@
 import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -15,9 +15,11 @@ export async function GET(
   }
 
   try {
+    const { id } = await params;
+    
     const teacher = await prisma.user.findFirst({
       where: {
-        id: params.id,
+        id,
         role: "TEACHER",
       },
       select: {
@@ -41,8 +43,8 @@ export async function GET(
 }
 
 export async function PUT(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -51,6 +53,7 @@ export async function PUT(
   }
 
   try {
+    const { id } = await params;
     const body = await request.json();
     const { name, email } = body;
 
@@ -65,7 +68,7 @@ export async function PUT(
       where: { email: email.toLowerCase() },
     });
 
-    if (existing && existing.id !== params.id) {
+    if (existing && existing.id !== id) {
       return NextResponse.json(
         { error: "Email already in use by another user" },
         { status: 409 }
@@ -73,7 +76,7 @@ export async function PUT(
     }
 
     const updatedTeacher = await prisma.user.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         name,
         email: email.toLowerCase(),
@@ -95,8 +98,8 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -105,9 +108,11 @@ export async function DELETE(
   }
 
   try {
+    const { id } = await params;
+    
     const teacher = await prisma.user.findFirst({
       where: {
-        id: params.id,
+        id,
         role: "TEACHER",
       },
     });
@@ -117,7 +122,7 @@ export async function DELETE(
     }
 
     await prisma.user.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return new NextResponse(null, { status: 204 });

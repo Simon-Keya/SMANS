@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -14,8 +14,10 @@ export async function GET(
   }
 
   try {
+    const { id } = await params;
+    
     const invoice = await prisma.invoice.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: {
         id: true,
         student: { select: { id: true, name: true } },
