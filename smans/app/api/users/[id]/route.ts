@@ -5,17 +5,18 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const { id } = await params;
   const userRole = session.user.role as string | undefined;
 
   const student = await prisma.student.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       class: { select: { name: true } },
       parent: { select: { name: true, phone: true, userId: true } },
@@ -43,7 +44,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -52,6 +53,7 @@ export async function PUT(
   }
 
   try {
+    const { id } = await params;
     const data = await request.json();
 
     // Basic validation
@@ -64,7 +66,7 @@ export async function PUT(
 
     // Check if student exists
     const existingStudent = await prisma.student.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!existingStudent) {
@@ -83,7 +85,7 @@ export async function PUT(
     }
 
     const updatedStudent = await prisma.student.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         name: data.name.trim(),
         admissionNumber: data.admissionNumber.trim(),
@@ -101,19 +103,21 @@ export async function PUT(
       },
     });
 
-    // Audit log
-    await prisma.auditLog.create({
-      data: {
-        userId: session.user.id,
-        action: "UPDATE_STUDENT",
-        entity: "Student",
-        entityId: params.id,
-        metadata: {
-          admissionNumber: updatedStudent.admissionNumber,
-          classId: updatedStudent.classId,
+    // Audit log (check if auditLog table exists)
+    if (prisma.auditLog) {
+      await prisma.auditLog.create({
+        data: {
+          userId: session.user.id,
+          action: "UPDATE_STUDENT",
+          entity: "Student",
+          entityId: id,
+          metadata: {
+            admissionNumber: updatedStudent.admissionNumber,
+            classId: updatedStudent.classId,
+          },
         },
-      },
-    });
+      });
+    }
 
     return NextResponse.json({ success: true, data: updatedStudent });
   } catch (error: any) {
@@ -129,7 +133,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -138,8 +142,10 @@ export async function DELETE(
   }
 
   try {
+    const { id } = await params;
+    
     const student = await prisma.student.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         parent: { select: { userId: true } },
         user: { select: { id: true } }, // linked user account if exists
@@ -151,8 +157,8 @@ export async function DELETE(
     }
 
     // Optional safety: Prevent deleting if student has important records
-    const hasGrades = await prisma.grade.count({ where: { studentId: params.id } });
-    const hasAttendance = await prisma.attendance.count({ where: { studentId: params.id } });
+    const hasGrades = await prisma.grade.count({ where: { studentId: id } });
+    const hasAttendance = await prisma.attendance.count({ where: { studentId: id } });
 
     if (hasGrades > 0 || hasAttendance > 0) {
       return NextResponse.json(
@@ -163,7 +169,7 @@ export async function DELETE(
 
     // Delete student
     await prisma.student.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     // If student has a linked user account, delete it too (optional but common)
@@ -173,19 +179,21 @@ export async function DELETE(
       });
     }
 
-    // Audit log
-    await prisma.auditLog.create({
-      data: {
-        userId: session.user.id,
-        action: "DELETE_STUDENT",
-        entity: "Student",
-        entityId: params.id,
-        metadata: {
-          admissionNumber: student.admissionNumber,
-          name: student.name,
+    // Audit log (check if auditLog table exists)
+    if (prisma.auditLog) {
+      await prisma.auditLog.create({
+        data: {
+          userId: session.user.id,
+          action: "DELETE_STUDENT",
+          entity: "Student",
+          entityId: id,
+          metadata: {
+            admissionNumber: student.admissionNumber,
+            name: student.name,
+          },
         },
-      },
-    });
+      });
+    }
 
     return NextResponse.json({
       success: true,
