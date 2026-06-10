@@ -3,13 +3,14 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { InvoiceStatus } from "@prisma/client"; // Import the enum
 
 const createInvoiceSchema = z.object({
   studentId: z.string().min(1),
   feeItemId: z.string().optional(),
   amount: z.number().positive(),
   dueDate: z.coerce.date(),
-  description: z.string().optional(),
+  // description removed - not in schema
 });
 
 // GET: List all invoices (admin + accountant)
@@ -22,13 +23,19 @@ export async function GET(req: NextRequest) {
 
   try {
     const { searchParams } = new URL(req.url);
-    const status = searchParams.get("status") || undefined;
+    const statusParam = searchParams.get("status");
     const startDate = searchParams.get("startDate") ? new Date(searchParams.get("startDate")!) : undefined;
     const endDate = searchParams.get("endDate") ? new Date(searchParams.get("endDate")!) : undefined;
 
+    // Convert status string to enum if valid
+    let statusFilter: InvoiceStatus | undefined;
+    if (statusParam && Object.values(InvoiceStatus).includes(statusParam as InvoiceStatus)) {
+      statusFilter = statusParam as InvoiceStatus;
+    }
+
     const invoices = await prisma.invoice.findMany({
       where: {
-        status: status || undefined,
+        status: statusFilter,
         dueDate: startDate || endDate ? { gte: startDate, lte: endDate } : undefined,
       },
       select: {
@@ -77,10 +84,26 @@ export async function POST(req: NextRequest) {
         feeItemId: data.feeItemId || null,
         amount: data.amount,
         dueDate: data.dueDate,
-        description: data.description?.trim(),
-        status: "PENDING",
+        // description removed - not in schema
+        status: InvoiceStatus.PENDING, // Use enum instead of string
         createdById: session.user.id,
         approvedById: session.user.role === "ACCOUNTANT" ? session.user.id : null,
+      },
+    });
+
+    // Create audit log to track invoice creation
+    await prisma.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: "CREATE_INVOICE",
+        entity: "Invoice",
+        entityId: invoice.id,
+        metadata: {
+          studentId: data.studentId,
+          feeItemId: data.feeItemId,
+          amount: data.amount,
+          dueDate: data.dueDate,
+        },
       },
     });
 
