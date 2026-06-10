@@ -1,5 +1,5 @@
 import Sidebar from "@/components/dashboard/Sidebar";
-import { authOptions } from "@/lib/auth";
+import { authOptions } from "@/lib/auth/auth";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 
