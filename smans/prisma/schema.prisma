@@ -431,6 +431,26 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+model ScheduledSMS {
+  id          String   @id @default(cuid())
+  recipients  Json     // Store array of recipients
+  message     String
+  scheduledAt DateTime
+  type        String   @default("GENERAL")
+  senderId    String   @default("SMANS")
+  label       String?
+  status      String   @default("PENDING") // PENDING, SENT, FAILED, CANCELLED
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status])
+  @@index([scheduledAt])
+  @@index([createdBy])
+  @@map("scheduled_sms")
+}
+
+
 model Permission {
   id              String           @id @default(cuid())
   code            String           @unique
