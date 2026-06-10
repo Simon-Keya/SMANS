@@ -1,4 +1,3 @@
-// app/actions/users/deleteUser.ts
 "use server";
 
 import { authOptions } from "@/lib/auth/auth";
@@ -23,14 +22,21 @@ export async function deleteUser(userId: string) {
   try {
     const userToDelete = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, name: true, role: true },
+      select: { 
+        id: true, 
+        email: true, 
+        name: true, 
+        role: true,
+        student: { select: { id: true } },
+        parent: { select: { id: true } },
+      },
     });
 
     if (!userToDelete) {
       throw new Error("User not found");
     }
 
-    // Optional: role-specific safety checks
+    // Role-specific safety checks
     if (userToDelete.role === "TEACHER") {
       const classCount = await prisma.class.count({ where: { teacherId: userId } });
       if (classCount > 0) {
@@ -38,14 +44,23 @@ export async function deleteUser(userId: string) {
       }
     }
 
-    if (userToDelete.role === "STUDENT") {
-      const gradeCount = await prisma.grade.count({ where: { studentId: userId } });
+    if (userToDelete.role === "STUDENT" && userToDelete.student) {
+      const gradeCount = await prisma.grade.count({ where: { studentId: userToDelete.student.id } });
       if (gradeCount > 0) {
         throw new Error(`Cannot delete student with existing grades`);
       }
     }
 
-    // Hard delete
+    // Delete related records first (due to foreign key constraints)
+    if (userToDelete.student) {
+      await prisma.student.delete({ where: { id: userToDelete.student.id } });
+    }
+    
+    if (userToDelete.parent) {
+      await prisma.parent.delete({ where: { id: userToDelete.parent.id } });
+    }
+
+    // Delete the user
     await prisma.user.delete({ where: { id: userId } });
 
     // Audit log

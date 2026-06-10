@@ -12,11 +12,8 @@ const updateUserSchema = z.object({
   phone: z.string().min(9).optional(),
   role: z.enum(allowedRoles).optional(),
   staffNo: z.string().min(3).optional(),
-  admissionNumber: z.string().min(3).optional(), // ← Changed
-  classId: z.string().optional(),
-  parentId: z.string().optional(),
-  occupation: z.string().optional(),
-  relationship: z.string().optional(),
+  // Role-specific fields removed from User update
+  // These will be handled in their respective models
   isActive: z.boolean().optional(),
 });
 
@@ -49,12 +46,9 @@ export async function updateUser(userId: string, rawData: unknown) {
 
   if (updateFields.role !== undefined && isAdmin) updateData.role = updateFields.role;
 
-  if (updateFields.staffNo !== undefined) updateData.staffNo = updateFields.staffNo.trim();
-  if (updateFields.admissionNumber !== undefined) updateData.admissionNumber = updateFields.admissionNumber.trim(); // ← Changed
-  if (updateFields.classId !== undefined) updateData.classId = updateFields.classId;
-  if (updateFields.parentId !== undefined) updateData.parentId = updateFields.parentId;
-  if (updateFields.occupation !== undefined) updateData.occupation = updateFields.occupation.trim();
-  if (updateFields.relationship !== undefined) updateData.relationship = updateFields.relationship.trim();
+  if (updateFields.staffNo !== undefined && isAdmin) {
+    updateData.staffNo = updateFields.staffNo.trim();
+  }
 
   if (updateFields.isActive !== undefined && isAdmin) updateData.isActive = updateFields.isActive;
 
@@ -71,11 +65,6 @@ export async function updateUser(userId: string, rawData: unknown) {
         phone: true,
         role: true,
         staffNo: true,
-        admissionNumber: true, // ← Changed
-        classId: true,
-        parentId: true,
-        occupation: true,
-        relationship: true,
         isActive: true,
         updatedAt: true,
       },
