@@ -30,8 +30,13 @@ export async function GET(
     const exam = await prisma.exam.findUnique({
       where: { id },
       include: {
-        subject: { select: { name: true, code: true } },
         class: { select: { name: true } },
+        grades: {
+          include: {
+            subject: { select: { name: true, code: true } }
+          },
+          take: 1, // Just to get subject info, since all grades for this exam share the same subject
+        }
       },
     });
 
@@ -39,7 +44,17 @@ export async function GET(
       return NextResponse.json({ error: "Exam not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true, data: exam });
+    // Extract subject from the first grade if it exists
+    const subject = exam.grades[0]?.subject || null;
+    
+    // Remove grades from response and add subject
+    const { grades, ...examWithoutGrades } = exam;
+    const examWithSubject = {
+      ...examWithoutGrades,
+      subject,
+    };
+
+    return NextResponse.json({ success: true, data: examWithSubject });
   } catch (error) {
     console.error("[GET_EXAM]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -68,16 +83,19 @@ export async function PUT(
       );
     }
 
-    const { date, ...rest } = parsed.data;
+    const { date, subjectId, ...rest } = parsed.data;
+
+    // If subjectId is provided, we need to update grades? 
+    // Or maybe your schema needs adjustment
+    const updateData: any = {
+      ...rest,
+      date: date ? new Date(date) : undefined,
+    };
 
     const updated = await prisma.exam.update({
       where: { id },
-      data: {
-        ...rest,
-        date: date ? new Date(date) : undefined,
-      },
+      data: updateData,
       include: {
-        subject: { select: { name: true } },
         class: { select: { name: true } },
       },
     });
