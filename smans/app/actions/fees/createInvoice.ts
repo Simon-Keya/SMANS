@@ -9,7 +9,7 @@ const createInvoiceSchema = z.object({
   feeItemId: z.string().optional(),
   amount: z.number().positive("Amount must be positive"),
   dueDate: z.coerce.date().min(new Date(), "Due date must be in the future"),
-  description: z.string().optional(),
+  // description field removed - not in schema
 });
 
 export async function createInvoiceAction(input: unknown) {
@@ -33,10 +33,28 @@ export async function createInvoiceAction(input: unknown) {
         feeItemId: data.feeItemId || null,
         amount: data.amount,
         dueDate: data.dueDate,
-        description: data.description?.trim(),
+        // description removed - not in schema
         status: "PENDING",
-        createdById: user.id,          // track who created it
+        createdById: user.id,
         approvedById: user.role === "ACCOUNTANT" ? user.id : null,
+      },
+    });
+
+    // Create audit log to track invoice creation with any description
+    await prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: "CREATE_INVOICE",
+        entity: "Invoice",
+        entityId: invoice.id,
+        metadata: {
+          studentId: data.studentId,
+          feeItemId: data.feeItemId,
+          amount: data.amount,
+          dueDate: data.dueDate,
+          // Store description in metadata if needed
+          // description: data.description?.trim(),
+        },
       },
     });
 
