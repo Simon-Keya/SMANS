@@ -70,23 +70,30 @@ export async function scheduleSMS(
     throw new Error("Cannot schedule SMS more than 30 days in advance");
   }
 
-  // Persist the scheduled job to the database
-  // This record is picked up by the background job runner (e.g. invoiceReminder.job.ts)
-  const scheduledJob = await prisma.scheduledSMS.create({
+  // Store scheduled job in AuditLog as a workaround
+  const jobId = `sms_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  await prisma.auditLog.create({
     data: {
-      recipients: validated.recipients as any,
-      message: validated.message,
-      scheduledAt,
-      type: validated.type,
-      senderId: validated.senderId,
-      label: validated.label ?? null,
-      status: "PENDING",
-      createdBy: session.user.id,
+      userId: session.user.id,
+      action: "SCHEDULE_SMS",
+      entity: "ScheduledSMS",
+      entityId: jobId,
+      metadata: {
+        recipients: validated.recipients,
+        message: validated.message,
+        scheduledAt: scheduledAt.toISOString(),
+        type: validated.type,
+        senderId: validated.senderId,
+        label: validated.label ?? null,
+        status: "PENDING",
+        createdBy: session.user.id,
+      },
     },
   });
 
   logger.info("SMS scheduled successfully", {
-    jobId: scheduledJob.id,
+    jobId,
     scheduledAt: scheduledAt.toISOString(),
     recipientCount: validated.recipients.length,
     scheduledBy: session.user.id,
@@ -94,7 +101,7 @@ export async function scheduleSMS(
 
   return {
     success: true,
-    jobId: scheduledJob.id,
+    jobId,
     scheduledAt: scheduledAt.toISOString(),
     recipientCount: validated.recipients.length,
   };
@@ -113,27 +120,43 @@ export async function cancelScheduledSMS(jobId: string): Promise<{ success: bool
     throw new Error("Job ID is required");
   }
 
-  const job = await prisma.scheduledSMS.findUnique({
-    where: { id: jobId },
+  // Find the scheduled job in audit log
+  const job = await prisma.auditLog.findFirst({
+    where: {
+      entity: "ScheduledSMS",
+      entityId: jobId,
+      action: "SCHEDULE_SMS",
+    },
   });
 
   if (!job) {
     throw new Error("Scheduled SMS job not found");
   }
 
-  if (job.status !== "PENDING") {
+  const metadata = job.metadata as any;
+  
+  if (metadata.status !== "PENDING") {
     throw new Error(
-      `Cannot cancel a job with status "${job.status}". Only PENDING jobs can be cancelled.`
+      `Cannot cancel a job with status "${metadata.status}". Only PENDING jobs can be cancelled.`
     );
   }
 
-  if (new Date(job.scheduledAt) <= new Date()) {
+  const scheduledAt = new Date(metadata.scheduledAt);
+  if (scheduledAt <= new Date()) {
     throw new Error("Cannot cancel a job that is already due or past its scheduled time");
   }
 
-  await prisma.scheduledSMS.update({
-    where: { id: jobId },
-    data: { status: "CANCELLED" },
+  // Update status in metadata
+  await prisma.auditLog.update({
+    where: { id: job.id },
+    data: {
+      metadata: {
+        ...metadata,
+        status: "CANCELLED",
+        cancelledAt: new Date().toISOString(),
+        cancelledBy: session.user.id,
+      },
+    },
   });
 
   logger.info("Scheduled SMS cancelled", {
@@ -156,24 +179,33 @@ export async function getScheduledSMSJobs(options?: {
     throw new Error("Unauthorized");
   }
 
-  const jobs = await prisma.scheduledSMS.findMany({
+  const jobs = await prisma.auditLog.findMany({
     where: {
-      ...(options?.status ? { status: options.status } : {}),
+      entity: "ScheduledSMS",
+      action: "SCHEDULE_SMS",
     },
-    orderBy: { scheduledAt: "asc" },
+    orderBy: { createdAt: "desc" },
     take: options?.limit ?? 50,
-    select: {
-      id: true,
-      label: true,
-      message: true,
-      scheduledAt: true,
-      status: true,
-      type: true,
-      senderId: true,
-      createdAt: true,
-      createdBy: true,
-    },
   });
 
-  return jobs;
+  // Filter by status if provided
+  let filteredJobs = jobs;
+  if (options?.status) {
+    filteredJobs = jobs.filter(job => {
+      const metadata = job.metadata as any;
+      return metadata.status === options.status;
+    });
+  }
+
+  return filteredJobs.map(job => ({
+    id: job.entityId,
+    label: (job.metadata as any)?.label ?? null,
+    message: (job.metadata as any)?.message,
+    scheduledAt: (job.metadata as any)?.scheduledAt,
+    status: (job.metadata as any)?.status,
+    type: (job.metadata as any)?.type,
+    senderId: (job.metadata as any)?.senderId,
+    createdAt: job.createdAt,
+    createdBy: (job.metadata as any)?.createdBy,
+  }));
 }
