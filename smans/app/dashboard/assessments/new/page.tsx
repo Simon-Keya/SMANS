@@ -1,11 +1,30 @@
 // app/dashboard/assessments/new/page.tsx
-"use client";
-
 import AssessmentForm from "@/components/exams/AssessmentForm";
 import { Button } from "@/components/ui/Button";
+import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 
-export default function NewAssessmentPage() {
+export default async function NewAssessmentPage() {
+  // Fetch learning areas for the form dropdown
+  const learningAreas = await prisma.learningArea.findMany({
+    select: {
+      id: true,
+      name: true,
+      code: true,
+    },
+    orderBy: { name: "asc" },
+  });
+
+  // Fetch classes for the form dropdown
+  const classes = await prisma.class.findMany({
+    select: {
+      id: true,
+      name: true,
+      level: true,
+    },
+    orderBy: [{ level: "asc" }, { name: "asc" }],
+  });
+
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
@@ -15,7 +34,10 @@ export default function NewAssessmentPage() {
         </Button>
       </div>
 
-      <AssessmentForm />
+      <AssessmentForm 
+        learningAreas={learningAreas}
+        classes={classes}
+      />
     </div>
   );
 }
