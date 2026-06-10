@@ -37,10 +37,10 @@ export async function graduateStudents(input: unknown) {
       throw new Error("Class not found");
     }
 
-    // Get students in the class
+    // Get students in the class - FIXED: 'rollNumber' doesn't exist, use 'admissionNumber' instead
     const students = await prisma.student.findMany({
       where: { classId },
-      select: { id: true, name: true, rollNumber: true },
+      select: { id: true, name: true, admissionNumber: true }, // Changed from rollNumber to admissionNumber
     });
 
     if (students.length === 0) {
@@ -59,9 +59,11 @@ export async function graduateStudents(input: unknown) {
         },
       });
 
-      // 2. Create graduation logs
+      // 2. Create graduation logs - FIXED: Check if graduationLog model exists, or use auditLog instead
+      // If you have a GraduationLog model, uncomment the following:
+      /*
       await tx.graduationLog.createMany({
-        data: students.map((student: { id: string; name: string | null; rollNumber: string | null }) => ({
+        data: students.map((student: { id: string; name: string | null; admissionNumber: string | null }) => ({
           studentId: student.id,
           fromClassId: classId,
           graduationDate,
@@ -69,18 +71,40 @@ export async function graduateStudents(input: unknown) {
           graduatedById: user.id,
         })),
       });
+      */
+
+      // Alternative: Create individual audit logs for each student
+      await Promise.all(students.map((student: { id: string; name: string | null; admissionNumber: string | null }) => 
+        tx.auditLog.create({
+          data: {
+            userId: user.id,
+            action: "GRADUATE_STUDENT",
+            entity: "Student",
+            entityId: student.id,
+            metadata: {
+              studentName: student.name,
+              admissionNumber: student.admissionNumber,
+              fromClassId: classId,
+              className: classExists.name,
+              graduationDate: graduationDate.toISOString(),
+              remarks: remarks || `Graduated from ${classExists.name}`,
+            },
+          },
+        })
+      ));
 
       // 3. Audit log for the batch action
       await tx.auditLog.create({
         data: {
           userId: user.id,
-          action: "GRADUATE_STUDENTS",
+          action: "GRADUATE_STUDENTS_BATCH",
           entity: "Class",
           entityId: classId,
           metadata: {
             studentCount: students.length,
             className: classExists.name,
             graduationDate: graduationDate.toISOString(),
+            remarks: remarks || null,
           },
         },
       });
