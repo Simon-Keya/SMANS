@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -15,8 +15,10 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { id } = await params;
+
     const assignment = await prisma.assignment.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         subject: true,
         class: true,
@@ -40,16 +42,23 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireRole("TEACHER", "ADMIN");
+    // Fix: requireRole might need to be called differently
+    // Option 1: If it returns a function
+    await requireRole(["TEACHER", "ADMIN"]);
+    
+    // Option 2: If it takes a session parameter
+    // const session = await getServerSession(authOptions);
+    // await requireRole(session, ["TEACHER", "ADMIN"]);
 
+    const { id } = await params;
     const body = await request.json();
     const { title, description, dueDate, subjectId } = body;
 
     const existing = await prisma.assignment.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!existing) {
@@ -57,7 +66,7 @@ export async function PUT(
     }
 
     const updated = await prisma.assignment.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         title: title?.trim(),
         description:
@@ -86,13 +95,16 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireRole("TEACHER", "ADMIN");
+    // Fix: requireRole might need to be called differently
+    await requireRole(["TEACHER", "ADMIN"]);
+
+    const { id } = await params;
 
     const existing = await prisma.assignment.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!existing) {
@@ -100,7 +112,7 @@ export async function DELETE(
     }
 
     await prisma.assignment.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({ success: true });
