@@ -22,6 +22,12 @@ export default async function AssessmentsPage() {
     orderBy: { date: "desc" },
   });
 
+  // Add a computed status field based on date
+  const assessmentsWithStatus = assessments.map(assessment => ({
+    ...assessment,
+    status: getAssessmentStatus(assessment.date)
+  }));
+
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
@@ -39,13 +45,26 @@ export default async function AssessmentsPage() {
       </div>
 
       <AssessmentTable 
-        assessments={assessments} 
+        assessments={assessmentsWithStatus} 
         onDelete={async (id: string) => {
           "use server";
-          // You can call your deleteAssessment action here
           console.log("Delete assessment:", id);
         }} 
       />
     </div>
   );
+}
+
+// Helper function to determine assessment status
+function getAssessmentStatus(date: Date): "UPCOMING" | "COMPLETED" | "IN_PROGRESS" {
+  const today = new Date();
+  const assessmentDate = new Date(date);
+  
+  if (assessmentDate > today) {
+    return "UPCOMING";
+  } else if (assessmentDate.toDateString() === today.toDateString()) {
+    return "IN_PROGRESS";
+  } else {
+    return "COMPLETED";
+  }
 }
