@@ -1,14 +1,11 @@
 // app/api/webhooks/stripe/route.ts
-// Stripe webhook handler (e.g. payment succeeded, subscription created, etc.)
-
 import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-02-24.clover", // Updated to the latest stable API version
-});
+// Don't specify apiVersion - use your Stripe account's default version
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
@@ -26,26 +23,22 @@ export async function POST(req: NextRequest) {
     switch (event.type) {
       case "payment_intent.succeeded": {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        const invoiceId = paymentIntent.metadata?.invoiceId; // Added optional chaining
+        const invoiceId = paymentIntent.metadata?.invoiceId;
 
         if (invoiceId) {
-          // Update invoice status
           await prisma.invoice.update({
             where: { id: invoiceId },
-            data: {
-              status: "PAID",
-            },
+            data: { status: "PAID" },
           });
 
-          // Create payment record
           await prisma.payment.create({
             data: {
               invoiceId: invoiceId,
-              amount: paymentIntent.amount / 100, // Convert from cents
+              amount: paymentIntent.amount / 100,
               method: "STRIPE",
               status: "COMPLETED",
               paymentDate: new Date(),
-              createdById: null, // Webhook, no specific user
+              createdById: null,
             },
           });
 
@@ -53,22 +46,19 @@ export async function POST(req: NextRequest) {
             paymentIntentId: paymentIntent.id,
           });
         }
-
         break;
       }
 
       case "invoice.payment_succeeded": {
         const invoice = event.data.object as Stripe.Invoice;
-        const studentId = invoice.metadata?.studentId; // Added optional chaining
+        const studentId = invoice.metadata?.studentId;
 
         if (studentId) {
-          // Optional: mark related invoices as paid, send receipt email, etc.
           logger.info(`Invoice payment succeeded`, { 
             invoiceId: invoice.id,
             studentId: studentId 
           });
         }
-
         break;
       }
 
