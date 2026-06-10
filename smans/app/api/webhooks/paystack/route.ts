@@ -35,12 +35,23 @@ export async function POST(req: NextRequest) {
         const invoiceId = data.metadata?.invoiceId;
 
         if (invoiceId) {
+          // Update invoice status
           await prisma.invoice.update({
             where: { id: invoiceId },
             data: {
               status: "PAID",
+            },
+          });
+
+          // Create payment record
+          await prisma.payment.create({
+            data: {
+              invoiceId: invoiceId,
+              amount: data.amount / 100, // Convert from kobo/cent
+              method: "PAYSTACK",
+              status: "COMPLETED",
               paymentDate: new Date(),
-              paymentMethod: "paystack",
+              createdById: null, // Webhook, no specific user
             },
           });
 

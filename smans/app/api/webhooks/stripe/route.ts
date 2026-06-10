@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-06-20",
+  apiVersion: "2025-02-24.clover", // Updated to the latest stable API version
 });
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -26,14 +26,26 @@ export async function POST(req: NextRequest) {
     switch (event.type) {
       case "payment_intent.succeeded": {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        const invoiceId = paymentIntent.metadata.invoiceId;
+        const invoiceId = paymentIntent.metadata?.invoiceId; // Added optional chaining
 
         if (invoiceId) {
+          // Update invoice status
           await prisma.invoice.update({
             where: { id: invoiceId },
             data: {
               status: "PAID",
+            },
+          });
+
+          // Create payment record
+          await prisma.payment.create({
+            data: {
+              invoiceId: invoiceId,
+              amount: paymentIntent.amount / 100, // Convert from cents
+              method: "STRIPE",
+              status: "COMPLETED",
               paymentDate: new Date(),
+              createdById: null, // Webhook, no specific user
             },
           });
 
@@ -47,11 +59,14 @@ export async function POST(req: NextRequest) {
 
       case "invoice.payment_succeeded": {
         const invoice = event.data.object as Stripe.Invoice;
-        const studentId = invoice.metadata.studentId;
+        const studentId = invoice.metadata?.studentId; // Added optional chaining
 
         if (studentId) {
           // Optional: mark related invoices as paid, send receipt email, etc.
-          logger.info(`Invoice payment succeeded`, { invoiceId: invoice.id });
+          logger.info(`Invoice payment succeeded`, { 
+            invoiceId: invoice.id,
+            studentId: studentId 
+          });
         }
 
         break;
