@@ -25,7 +25,7 @@ export async function GET(
         amount: true,
         dueDate: true,
         status: true,
-        description: true,
+        // description: true, // REMOVED - doesn't exist in schema
         createdAt: true,
         createdBy: { select: { name: true } },
         approvedBy: { select: { name: true } },
