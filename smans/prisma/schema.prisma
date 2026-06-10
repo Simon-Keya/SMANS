@@ -37,7 +37,6 @@ model User {
   student                 Student?                 @relation("UserStudent")
   createdBy               User?                    @relation("CreatedBy", fields: [createdById], references: [id])
   createdUsers            User[]                   @relation("CreatedBy")
-  markedAttendances       Attendance[]             @relation("MarkedBy") 
 
   @@index([email])
   @@index([createdById])
@@ -200,24 +199,34 @@ model Assignment {
 }
 
 model Attendance {
-  id         String           @id @default(cuid())
-  date       DateTime
-  status     AttendanceStatus @default(PRESENT)
-  studentId  String
-  classId    String
-  remarks    String?          // Add this if you want remarks
-  markedById String?          // Add this to track who marked attendance
-  class      Class            @relation(fields: [classId], references: [id], onDelete: Cascade)
-  student    Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  markedBy   User?            @relation("MarkedBy", fields: [markedById], references: [id])
+  id        String           @id @default(cuid())
+  date      DateTime
+  status    AttendanceStatus @default(PRESENT)
+  studentId String
+  classId   String
+  class     Class            @relation(fields: [classId], references: [id], onDelete: Cascade)
+  student   Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, date])
   @@index([studentId])
   @@index([classId, date])
-  @@index([markedById])
   @@map("attendance")
 }
 
+model Exam {
+  id        String   @id @default(cuid())
+  name      String
+  term      String?
+  date      DateTime
+  classId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  grades    Grade[]
+
+  @@index([classId])
+  @@map("exams")
+}
 
 model Grade {
   id              String   @id @default(cuid())
