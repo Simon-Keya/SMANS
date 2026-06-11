@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/Table";
 import { Download, Eye } from "lucide-react";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 interface Invoice {
   id: string;
@@ -25,6 +26,37 @@ interface Invoice {
 interface FeeInvoiceTableProps {
   invoices: Invoice[];
 }
+
+// Custom Badge wrapper with success variant
+const StatusBadge = ({ status }: { status: string }) => {
+  const getStyles = () => {
+    switch (status) {
+      case "paid":
+        return "bg-green-100 text-green-800 hover:bg-green-100 border-green-200";
+      case "overdue":
+        return "bg-red-100 text-red-800 hover:bg-red-100 border-red-200";
+      default:
+        return "bg-yellow-100 text-yellow-800 hover:bg-yellow-100 border-yellow-200";
+    }
+  };
+
+  const getLabel = () => {
+    switch (status) {
+      case "paid":
+        return "Paid";
+      case "overdue":
+        return "Overdue";
+      default:
+        return "Pending";
+    }
+  };
+
+  return (
+    <Badge variant="outline" className={cn("capitalize", getStyles())}>
+      {getLabel()}
+    </Badge>
+  );
+};
 
 export default function FeeInvoiceTable({ invoices }: FeeInvoiceTableProps) {
   return (
@@ -53,15 +85,7 @@ export default function FeeInvoiceTable({ invoices }: FeeInvoiceTableProps) {
                 <TableCell>{inv.amount.toLocaleString()}</TableCell>
                 <TableCell>{new Date(inv.dueDate).toLocaleDateString()}</TableCell>
                 <TableCell>
-                  <Badge
-                    variant={
-                      inv.status === "paid" ? "success" :
-                      inv.status === "overdue" ? "destructive" : "default"
-                    }
-                    className="capitalize"
-                  >
-                    {inv.status}
-                  </Badge>
+                  <StatusBadge status={inv.status} />
                 </TableCell>
                 <TableCell className="text-right space-x-2">
                   <Button variant="ghost" size="icon" asChild aria-label="View invoice">
