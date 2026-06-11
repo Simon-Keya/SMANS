@@ -45,26 +45,28 @@ export async function gradePublishJob(data: GradePublishJobData) {
       return { success: true, message: "No grades to publish" };
     }
 
-    // Mark exam as published
-    await prisma.exam.update({
-      where: { id: examId },
+    // Update all grades to published status
+    await prisma.grade.updateMany({
+      where: { examId },
       data: { published: true },
     });
 
-    logger.info(`Exam ${exam.name} marked as published`);
+    logger.info(`Grades for exam ${exam.name} marked as published`);
 
     // Send confirmation to teacher
     await EmailService.send(
       teacherEmail,
       `Grades Published - ${exam.name}`,
       `
-        <h2>Grades Published Successfully</h2>
-        <p>Dear ${teacherName},</p>
-        <p>You have published grades for <strong>${exam.name}</strong> (${exam.class.name}).</p>
-        <p>Total students graded: ${grades.length}</p>
-        <p>Students and parents have been notified.</p>
-        <p>View details in your dashboard.</p>
-        <p>SMANS System</p>
+        <div style="font-family: Arial, sans-serif; max-width: 600px;">
+          <h2>Grades Published Successfully</h2>
+          <p>Dear ${teacherName},</p>
+          <p>You have published grades for <strong>${exam.name}</strong> (${exam.class?.name || "Unknown Class"}).</p>
+          <p>Total students graded: ${grades.length}</p>
+          <p>Students and parents have been notified.</p>
+          <p>View details in your dashboard.</p>
+          <p>SMANS System</p>
+        </div>
       `
     );
 
@@ -74,15 +76,17 @@ export async function gradePublishJob(data: GradePublishJobData) {
       const parentEmail = grade.student.parent?.email;
 
       const html = `
-        <h2>Grades Published - ${exam.name}</h2>
-        <p>Dear ${grade.student.name},</p>
-        <p>Your grade for <strong>${grade.subject.name}</strong> has been published:</p>
-        <p><strong>Marks:</strong> ${grade.marks} / ${grade.maxMarks}</p>
-        <p>View full results in your dashboard.</p>
-        <a href="${process.env.NEXTAUTH_URL}/dashboard/student/results" style="display:inline-block; background:#10b981; color:white; padding:12px 24px; text-decoration:none; border-radius:6px;">
-          View Results
-        </a>
-        <p>Best regards,<br/>SMANS Team</p>
+        <div style="font-family: Arial, sans-serif; max-width: 600px;">
+          <h2>Grades Published - ${exam.name}</h2>
+          <p>Dear ${grade.student.name},</p>
+          <p>Your grade for <strong>${grade.subject.name}</strong> has been published:</p>
+          <p><strong>Marks:</strong> ${grade.marks} / ${grade.maxMarks}</p>
+          <p>View full results in your dashboard.</p>
+          <a href="${process.env.NEXTAUTH_URL}/dashboard/student/results" style="display:inline-block; background:#10b981; color:white; padding:12px 24px; text-decoration:none; border-radius:6px;">
+            View Results
+          </a>
+          <p>Best regards,<br/>SMANS Team</p>
+        </div>
       `;
 
       if (studentEmail) {

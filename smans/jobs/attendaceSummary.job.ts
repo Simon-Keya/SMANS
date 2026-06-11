@@ -22,20 +22,27 @@ export async function attendanceSummaryJob(data: AttendanceSummaryJobData) {
       throw new Error("Invalid date format");
     }
 
+    // Set up date range for the target date
+    const startOfDay = new Date(targetDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    
+    const endOfDay = new Date(targetDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
     // Fetch attendance for the class on that date
     const attendanceRecords = await prisma.attendance.findMany({
       where: {
         classId,
         date: {
-          gte: new Date(targetDate.setHours(0, 0, 0, 0)),
-          lt: new Date(targetDate.setHours(23, 59, 59, 999)),
+          gte: startOfDay,
+          lte: endOfDay,
         },
       },
       include: {
         student: {
           select: {
             name: true,
-            rollNumber: true,
+            admissionNumber: true,
           },
         },
       },
@@ -66,27 +73,43 @@ export async function attendanceSummaryJob(data: AttendanceSummaryJobData) {
             <th style="padding:12px; border:1px solid #ddd;">Status</th>
             <th style="padding:12px; border:1px solid #ddd;">Count</th>
             <th style="padding:12px; border:1px solid #ddd;">Percentage</th>
-          </tr>
-          <tr>
+           </tr>
+           <tr>
             <td style="padding:12px; border:1px solid #ddd;">Present</td>
             <td style="padding:12px; border:1px solid #ddd;">${present}</td>
             <td style="padding:12px; border:1px solid #ddd;">${attendanceRate}%</td>
-          </tr>
-          <tr>
+           </tr>
+           <tr>
             <td style="padding:12px; border:1px solid #ddd;">Absent</td>
             <td style="padding:12px; border:1px solid #ddd;">${absent}</td>
-            <td style="padding:12px; border:1px solid #ddd;">${Math.round((absent/total)*100)}%</td>
-          </tr>
-          <tr>
+            <td style="padding:12px; border:1px solid #ddd;">${total > 0 ? Math.round((absent/total)*100) : 0}%</td>
+           </tr>
+           <tr>
             <td style="padding:12px; border:1px solid #ddd;">Late</td>
             <td style="padding:12px; border:1px solid #ddd;">${late}</td>
-            <td style="padding:12px; border:1px solid #ddd;">${Math.round((late/total)*100)}%</td>
-          </tr>
+            <td style="padding:12px; border:1px solid #ddd;">${total > 0 ? Math.round((late/total)*100) : 0}%</td>
+           </tr>
           <tr style="background:#f3f4f6; font-weight:bold;">
             <td style="padding:12px; border:1px solid #ddd;">Total</td>
             <td style="padding:12px; border:1px solid #ddd;">${total}</td>
             <td style="padding:12px; border:1px solid #ddd;">100%</td>
-          </tr>
+           </tr>
+        </table>
+
+        <h3>Detailed List:</h3>
+        <table style="width:100%; border-collapse: collapse; margin: 20px 0;">
+          <tr style="background:#f3f4f6;">
+            <th style="padding:8px; border:1px solid #ddd;">Adm No.</th>
+            <th style="padding:8px; border:1px solid #ddd;">Student Name</th>
+            <th style="padding:8px; border:1px solid #ddd;">Status</th>
+           </tr>
+           ${attendanceRecords.map(record => `
+           <tr>
+              <td style="padding:8px; border:1px solid #ddd;">${record.student.admissionNumber}</td>
+              <td style="padding:8px; border:1px solid #ddd;">${record.student.name}</td>
+              <td style="padding:8px; border:1px solid #ddd;">${record.status}</td>
+             </tr>
+          `).join('')}
         </table>
 
         <p>Full details are available in your dashboard.</p>
