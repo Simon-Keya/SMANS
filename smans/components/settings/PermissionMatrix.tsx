@@ -4,8 +4,10 @@
 import { Card, CardContent } from "@/components/ui/Card";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { ScrollArea } from "@/components/ui/Scroll-area";
-import { Permission } from "@/lib/permissions";
 import { useState } from "react";
+
+// Define Permission type locally
+type Permission = string;
 
 const sampleRoles = [
   { id: "admin", name: "Admin", permissions: ["*"] },
