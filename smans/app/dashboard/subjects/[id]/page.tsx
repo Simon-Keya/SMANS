@@ -4,21 +4,32 @@ import { prisma } from "@/lib/prisma";
 import { ArrowLeft, Edit } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+
 interface SubjectDetailPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default async function SubjectDetailPage({ params }: SubjectDetailPageProps) {
+  const { id } = await params;
+  
   const subject = await prisma.subject.findUnique({
-    where: { id: params.id },
+    where: { id },
     select: {
       id: true,
       name: true,
       code: true,
-      teacher: { select: { name: true } },
+      description: true,
+      createdAt: true,
       classes: {
         select: {
+          id: true,
           name: true,
+          level: true,
+          teacher: {
+            select: {
+              name: true,
+            },
+          },
         },
       },
     },
@@ -27,6 +38,12 @@ export default async function SubjectDetailPage({ params }: SubjectDetailPagePro
   if (!subject) {
     notFound();
   }
+
+  // Get unique teachers from the classes that teach this subject
+  const teachers = subject.classes
+    .filter(cls => cls.teacher !== null)
+    .map(cls => cls.teacher?.name)
+    .filter((name, index, self) => name && self.indexOf(name) === index);
 
   return (
     <div className="space-y-6">
@@ -58,8 +75,24 @@ export default async function SubjectDetailPage({ params }: SubjectDetailPagePro
               <p className="font-medium">{subject.code}</p>
             </div>
             <div>
-              <p className="text-sm text-base-content/60">Assigned Teacher</p>
-              <p className="font-medium">{subject.teacher?.name ?? "Not assigned"}</p>
+              <p className="text-sm text-base-content/60">Description</p>
+              <p className="font-medium">{subject.description || "No description"}</p>
+            </div>
+            <div>
+              <p className="text-sm text-base-content/60">Created</p>
+              <p className="font-medium">{new Date(subject.createdAt).toLocaleDateString()}</p>
+            </div>
+            <div>
+              <p className="text-sm text-base-content/60">Teachers</p>
+              {teachers.length > 0 ? (
+                <ul className="list-disc list-inside mt-1">
+                  {teachers.map((teacher, index) => (
+                    <li key={index} className="font-medium">{teacher}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="font-medium text-base-content/60">No teachers assigned</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -72,13 +105,18 @@ export default async function SubjectDetailPage({ params }: SubjectDetailPagePro
             {subject.classes.length === 0 ? (
               <p className="text-base-content/60">No classes assigned yet.</p>
             ) : (
-              <ul className="space-y-2">
+              <div className="space-y-3">
                 {subject.classes.map((cls) => (
-                  <li key={cls.name} className="font-medium">
-                    {cls.name}
-                  </li>
+                  <div key={cls.id} className="border-b pb-2 last:border-0">
+                    <p className="font-medium">{cls.name} ({cls.level})</p>
+                    {cls.teacher && (
+                      <p className="text-sm text-base-content/60">
+                        Teacher: {cls.teacher.name}
+                      </p>
+                    )}
+                  </div>
                 ))}
-              </ul>
+              </div>
             )}
           </CardContent>
         </Card>
