@@ -1,3 +1,4 @@
+// app/dashboard/reports/attendance/page.tsx
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { prisma } from "@/lib/prisma";
@@ -16,17 +17,33 @@ export default async function AttendanceDashboard() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Count present students today (using status field)
+  // Count present students today - USING STATUS FIELD, NOT PRESENT
   const presentToday = await prisma.attendance.count({
     where: { 
       date: today, 
-      status: "PRESENT" 
+      status: "PRESENT"  // Changed from 'present: true' to 'status: "PRESENT"'
     },
   });
 
   // Count total attendance records today
   const totalToday = await prisma.attendance.count({
     where: { date: today },
+  });
+
+  // Count absent students today
+  const absentToday = await prisma.attendance.count({
+    where: { 
+      date: today, 
+      status: "ABSENT" 
+    },
+  });
+
+  // Count late students today
+  const lateToday = await prisma.attendance.count({
+    where: { 
+      date: today, 
+      status: "LATE" 
+    },
   });
 
   // Calculate attendance rate for today
@@ -67,17 +84,34 @@ export default async function AttendanceDashboard() {
       <h1 className="text-3xl font-bold text-primary">Attendance Dashboard</h1>
 
       {/* Today's Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="bg-base-100 shadow-lg border border-base-200">
           <CardHeader>
-            <CardTitle className="text-xl text-primary">Today's Attendance</CardTitle>
+            <CardTitle className="text-xl text-primary">Present</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-success">{presentToday}</div>
-            <p className="text-sm text-base-content/60">Students Present</p>
-            <div className="mt-2 text-sm">
-              out of {totalToday} total records
-            </div>
+            <p className="text-sm text-base-content/60">Students present today</p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-base-100 shadow-lg border border-base-200">
+          <CardHeader>
+            <CardTitle className="text-xl text-primary">Absent</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-error">{absentToday}</div>
+            <p className="text-sm text-base-content/60">Students absent today</p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-base-100 shadow-lg border border-base-200">
+          <CardHeader>
+            <CardTitle className="text-xl text-primary">Late</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-warning">{lateToday}</div>
+            <p className="text-sm text-base-content/60">Students late today</p>
           </CardContent>
         </Card>
 
@@ -89,21 +123,7 @@ export default async function AttendanceDashboard() {
             <div className="text-3xl font-bold text-primary">
               {attendanceRate.toFixed(1)}%
             </div>
-            <p className="text-sm text-base-content/60">of students present today</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-base-100 shadow-lg border border-base-200">
-          <CardHeader>
-            <CardTitle className="text-xl text-primary">Quick Actions</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Button asChild className="w-full">
-              <Link href="/dashboard/attendance/mark">Mark Today's Attendance</Link>
-            </Button>
-            <Button asChild variant="outline" className="w-full">
-              <Link href="/dashboard/attendance/report">View Reports</Link>
-            </Button>
+            <p className="text-sm text-base-content/60">Overall attendance</p>
           </CardContent>
         </Card>
       </div>
@@ -136,32 +156,32 @@ export default async function AttendanceDashboard() {
         </Card>
       )}
 
-      {/* Action Cards */}
+      {/* Action Buttons */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="bg-base-100 shadow-lg border border-base-200">
           <CardHeader>
-            <CardTitle className="text-xl text-primary">Generate Reports</CardTitle>
+            <CardTitle className="text-xl text-primary">Mark Attendance</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-base-content/70 mb-4">
-              View detailed attendance reports by class, student, or date range
+              Record today's attendance for your classes
             </p>
-            <Button asChild variant="outline" className="w-full">
-              <Link href="/dashboard/attendance/report">Generate Report</Link>
+            <Button asChild className="w-full">
+              <Link href="/dashboard/attendance/mark">Mark Today's Attendance</Link>
             </Button>
           </CardContent>
         </Card>
 
         <Card className="bg-base-100 shadow-lg border border-base-200">
           <CardHeader>
-            <CardTitle className="text-xl text-primary">Class Overview</CardTitle>
+            <CardTitle className="text-xl text-primary">View Reports</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-base-content/70 mb-4">
-              View attendance summary by class and identify patterns
+              Generate detailed attendance reports and analytics
             </p>
             <Button asChild variant="outline" className="w-full">
-              <Link href="/dashboard/attendance/classes">View Classes</Link>
+              <Link href="/dashboard/attendance/report">Attendance Reports</Link>
             </Button>
           </CardContent>
         </Card>
