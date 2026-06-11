@@ -20,9 +20,9 @@ export default async function SubjectsPage() {
       name: true,
       code: true,
       description: true,
-      createdAt: true, // Add this field
-      updatedAt: true, // Optional: include if needed
-      teacher: { select: { name: true } }, // Note: Subject model doesn't have a direct teacher relation
+      createdAt: true,
+      updatedAt: true,
+      // teacher field removed - Subject model doesn't have direct teacher relation
     },
     orderBy: { name: "asc" },
   });
