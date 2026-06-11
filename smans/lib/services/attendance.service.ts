@@ -1,5 +1,6 @@
 // lib/services/attendance.service.ts
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 export class AttendanceService {
   /**
@@ -48,7 +49,7 @@ export class AttendanceService {
         student: { 
           select: { 
             name: true, 
-            admissionNumber: true  // Changed from rollNumber to admissionNumber
+            admissionNumber: true
           } 
         },
       },
