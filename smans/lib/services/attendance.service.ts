@@ -45,7 +45,12 @@ export class AttendanceService {
     const attendance = await prisma.attendance.findMany({
       where: { classId, date },
       include: {
-        student: { select: { name: true, rollNumber: true } },
+        student: { 
+          select: { 
+            name: true, 
+            admissionNumber: true  // Changed from rollNumber to admissionNumber
+          } 
+        },
       },
     });
 
@@ -82,6 +87,8 @@ export class AttendanceService {
 
     const total = records.length;
     const present = records.filter(r => r.status === "PRESENT").length;
+    const absent = records.filter(r => r.status === "ABSENT").length;
+    const late = records.filter(r => r.status === "LATE").length;
 
     return {
       studentId,
@@ -89,7 +96,92 @@ export class AttendanceService {
       year,
       totalDays: total,
       presentDays: present,
+      absentDays: absent,
+      lateDays: late,
       attendanceRate: total > 0 ? Math.round((present / total) * 100) : 0,
+    };
+  }
+
+  /**
+   * Get student attendance for a date range
+   */
+  static async getStudentAttendance(
+    studentId: string, 
+    startDate: Date, 
+    endDate: Date
+  ) {
+    const records = await prisma.attendance.findMany({
+      where: {
+        studentId,
+        date: { gte: startDate, lte: endDate },
+      },
+      orderBy: { date: "asc" },
+    });
+
+    return records;
+  }
+
+  /**
+   * Get class attendance for a date range
+   */
+  static async getClassAttendance(
+    classId: string,
+    startDate: Date,
+    endDate: Date
+  ) {
+    const records = await prisma.attendance.findMany({
+      where: {
+        classId,
+        date: { gte: startDate, lte: endDate },
+      },
+      include: {
+        student: {
+          select: {
+            name: true,
+            admissionNumber: true,
+          },
+        },
+      },
+      orderBy: [{ date: "asc" }, { student: { name: "asc" } }],
+    });
+
+    return records;
+  }
+
+  /**
+   * Get attendance statistics for a class over a date range
+   */
+  static async getClassAttendanceStats(
+    classId: string,
+    startDate: Date,
+    endDate: Date
+  ) {
+    const records = await prisma.attendance.findMany({
+      where: {
+        classId,
+        date: { gte: startDate, lte: endDate },
+      },
+    });
+
+    const totalRecords = records.length;
+    const present = records.filter(r => r.status === "PRESENT").length;
+    const absent = records.filter(r => r.status === "ABSENT").length;
+    const late = records.filter(r => r.status === "LATE").length;
+
+    // Get unique students
+    const uniqueStudents = new Set(records.map(r => r.studentId));
+    const totalStudents = uniqueStudents.size;
+
+    return {
+      classId,
+      startDate,
+      endDate,
+      totalRecords,
+      totalStudents,
+      present,
+      absent,
+      late,
+      overallAttendanceRate: totalRecords > 0 ? Math.round((present / totalRecords) * 100) : 0,
     };
   }
 }
