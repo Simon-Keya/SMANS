@@ -14,7 +14,6 @@ type InvoiceWithPayments = {
   amount: number;
   dueDate: Date;
   status: string;
-  description: string | null;
   createdAt: Date;
   createdBy: { name: string | null } | null;
   approvedBy: { name: string | null } | null;
@@ -28,15 +27,17 @@ type InvoiceWithPayments = {
   }>;
 };
 
-export default async function InvoiceDetailPage({ params }: { params: { id: string } }) {
+export default async function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
 
   if (!session || !["ADMIN", "ACCOUNTANT"].includes(session.user.role)) {
     redirect("/dashboard");
   }
 
+  const { id } = await params;
+
   const invoice = await prisma.invoice.findUnique({
-    where: { id: params.id },
+    where: { id },
     select: {
       id: true,
       student: { select: { id: true, name: true } },
@@ -44,7 +45,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
       amount: true,
       dueDate: true,
       status: true,
-      description: true,
+      // description: true, // REMOVED - doesn't exist in schema
       createdAt: true,
       createdBy: { select: { name: true } },
       approvedBy: { select: { name: true } },
@@ -115,12 +116,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
                 {invoice.status}
               </span>
             </div>
-            {invoice.description && (
-              <div>
-                <p className="text-sm text-base-content/60">Description</p>
-                <p className="text-sm">{invoice.description}</p>
-              </div>
-            )}
+            {/* Description section removed - field doesn't exist */}
           </CardContent>
         </Card>
 

@@ -80,3 +80,19 @@ export async function disable2FA() {
 
   return { success: true, message: "2FA disabled successfully" };
 }
+
+// Optional: Get 2FA status
+export async function get2FAStatus() {
+  const userId = await getAuthenticatedUserId();
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { twoFactorEnabled: true },
+  });
+
+  if (!user) throw new Error("User not found");
+
+  return {
+    enabled: user.twoFactorEnabled,
+  };
+}
