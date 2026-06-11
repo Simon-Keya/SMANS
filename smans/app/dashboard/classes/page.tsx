@@ -29,7 +29,7 @@ export default async function ClassesPage() {
     orderBy: { name: "asc" },
   });
 
-  // Transform the data to match ClassTable expectations
+  // Transform the data to match ClassTable expectations.
   const classesWithCount = classes.map(cls => ({
     id: cls.id,
     name: cls.name,
