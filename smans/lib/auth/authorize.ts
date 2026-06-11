@@ -1,8 +1,9 @@
+// lib/auth/authorize.ts
 import { getServerSession } from "next-auth";
 import { authOptions } from "./auth";
-import { hasPermission } from "./permissions";
+import { hasPermission, type Permission, type Role } from "./permissions";
 
-export async function authorize(permission: string) {
+export async function authorize(permission: Permission) {
   const session = await getServerSession(authOptions);
 
   if (!session || !session.user?.role) {
@@ -10,7 +11,7 @@ export async function authorize(permission: string) {
   }
 
   const allowed = hasPermission(
-    session.user.role as any,
+    session.user.role as Role,
     permission
   );
 
