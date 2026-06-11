@@ -17,67 +17,50 @@ export default async function AttendanceDashboard() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Count present students today - USING STATUS FIELD, NOT PRESENT
-  const presentToday = await prisma.attendance.count({
-    where: { 
-      date: today, 
-      status: "PRESENT"  // Changed from 'present: true' to 'status: "PRESENT"'
-    },
-  });
-
-  // Count total attendance records today
-  const totalToday = await prisma.attendance.count({
+  // Get all attendance records for today
+  const todaysRecords = await prisma.attendance.findMany({
     where: { date: today },
   });
 
-  // Count absent students today
-  const absentToday = await prisma.attendance.count({
-    where: { 
-      date: today, 
-      status: "ABSENT" 
-    },
+  // Calculate statistics from the records
+  let presentToday = 0;
+  let absentToday = 0;
+  let lateToday = 0;
+
+  todaysRecords.forEach((record) => {
+    if (record.status === "PRESENT") presentToday++;
+    if (record.status === "ABSENT") absentToday++;
+    if (record.status === "LATE") lateToday++;
   });
 
-  // Count late students today
-  const lateToday = await prisma.attendance.count({
-    where: { 
-      date: today, 
-      status: "LATE" 
-    },
-  });
-
-  // Calculate attendance rate for today
+  const totalToday = todaysRecords.length;
   const attendanceRate = totalToday > 0 ? (presentToday / totalToday) * 100 : 0;
 
   // Get this week's attendance summary
   const startOfWeek = new Date(today);
-  startOfWeek.setDate(today.getDate() - today.getDay()); // Start from Sunday
+  startOfWeek.setDate(today.getDate() - today.getDay());
 
-  const weeklyAttendance = await prisma.attendance.groupBy({
-    by: ["status"],
+  const weeklyRecords = await prisma.attendance.findMany({
     where: {
       date: {
         gte: startOfWeek,
         lte: today,
       },
     },
-    _count: {
-      status: true,
-    },
   });
 
-  // Calculate weekly totals
+  // Calculate weekly statistics
   let weeklyPresent = 0;
   let weeklyAbsent = 0;
   let weeklyLate = 0;
 
-  weeklyAttendance.forEach((item) => {
-    if (item.status === "PRESENT") weeklyPresent = item._count.status;
-    if (item.status === "ABSENT") weeklyAbsent = item._count.status;
-    if (item.status === "LATE") weeklyLate = item._count.status;
+  weeklyRecords.forEach((record) => {
+    if (record.status === "PRESENT") weeklyPresent++;
+    if (record.status === "ABSENT") weeklyAbsent++;
+    if (record.status === "LATE") weeklyLate++;
   });
 
-  const weeklyTotal = weeklyPresent + weeklyAbsent + weeklyLate;
+  const weeklyTotal = weeklyRecords.length;
 
   return (
     <div className="space-y-6">
