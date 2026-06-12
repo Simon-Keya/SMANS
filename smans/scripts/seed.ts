@@ -175,7 +175,7 @@ async function main() {
     await prisma.attendance.create({
       data: {
         date: new Date(),
-        status: AttendanceStatus.PRESENT, // Use enum
+        status: AttendanceStatus.PRESENT, 
         studentId: student.id,
         classId: form1.id,
       },
