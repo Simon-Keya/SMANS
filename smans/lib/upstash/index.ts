@@ -1,3 +1,3 @@
 // lib/upstash/index.ts
-export * from "./rateLimit";
+export * from "./ratelimit";
 export * from "./redis";
