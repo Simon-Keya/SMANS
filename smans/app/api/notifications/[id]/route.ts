@@ -8,6 +8,11 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Skip during build time
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    return NextResponse.json({ error: "Build time" }, { status: 200 });
+  }
+
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {

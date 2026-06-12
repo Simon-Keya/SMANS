@@ -14,6 +14,11 @@ const createNotificationSchema = z.object({
 type UserIdOnly = { id: string };
 
 export async function GET() {
+  // Skip during build time
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    return NextResponse.json({ success: true, data: [] }, { status: 200 });
+  }
+
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
@@ -35,6 +40,11 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  // Skip during build time
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    return NextResponse.json({ success: true }, { status: 200 });
+  }
+
   const session = await getServerSession(authOptions);
 
   if (!session || session.user.role !== "ADMIN") {
