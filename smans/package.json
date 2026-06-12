@@ -5,15 +5,19 @@
   "scripts": {
     "dev": "next dev",
     "dev:turbo": "next dev --turbo",
-    "build": "next build",
+    "build": "prisma db push && next build",
+    "build:skip-db": "next build",
     "start": "next start",
     "lint": "next lint",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:reset": "prisma migrate reset",
     "prisma:studio": "prisma studio",
     "prisma:db-push": "prisma db push",
     "postinstall": "prisma generate",
+    "seed": "ts-node scripts/seed.ts",
+    "seed:prod": "prisma db seed",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
@@ -21,6 +25,9 @@
     "test:integration": "jest tests/integration",
     "test:prisma": "jest tests/integration/prisma",
     "test:specific": "jest"
+  },
+  "prisma": {
+    "seed": "ts-node scripts/seed.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
