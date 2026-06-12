@@ -1,77 +1,15 @@
-// app/api/webhooks/stripe/route.ts
-import { logger } from "@/lib/logger";
-import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
-import Stripe from "stripe";
-
-// Don't specify apiVersion - use your Stripe account's default version
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
 export async function POST(req: NextRequest) {
-  const sig = req.headers.get("stripe-signature")!;
+  return NextResponse.json({ 
+    success: true, 
+    message: "Stripe webhook endpoint (disabled)",
+    note: "Enable by setting up Stripe credentials and uncommenting webhook code"
+  }, { status: 200 });
+}
 
-  let event: Stripe.Event;
-
-  try {
-    const body = await req.text();
-
-    event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
-
-    // Handle the event
-    switch (event.type) {
-      case "payment_intent.succeeded": {
-        const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        const invoiceId = paymentIntent.metadata?.invoiceId;
-
-        if (invoiceId) {
-          await prisma.invoice.update({
-            where: { id: invoiceId },
-            data: { status: "PAID" },
-          });
-
-          await prisma.payment.create({
-            data: {
-              invoiceId: invoiceId,
-              amount: paymentIntent.amount / 100,
-              method: "STRIPE",
-              status: "COMPLETED",
-              paymentDate: new Date(),
-              createdById: null,
-            },
-          });
-
-          logger.info(`Payment succeeded for invoice ${invoiceId}`, {
-            paymentIntentId: paymentIntent.id,
-          });
-        }
-        break;
-      }
-
-      case "invoice.payment_succeeded": {
-        const invoice = event.data.object as Stripe.Invoice;
-        const studentId = invoice.metadata?.studentId;
-
-        if (studentId) {
-          logger.info(`Invoice payment succeeded`, { 
-            invoiceId: invoice.id,
-            studentId: studentId 
-          });
-        }
-        break;
-      }
-
-      default:
-        logger.info(`Unhandled Stripe event type: ${event.type}`);
-    }
-
-    return NextResponse.json({ received: true }, { status: 200 });
-  } catch (err: any) {
-    logger.error("Stripe webhook error", err);
-    return NextResponse.json(
-      { error: `Webhook Error: ${err.message}` },
-      { status: 400 }
-    );
-  }
+export async function GET() {
+  return NextResponse.json({ 
+    message: "Stripe webhook endpoint - currently disabled" 
+  }, { status: 200 });
 }
