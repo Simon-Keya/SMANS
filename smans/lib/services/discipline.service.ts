@@ -1,5 +1,12 @@
 // lib/services/discipline.service.ts
 import { prisma } from "@/lib/prisma";
+import type { DisciplineRecord, Student } from "@prisma/client";
+
+type DisciplineRecordWithStudent = DisciplineRecord & {
+  student: Pick<Student, 'name' | 'admissionNumber'> & {
+    class?: { name: string } | null;
+  };
+};
 
 export class DisciplineService {
   static async record(data: {
@@ -67,6 +74,21 @@ export class DisciplineService {
     });
   }
 
+  static async getById(id: string) {
+    return prisma.disciplineRecord.findUnique({
+      where: { id },
+      include: {
+        student: { 
+          select: { 
+            name: true, 
+            admissionNumber: true,
+            class: { select: { name: true } }
+          } 
+        },
+      },
+    });
+  }
+
   static async update(id: string, data: { issue?: string; description?: string | null }) {
     return prisma.disciplineRecord.update({
       where: { id },
@@ -94,12 +116,16 @@ export class DisciplineService {
       where: { studentId },
     });
 
+    const byIssue: Record<string, number> = {};
+    
+    for (const record of records) {
+      const issue = record.issue;
+      byIssue[issue] = (byIssue[issue] || 0) + 1;
+    }
+
     return {
       total: records.length,
-      byIssue: records.reduce((acc, record) => {
-        acc[record.issue] = (acc[record.issue] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>),
+      byIssue,
       recent: records.slice(0, 5),
     };
   }
