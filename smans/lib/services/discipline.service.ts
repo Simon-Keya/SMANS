@@ -6,7 +6,7 @@ export class DisciplineService {
     studentId: string;
     issue: string;
     description?: string | null;
-    reportedBy: string; // teacher/user ID
+    reportedBy: string;
     date?: Date;
   }) {
     return prisma.disciplineRecord.create({
@@ -18,7 +18,13 @@ export class DisciplineService {
         date: data.date ?? new Date(),
       },
       include: {
-        student: { select: { name: true, rollNumber: true } },
+        student: { 
+          select: { 
+            name: true, 
+            admissionNumber: true,
+            class: { select: { name: true } }
+          } 
+        },
       },
     });
   }
@@ -28,8 +34,73 @@ export class DisciplineService {
       where: { studentId },
       orderBy: { date: "desc" },
       include: {
-        student: true,
+        student: { 
+          select: { 
+            name: true, 
+            admissionNumber: true,
+            class: { select: { name: true } }
+          } 
+        },
       },
     });
+  }
+
+  static async getAll(filters?: { fromDate?: Date; toDate?: Date; studentId?: string }) {
+    return prisma.disciplineRecord.findMany({
+      where: {
+        studentId: filters?.studentId,
+        date: {
+          gte: filters?.fromDate,
+          lte: filters?.toDate,
+        },
+      },
+      include: {
+        student: { 
+          select: { 
+            name: true, 
+            admissionNumber: true,
+            class: { select: { name: true } }
+          } 
+        },
+      },
+      orderBy: { date: "desc" },
+    });
+  }
+
+  static async update(id: string, data: { issue?: string; description?: string | null }) {
+    return prisma.disciplineRecord.update({
+      where: { id },
+      data: {
+        issue: data.issue?.trim(),
+        description: data.description?.trim() ?? null,
+      },
+      include: {
+        student: { 
+          select: { 
+            name: true, 
+            admissionNumber: true 
+          } 
+        },
+      },
+    });
+  }
+
+  static async delete(id: string) {
+    return prisma.disciplineRecord.delete({ where: { id } });
+  }
+
+  static async getStats(studentId: string) {
+    const records = await prisma.disciplineRecord.findMany({
+      where: { studentId },
+    });
+
+    return {
+      total: records.length,
+      byIssue: records.reduce((acc, record) => {
+        acc[record.issue] = (acc[record.issue] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>),
+      recent: records.slice(0, 5),
+    };
   }
 }

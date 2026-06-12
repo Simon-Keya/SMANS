@@ -139,6 +139,7 @@ model Student {
   userId          String?        @unique
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
+  disciplineRecords DisciplineRecord[] 
   attendance      Attendance[]
   grades          Grade[]
   invoices        Invoice[]
@@ -327,6 +328,22 @@ model Payment {
   @@index([createdById])
   @@index([approvedById])
   @@map("payments")
+}
+
+model DisciplineRecord {
+  id          String   @id @default(cuid())
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  issue       String
+  description String?
+  reportedBy  String
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([date])
+  @@map("discipline_records")
 }
 
 model Notification {
