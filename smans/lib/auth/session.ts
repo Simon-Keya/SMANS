@@ -3,14 +3,19 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "./auth";
 
 export async function getCurrentSession() {
-  const session = await getServerSession(authOptions);
-  return session;
+  try {
+    const session = await getServerSession(authOptions);
+    return session;
+  } catch (error) {
+    console.error("❌ Error getting session:", error);
+    return null;
+  }
 }
 
 export async function getCurrentUser() {
   const session = await getCurrentSession();
 
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return null;
   }
 
@@ -33,7 +38,7 @@ export async function requireAuth() {
 export async function requireRole(requiredRole: "ADMIN" | "TEACHER" | "PARENT" | "STUDENT" | "ACCOUNTANT") {
   const user = await requireAuth();
   if (user.role !== requiredRole) {
-    throw new Error(`You do not have permission. Required role: ${requiredRole}`);
+    throw new Error(`Access denied. Required role: ${requiredRole}`);
   }
   return user;
 }

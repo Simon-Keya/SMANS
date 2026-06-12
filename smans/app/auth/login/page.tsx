@@ -31,6 +31,8 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
 
+    console.log("🔐 Attempting login for:", email);
+
     const result = await signIn("credentials", {
       email,
       password,
@@ -38,13 +40,22 @@ export default function LoginPage() {
       callbackUrl,
     });
 
+    console.log("🔐 Login result:", result);
+
     if (result?.error) {
       setError("Invalid email or password. Please try again.");
+      setLoading(false);
     } else if (result?.ok) {
+      console.log("✅ Login successful! Redirecting to:", callbackUrl);
+      
+      // Strong redirect strategy for Vercel
       router.push(callbackUrl);
-      router.refresh(); // Refresh to update session
+      router.refresh();           // Refresh session
+      window.location.href = callbackUrl; // Strong fallback for Vercel
+    } else {
+      setError("Something went wrong. Please try again.");
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
