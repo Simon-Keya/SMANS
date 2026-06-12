@@ -4,15 +4,37 @@
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
-import { Ratelimit } from "@upstash/ratelimit";
-import { redis } from "@/lib/upstash/redis";
 
-const loginLimiter = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(10, "5 m"),
-  analytics: true,
-  prefix: "ratelimit:login",
-});
+// Simple in-memory rate limiter
+const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+
+function checkRateLimit(key: string, maxRequests: number = 10, windowMs: number = 5 * 60 * 1000): boolean {
+  const now = Date.now();
+  const record = rateLimitStore.get(key);
+
+  // Clean up expired
+  if (record && record.resetTime < now) {
+    rateLimitStore.delete(key);
+  }
+
+  const current = rateLimitStore.get(key);
+
+  if (!current) {
+    rateLimitStore.set(key, {
+      count: 1,
+      resetTime: now + windowMs,
+    });
+    return true;
+  }
+
+  if (current.count >= maxRequests) {
+    return false;
+  }
+
+  current.count++;
+  rateLimitStore.set(key, current);
+  return true;
+}
 
 interface SignInInput {
   email: string;
@@ -29,8 +51,10 @@ export async function signInAction({ email, password, callbackUrl = "/dashboard"
 
   const normalizedEmail = email.toLowerCase().trim();
 
-  // Rate limiting
-  const { success: rateLimitOk } = await loginLimiter.limit(normalizedEmail);
+  // Rate limiting (in-memory)
+  const identifier = `login:${normalizedEmail}`;
+  const rateLimitOk = checkRateLimit(identifier);
+
   if (!rateLimitOk) {
     return { success: false, error: "Too many login attempts. Please try again later." };
   }
@@ -59,7 +83,7 @@ export async function signInAction({ email, password, callbackUrl = "/dashboard"
 
     console.log("✅ Login successful for:", normalizedEmail);
 
-    // Redirect to dashboard (NextAuth session will be handled by middleware or login page)
+    // Redirect to dashboard
     redirect(callbackUrl);
   } catch (error: any) {
     console.error("💥 SignIn Action Error:", error);

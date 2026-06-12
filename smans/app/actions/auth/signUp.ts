@@ -1,18 +1,41 @@
+// app/actions/auth/signUp.ts
 "use server";
 
 import { sendVerificationEmail } from "@/emails/verificationEmail";
 import { prisma } from "@/lib/prisma";
-import { redis } from "@/lib/upstash/redis";
-import { Ratelimit } from "@upstash/ratelimit";
 import bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
 
-const signUpLimiter = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(5, "1 h"),
-  analytics: true,
-  prefix: "ratelimit:signup",
-});
+// Simple in-memory rate limiter
+const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+
+function checkRateLimit(key: string, maxRequests: number = 5, windowMs: number = 60 * 60 * 1000): boolean {
+  const now = Date.now();
+  const record = rateLimitStore.get(key);
+
+  // Clean up expired
+  if (record && record.resetTime < now) {
+    rateLimitStore.delete(key);
+  }
+
+  const current = rateLimitStore.get(key);
+
+  if (!current) {
+    rateLimitStore.set(key, {
+      count: 1,
+      resetTime: now + windowMs,
+    });
+    return true;
+  }
+
+  if (current.count >= maxRequests) {
+    return false;
+  }
+
+  current.count++;
+  rateLimitStore.set(key, current);
+  return true;
+}
 
 type Role = "ADMIN" | "TEACHER" | "STUDENT" | "PARENT";
 
@@ -39,8 +62,10 @@ export async function signUpAction(data: SignUpInput) {
 
     const normalizedEmail = email.toLowerCase().trim();
 
-    // Rate limit
-    const { success: rateOk } = await signUpLimiter.limit(normalizedEmail);
+    // Rate limiting (in-memory)
+    const identifier = `signup:${normalizedEmail}`;
+    const rateOk = checkRateLimit(identifier);
+
     if (!rateOk) {
       return { success: false, error: "Too many attempts. Try again later." };
     }
