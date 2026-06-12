@@ -1,3 +1,4 @@
+// app/auth/reset-password/page.tsx
 "use client";
 
 import { resetPasswordAction } from "@/app/actions/auth/resetPassword";
@@ -25,6 +26,7 @@ const schema = z
 
 type FormData = z.infer<typeof schema>;
 
+// Make sure this is a default export
 export default function ResetPasswordPage() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
