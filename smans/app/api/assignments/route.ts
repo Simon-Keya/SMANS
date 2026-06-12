@@ -15,12 +15,12 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const classId = searchParams.get("classId");
-    const studentId = searchParams.get("studentId");
+    const subjectId = searchParams.get("subjectId");
 
     const assignments = await prisma.assignment.findMany({
       where: {
         ...(classId && { classId }),
-        ...(studentId && { class: { students: { some: { id: studentId } } } }),
+        ...(subjectId && { subjectId }),
       },
       include: {
         subject: { select: { name: true, code: true } },
@@ -42,10 +42,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // Fix: requireRole expects an array as a single argument
     await requireRole(["TEACHER", "ADMIN"]);
 
     const body = await request.json();
+    const session = await getServerSession(authOptions);
+    const teacherId = session?.user?.id;
 
     const {
       title,
@@ -61,9 +62,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    const session = await getServerSession(authOptions);
-    const teacherId = session?.user?.id;
 
     if (!teacherId) {
       return NextResponse.json({ error: "Unauthorized - no user ID" }, { status: 401 });

@@ -1,3 +1,4 @@
+// app/api/assignments/[id]/route.ts
 import { authOptions } from "@/lib/auth/auth";
 import { logger } from "@/lib/logger";
 import { requireRole } from "@/lib/permissions";
@@ -45,13 +46,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Fix: requireRole might need to be called differently
-    // Option 1: If it returns a function
     await requireRole(["TEACHER", "ADMIN"]);
-    
-    // Option 2: If it takes a session parameter
-    // const session = await getServerSession(authOptions);
-    // await requireRole(session, ["TEACHER", "ADMIN"]);
 
     const { id } = await params;
     const body = await request.json();
@@ -69,10 +64,7 @@ export async function PUT(
       where: { id },
       data: {
         title: title?.trim(),
-        description:
-          description !== undefined
-            ? description?.trim() ?? null
-            : undefined,
+        description: description !== undefined ? description?.trim() ?? null : undefined,
         dueDate: dueDate ? new Date(dueDate) : undefined,
         subjectId,
       },
@@ -98,7 +90,6 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Fix: requireRole might need to be called differently
     await requireRole(["TEACHER", "ADMIN"]);
 
     const { id } = await params;
