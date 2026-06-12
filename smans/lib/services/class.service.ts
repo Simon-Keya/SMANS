@@ -31,7 +31,7 @@ export class ClassService {
       where: { id },
       include: {
         teacher: { select: { name: true, email: true } },
-        students: { select: { id: true, name: true, rollNumber: true } },
+        students: { select: { id: true, name: true, admissionNumber: true } }, // Changed from rollNumber
         subjects: true,
       },
     });

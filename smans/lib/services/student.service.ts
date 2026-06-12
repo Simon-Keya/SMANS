@@ -7,17 +7,19 @@ export class StudentService {
    */
   static async create(data: {
     name: string;
-    rollNumber: string;
+    admissionNumber: string; // Changed from rollNumber
     email?: string | null;
     phone?: string | null;
     classId: string;
     parentId?: string | null;
   }) {
-    const { name, rollNumber, email, phone, classId, parentId } = data;
+    const { name, admissionNumber, email, phone, classId, parentId } = data;
 
-    // Check unique roll number
-    const existingRoll = await prisma.student.findUnique({ where: { rollNumber } });
-    if (existingRoll) throw new Error(`Roll number ${rollNumber} already exists`);
+    // Check unique admission number
+    const existingAdmission = await prisma.student.findUnique({ 
+      where: { admissionNumber } 
+    });
+    if (existingAdmission) throw new Error(`Admission number ${admissionNumber} already exists`);
 
     // Validate class exists
     const cls = await prisma.class.findUnique({ where: { id: classId } });
@@ -31,7 +33,7 @@ export class StudentService {
     return prisma.student.create({
       data: {
         name: name.trim(),
-        rollNumber: rollNumber.trim(),
+        admissionNumber: admissionNumber.trim(),
         email: email?.trim() ?? null,
         phone: phone?.trim() ?? null,
         classId,
@@ -49,7 +51,7 @@ export class StudentService {
    */
   static async update(id: string, data: Partial<{
     name?: string;
-    rollNumber?: string;
+    admissionNumber?: string;
     email?: string | null;
     phone?: string | null;
     classId?: string;
@@ -59,7 +61,7 @@ export class StudentService {
       where: { id },
       data: {
         name: data.name ? data.name.trim() : undefined,
-        rollNumber: data.rollNumber ? data.rollNumber.trim() : undefined,
+        admissionNumber: data.admissionNumber ? data.admissionNumber.trim() : undefined,
         email: data.email !== undefined ? (data.email?.trim() ?? null) : undefined,
         phone: data.phone !== undefined ? (data.phone?.trim() ?? null) : undefined,
         classId: data.classId,
@@ -73,13 +75,18 @@ export class StudentService {
   }
 
   /**
-   * Delete student (soft or hard - here hard delete)
+   * Delete student (hard delete)
    */
   static async delete(id: string) {
-    // Optional: check if student has grades/attendance before delete
-    const hasRecords = await prisma.grade.count({ where: { studentId: id } });
-    if (hasRecords > 0) {
+    // Check if student has grades/attendance before delete
+    const hasGrades = await prisma.grade.count({ where: { studentId: id } });
+    if (hasGrades > 0) {
       throw new Error("Cannot delete student with recorded grades");
+    }
+
+    const hasAttendance = await prisma.attendance.count({ where: { studentId: id } });
+    if (hasAttendance > 0) {
+      throw new Error("Cannot delete student with attendance records");
     }
 
     return prisma.student.delete({ where: { id } });
@@ -92,10 +99,17 @@ export class StudentService {
     return prisma.student.findUnique({
       where: { id },
       include: {
-        class: true,
-        parent: true,
-        grades: { include: { exam: true, subject: true } },
-        attendance: true,
+        class: { select: { id: true, name: true, level: true } },
+        parent: { select: { id: true, name: true, phone: true, email: true } },
+        user: { select: { id: true, email: true } },
+        grades: { 
+          include: { 
+            exam: { select: { name: true, term: true, year: true } }, 
+            subject: { select: { name: true, code: true } } 
+          } 
+        },
+        attendance: { orderBy: { date: "desc" }, take: 10 },
+        invoices: { where: { status: { not: "PAID" } } },
       },
     });
   }
@@ -110,15 +124,48 @@ export class StudentService {
         OR: filters.search
           ? [
               { name: { contains: filters.search, mode: "insensitive" } },
-              { rollNumber: { contains: filters.search, mode: "insensitive" } },
+              { admissionNumber: { contains: filters.search, mode: "insensitive" } },
+              { email: { contains: filters.search, mode: "insensitive" } },
             ]
           : undefined,
       },
       include: {
         class: { select: { name: true, level: true } },
+        parent: { select: { name: true, phone: true, email: true } },
+        _count: { select: { grades: true, attendance: true } },
+      },
+      orderBy: { name: "asc" },
+    });
+  }
+
+  /**
+   * Get students by class
+   */
+  static async getByClass(classId: string) {
+    return prisma.student.findMany({
+      where: { classId },
+      include: {
         parent: { select: { name: true, phone: true } },
       },
       orderBy: { name: "asc" },
+    });
+  }
+
+  /**
+   * Search students by admission number or name
+   */
+  static async search(query: string) {
+    return prisma.student.findMany({
+      where: {
+        OR: [
+          { admissionNumber: { contains: query, mode: "insensitive" } },
+          { name: { contains: query, mode: "insensitive" } },
+        ],
+      },
+      include: {
+        class: { select: { name: true, level: true } },
+      },
+      take: 10,
     });
   }
 }
