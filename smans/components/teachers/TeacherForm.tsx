@@ -41,6 +41,7 @@ export default function TeacherForm({ teacher, onSuccess }: TeacherFormProps = {
     register,
     handleSubmit,
     formState: { errors },
+    reset,
   } = useForm<TeacherFormData>({
     resolver: zodResolver(teacherSchema),
     defaultValues: {
@@ -58,6 +59,7 @@ export default function TeacherForm({ teacher, onSuccess }: TeacherFormProps = {
         let res: Response;
 
         if (isEdit && teacher?.id) {
+          // Update - don't send password
           const { password, ...updateData } = data;
           res = await fetch(`/api/teachers/${teacher.id}`, {
             method: "PUT",
@@ -65,6 +67,7 @@ export default function TeacherForm({ teacher, onSuccess }: TeacherFormProps = {
             body: JSON.stringify(updateData),
           });
         } else {
+          // Create
           res = await fetch("/api/teachers", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -77,9 +80,12 @@ export default function TeacherForm({ teacher, onSuccess }: TeacherFormProps = {
           throw new Error(errorData.error || "Failed to save teacher");
         }
 
+        alert(isEdit ? "Teacher updated successfully!" : "Teacher created successfully!");
+        
         router.push("/dashboard/teachers");
         router.refresh();
         onSuccess?.();
+        reset(); // Reset form after success
       } catch (err: any) {
         console.error("Teacher save error:", err);
         alert(err.message || "Failed to save teacher. Please try again.");

@@ -17,20 +17,32 @@ export default async function TeacherDetailPage({ params }: TeacherDetailPagePro
     redirect("/auth/login");
   }
 
-  const teacher = await prisma.user.findUnique({
-    where: { 
-      id: params.id,
-      role: "TEACHER" 
-    },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      phone: true,
-      staffNo: true,
-      createdAt: true,
-    },
-  });
+  let teacher = null;
+
+  try {
+    teacher = await prisma.user.findUnique({
+      where: { 
+        id: params.id,
+        role: "TEACHER" 
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        staffNo: true,
+        createdAt: true,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching teacher detail:", error);
+    return (
+      <div className="p-12 text-center">
+        <h2 className="text-2xl font-bold text-error">Failed to Load Teacher</h2>
+        <p className="mt-4 text-base-content/70">Could not retrieve teacher information.</p>
+      </div>
+    );
+  }
 
   if (!teacher) {
     notFound();
@@ -64,18 +76,21 @@ export default async function TeacherDetailPage({ params }: TeacherDetailPagePro
               <dt className="text-sm font-medium text-muted-foreground">Email</dt>
               <dd className="mt-1">{teacher.email}</dd>
             </div>
+            
             {teacher.phone && (
               <div>
-                <dt className="text-sm font-medium text-muted-foreground">Phone</dt>
+                <dt className="text-sm font-medium text-muted-foreground">Phone Number</dt>
                 <dd className="mt-1">{teacher.phone}</dd>
               </div>
             )}
+
             {teacher.staffNo && (
               <div>
                 <dt className="text-sm font-medium text-muted-foreground">Staff Number</dt>
                 <dd className="mt-1">{teacher.staffNo}</dd>
               </div>
             )}
+
             <div>
               <dt className="text-sm font-medium text-muted-foreground">Joined On</dt>
               <dd className="mt-1">
@@ -89,7 +104,7 @@ export default async function TeacherDetailPage({ params }: TeacherDetailPagePro
           </dl>
         </div>
 
-        {/* Future sections can go here */}
+        {/* You can add more cards here later (Classes, Attendance, etc.) */}
       </div>
     </div>
   );
