@@ -1,22 +1,34 @@
+// app/dashboard/teachers/[id]/page.tsx
 import { Button } from "@/components/ui/Button";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth/session";
 import { ArrowLeft, Edit } from "lucide-react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 interface TeacherDetailPageProps {
   params: { id: string };
 }
 
 export default async function TeacherDetailPage({ params }: TeacherDetailPageProps) {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    redirect("/auth/login");
+  }
+
   const teacher = await prisma.user.findUnique({
-    where: { id: params.id, role: "TEACHER" },
+    where: { 
+      id: params.id,
+      role: "TEACHER" 
+    },
     select: {
       id: true,
       name: true,
       email: true,
+      phone: true,
+      staffNo: true,
       createdAt: true,
-      // add more: phone, subjectsTaught, etc.
     },
   });
 
@@ -33,12 +45,13 @@ export default async function TeacherDetailPage({ params }: TeacherDetailPagePro
               <ArrowLeft className="h-5 w-5" />
             </Link>
           </Button>
-          <h1 className="text-3xl font-bold">{teacher.name}</h1>
+          <h1 className="text-3xl font-bold">{teacher.name ?? "Unnamed Teacher"}</h1>
         </div>
+
         <Button asChild variant="outline">
           <Link href={`/dashboard/teachers/${teacher.id}/edit`}>
             <Edit className="mr-2 h-4 w-4" />
-            Edit
+            Edit Teacher
           </Link>
         </Button>
       </div>
@@ -46,19 +59,37 @@ export default async function TeacherDetailPage({ params }: TeacherDetailPagePro
       <div className="grid gap-6 md:grid-cols-2">
         <div className="space-y-4 rounded-lg border bg-card p-6">
           <h2 className="text-xl font-semibold">Personal Information</h2>
-          <dl className="space-y-2">
+          <dl className="space-y-3">
             <div>
               <dt className="text-sm font-medium text-muted-foreground">Email</dt>
-              <dd>{teacher.email}</dd>
+              <dd className="mt-1">{teacher.email}</dd>
             </div>
+            {teacher.phone && (
+              <div>
+                <dt className="text-sm font-medium text-muted-foreground">Phone</dt>
+                <dd className="mt-1">{teacher.phone}</dd>
+              </div>
+            )}
+            {teacher.staffNo && (
+              <div>
+                <dt className="text-sm font-medium text-muted-foreground">Staff Number</dt>
+                <dd className="mt-1">{teacher.staffNo}</dd>
+              </div>
+            )}
             <div>
-              <dt className="text-sm font-medium text-muted-foreground">Joined</dt>
-              <dd>{new Date(teacher.createdAt).toLocaleDateString()}</dd>
+              <dt className="text-sm font-medium text-muted-foreground">Joined On</dt>
+              <dd className="mt-1">
+                {new Date(teacher.createdAt).toLocaleDateString("en-US", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}
+              </dd>
             </div>
           </dl>
         </div>
 
-        {/* Add more sections: classes taught, attendance stats, etc. */}
+        {/* Future sections can go here */}
       </div>
     </div>
   );

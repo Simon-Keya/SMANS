@@ -1,8 +1,7 @@
 // app/dashboard/teachers/[id]/edit/page.tsx
 import TeacherForm from "@/components/teachers/TeacherForm";
-import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
+import { getCurrentUser } from "@/lib/auth/session";
 import { notFound, redirect } from "next/navigation";
 
 interface EditTeacherPageProps {
@@ -10,9 +9,9 @@ interface EditTeacherPageProps {
 }
 
 export default async function EditTeacherPage({ params }: EditTeacherPageProps) {
-  const session = await getServerSession(authOptions);
+  const user = await getCurrentUser();
 
-  if (!session || session.user.role !== "ADMIN") {
+  if (!user || user.role !== "ADMIN") {
     redirect("/dashboard");
   }
 
@@ -25,9 +24,8 @@ export default async function EditTeacherPage({ params }: EditTeacherPageProps) 
       id: true,
       name: true,
       email: true,
-      role: true,
-      staffNo: true,     
-      phone: true,       
+      phone: true,
+      staffNo: true,
     },
   });
 
@@ -37,9 +35,12 @@ export default async function EditTeacherPage({ params }: EditTeacherPageProps) 
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold">
-        Edit Teacher: {teacher.name ?? "Unnamed Teacher"}
-      </h1>
+      <div>
+        <h1 className="text-3xl font-bold">
+          Edit Teacher: {teacher.name ?? "Unnamed Teacher"}
+        </h1>
+        <p className="text-base-content/60">Update teacher information</p>
+      </div>
 
       <TeacherForm teacher={teacher} />
     </div>

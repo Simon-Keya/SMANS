@@ -27,7 +27,7 @@ import { useState } from "react";
 
 interface Teacher {
   id: string;
-  name: string;
+  name: string | null;        // ← Fixed: can be null from database
   email: string;
   role?: string;
   createdAt: Date;
@@ -49,7 +49,7 @@ export default function TeacherTable({ teachers, onDelete }: TeacherTableProps) 
       await onDelete(id);
     } catch (err) {
       console.error("Delete failed:", err);
-      // Optional: show toast error
+      alert("Failed to delete teacher. Please try again."); // Temporary feedback
     } finally {
       setDeletingId(null);
     }
@@ -77,8 +77,10 @@ export default function TeacherTable({ teachers, onDelete }: TeacherTableProps) 
             </TableRow>
           ) : (
             teachers.map((teacher) => (
-              <TableRow key={teacher.id}>
-                <TableCell className="font-medium">{teacher.name}</TableCell>
+              <TableRow key={teacher.id} className="hover:bg-base-200">
+                <TableCell className="font-medium">
+                  {teacher.name || "Unnamed Teacher"}
+                </TableCell>
                 <TableCell>{teacher.email}</TableCell>
                 <TableCell>
                   <Badge variant="outline" className="capitalize">
@@ -94,20 +96,20 @@ export default function TeacherTable({ teachers, onDelete }: TeacherTableProps) 
                 </TableCell>
                 <TableCell className="text-right space-x-2">
                   {/* View */}
-                  <Button variant="ghost" size="icon" asChild aria-label="View teacher">
+                  <Button variant="ghost" size="icon" asChild>
                     <Link href={`/dashboard/teachers/${teacher.id}`}>
                       <Eye className="h-4 w-4" />
                     </Link>
                   </Button>
 
                   {/* Edit */}
-                  <Button variant="ghost" size="icon" asChild aria-label="Edit teacher">
+                  <Button variant="ghost" size="icon" asChild>
                     <Link href={`/dashboard/teachers/${teacher.id}/edit`}>
                       <Edit className="h-4 w-4" />
                     </Link>
                   </Button>
 
-                  {/* Delete with confirmation */}
+                  {/* Delete */}
                   {onDelete && (
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
@@ -116,7 +118,6 @@ export default function TeacherTable({ teachers, onDelete }: TeacherTableProps) 
                           size="icon"
                           className="text-destructive hover:text-destructive hover:bg-destructive/10"
                           disabled={deletingId === teacher.id}
-                          aria-label="Delete teacher"
                         >
                           {deletingId === teacher.id ? (
                             <span className="loading loading-spinner loading-sm" />
@@ -129,7 +130,8 @@ export default function TeacherTable({ teachers, onDelete }: TeacherTableProps) 
                         <AlertDialogHeader>
                           <AlertDialogTitle>Delete Teacher?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            This will permanently delete <strong>{teacher.name}</strong>.
+                            This will permanently delete{" "}
+                            <strong>{teacher.name || "this teacher"}</strong>.
                             This action cannot be undone.
                           </AlertDialogDescription>
                         </AlertDialogHeader>

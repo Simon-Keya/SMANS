@@ -1,165 +1,68 @@
-// components/dashboard/teachers/components/TeacherTable.tsx
-"use client";
-
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/Badge";
+// app/dashboard/teachers/page.tsx
 import { Button } from "@/components/ui/Button";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/Table";
-import { Edit, Eye, Trash2 } from "lucide-react";
+import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth/session";
+import { Plus } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { redirect } from "next/navigation";
+import TeacherTable from "@/components/teachers/TeacherTable";
 
-interface Teacher {
+type Teacher = {
   id: string;
-  name: string | null;          // ← Fixed: allow null
+  name: string | null;
   email: string;
-  role?: string;
+  phone: string | null;
+  staffNo: string | null;
+  role: string;
   createdAt: Date;
-}
+};
 
-interface TeacherTableProps {
-  teachers: Teacher[];
-  onDelete?: (id: string) => Promise<void>;
-}
+export default async function TeachersPage() {
+  const user = await getCurrentUser();
 
-export default function TeacherTable({ teachers, onDelete }: TeacherTableProps) {
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  if (!user || user.role !== "ADMIN") {
+    redirect("/dashboard");
+  }
 
-  const handleDelete = async (id: string) => {
-    if (!onDelete) return;
+  let teachers: Teacher[] = [];
 
-    setDeletingId(id);
-    try {
-      await onDelete(id);
-    } catch (err) {
-      console.error("Delete failed:", err);
-    } finally {
-      setDeletingId(null);
-    }
-  };
+  try {
+    teachers = await prisma.user.findMany({
+      where: { role: "TEACHER" },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        staffNo: true,
+        role: true,
+        createdAt: true,
+      },
+    });
+  } catch (error) {
+    console.error("Failed to fetch teachers:", error);
+  }
 
   return (
-    <div className="rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead>Email</TableHead>
-            <TableHead>Role</TableHead>
-            <TableHead>Joined</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {teachers.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                No teachers found.
-              </TableCell>
-            </TableRow>
-          ) : (
-            teachers.map((teacher) => (
-              <TableRow key={teacher.id}>
-                <TableCell className="font-medium">
-                  {teacher.name ?? "Unnamed Teacher"} {/* ← Safe null handling */}
-                </TableCell>
-                <TableCell>{teacher.email}</TableCell>
-                <TableCell>
-                  <Badge variant="outline" className="capitalize">
-                    {teacher.role ?? "Teacher"}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  {new Date(teacher.createdAt).toLocaleDateString("en-US", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
-                </TableCell>
-                <TableCell className="text-right space-x-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    asChild
-                    aria-label="View teacher details"
-                  >
-                    <Link href={`/dashboard/teachers/${teacher.id}`}>
-                      <Eye className="h-4 w-4" />
-                    </Link>
-                  </Button>
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Manage Teachers</h1>
+          <p className="text-base-content/60">
+            {teachers.length} teacher{teachers.length !== 1 ? "s" : ""} found
+          </p>
+        </div>
 
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    asChild
-                    aria-label="Edit teacher"
-                  >
-                    <Link href={`/dashboard/teachers/${teacher.id}/edit`}>
-                      <Edit className="h-4 w-4" />
-                    </Link>
-                  </Button>
+        <Button asChild>
+          <Link href="/dashboard/teachers/new" className="flex items-center gap-2">
+            <Plus className="w-4 h-4" />
+            Add New Teacher
+          </Link>
+        </Button>
+      </div>
 
-                  {onDelete && (
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                          disabled={deletingId === teacher.id}
-                          aria-label="Delete teacher"
-                        >
-                          {deletingId === teacher.id ? (
-                            <span className="loading loading-spinner loading-sm" />
-                          ) : (
-                            <Trash2 className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete Teacher?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This will permanently delete{" "}
-                            <strong>{teacher.name ?? "this teacher"}</strong>.
-                            This action cannot be undone.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => handleDelete(teacher.id)}
-                            className="bg-destructive hover:bg-destructive/90"
-                          >
-                            Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+      <TeacherTable teachers={teachers} />
     </div>
   );
 }
