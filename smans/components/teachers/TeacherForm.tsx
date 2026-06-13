@@ -14,9 +14,9 @@ import * as z from "zod";
 const teacherSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").trim(),
   email: z.string().email("Invalid email").trim().toLowerCase(),
-  phone: z.string().min(9, "Phone too short").optional(),
-  staffNo: z.string().min(3, "Staff number is required"),
-  password: z.string().min(8, "Password must be at least 8 characters").optional(), // only for create
+  phone: z.string().optional(),
+  staffNo: z.string().min(1, "Staff number is required").trim(),
+  password: z.string().min(8, "Password must be at least 8 characters").optional(),
 });
 
 type TeacherFormData = z.infer<typeof teacherSchema> & { id?: string };
@@ -57,10 +57,9 @@ export default function TeacherForm({ teacher, onSuccess }: TeacherFormProps = {
       try {
         let res: Response;
 
-        if (isEdit) {
-          // Remove password from update payload
+        if (isEdit && teacher?.id) {
           const { password, ...updateData } = data;
-          res = await fetch(`/api/teachers/${teacher?.id}`, {
+          res = await fetch(`/api/teachers/${teacher.id}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(updateData),
@@ -74,8 +73,8 @@ export default function TeacherForm({ teacher, onSuccess }: TeacherFormProps = {
         }
 
         if (!res.ok) {
-          const errorData = await res.json();
-          throw new Error(errorData.error || "Operation failed");
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.error || "Failed to save teacher");
         }
 
         router.push("/dashboard/teachers");
@@ -135,7 +134,7 @@ export default function TeacherForm({ teacher, onSuccess }: TeacherFormProps = {
               <Input
                 id="phone"
                 type="tel"
-                placeholder="+254712345678"
+                placeholder="+254 712 345 678"
                 {...register("phone")}
                 disabled={isPending}
               />
@@ -148,7 +147,7 @@ export default function TeacherForm({ teacher, onSuccess }: TeacherFormProps = {
                 <Input
                   id="password"
                   type="password"
-                  placeholder="At least 8 characters"
+                  placeholder="Minimum 8 characters"
                   {...register("password")}
                   className={errors.password ? "border-destructive" : ""}
                   disabled={isPending}
@@ -168,7 +167,7 @@ export default function TeacherForm({ teacher, onSuccess }: TeacherFormProps = {
               Cancel
             </Button>
 
-            <Button type="submit" className="btn-primary" disabled={isPending}>
+            <Button type="submit" disabled={isPending}>
               {isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
