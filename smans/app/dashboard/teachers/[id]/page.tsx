@@ -38,8 +38,8 @@ export default async function TeacherDetailPage({ params }: TeacherDetailPagePro
     console.error("Error fetching teacher detail:", error);
     return (
       <div className="p-12 text-center">
-        <h2 className="text-2xl font-bold text-error">Failed to Load Teacher</h2>
-        <p className="mt-4 text-base-content/70">Could not retrieve teacher information.</p>
+        <h2 className="text-2xl font-bold text-error">Unable to Load Teacher</h2>
+        <p className="mt-4 text-base-content/70">There was an error loading this teacher&apos;s data.</p>
       </div>
     );
   }
@@ -79,17 +79,17 @@ export default async function TeacherDetailPage({ params }: TeacherDetailPagePro
             
             {teacher.phone && (
               <div>
-                <dt className="text-sm font-medium text-muted-foreground">Phone Number</dt>
+                <dt className="text-sm font-medium text-muted-foreground">Phone</dt>
                 <dd className="mt-1">{teacher.phone}</dd>
               </div>
             )}
 
-            {teacher.staffNo && (
-              <div>
-                <dt className="text-sm font-medium text-muted-foreground">Staff Number</dt>
-                <dd className="mt-1">{teacher.staffNo}</dd>
-              </div>
-            )}
+            <div>
+              <dt className="text-sm font-medium text-muted-foreground">Staff Number</dt>
+              <dd className="mt-1">
+                {teacher.staffNo ? teacher.staffNo : <span className="text-warning">Not Assigned</span>}
+              </dd>
+            </div>
 
             <div>
               <dt className="text-sm font-medium text-muted-foreground">Joined On</dt>
@@ -104,7 +104,7 @@ export default async function TeacherDetailPage({ params }: TeacherDetailPagePro
           </dl>
         </div>
 
-        {/* You can add more cards here later (Classes, Attendance, etc.) */}
+        {/* You can add more sections here later */}
       </div>
     </div>
   );

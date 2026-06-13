@@ -32,15 +32,7 @@ export default async function EditTeacherPage({ params }: EditTeacherPageProps) 
       },
     });
   } catch (error) {
-    console.error("❌ Database error in Edit Teacher page:", error);
-    
-    return (
-      <div className="p-12 text-center">
-        <h2 className="text-2xl font-bold text-error mb-4">Unable to Load Teacher</h2>
-        <p className="text-base-content/70">There was an error loading this teacher&apos;s data.</p>
-        <p className="text-sm mt-6 text-base-content/50">Please check the server terminal for details.</p>
-      </div>
-    );
+    console.error("❌ Error loading teacher for edit:", error);
   }
 
   if (!teacher) {
@@ -54,7 +46,7 @@ export default async function EditTeacherPage({ params }: EditTeacherPageProps) 
           <h1 className="text-3xl font-bold">
             Edit Teacher: {teacher.name ?? "Unnamed Teacher"}
           </h1>
-          <p className="text-base-content/60 mt-1">Update teacher information</p>
+          <p className="text-base-content/60 mt-1">Update teacher information below</p>
         </div>
       </div>
 

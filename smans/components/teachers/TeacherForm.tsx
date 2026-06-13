@@ -37,13 +37,17 @@ export default function TeacherForm({ teacher, onSuccess }: TeacherFormProps = {
   const [isPending, startTransition] = useTransition();
   const isEdit = !!teacher;
 
+  const formSchema = isEdit
+    ? teacherSchema.omit({ password: true }) // Don't require password on edit
+    : teacherSchema;
+
   const {
     register,
     handleSubmit,
     formState: { errors },
     reset,
   } = useForm<TeacherFormData>({
-    resolver: zodResolver(teacherSchema),
+    resolver: zodResolver(formSchema),
     defaultValues: {
       name: teacher?.name ?? "",
       email: teacher?.email ?? "",
@@ -59,7 +63,7 @@ export default function TeacherForm({ teacher, onSuccess }: TeacherFormProps = {
         let res: Response;
 
         if (isEdit && teacher?.id) {
-          // Update - don't send password
+          // Update - remove password
           const { password, ...updateData } = data;
           res = await fetch(`/api/teachers/${teacher.id}`, {
             method: "PUT",
@@ -81,11 +85,11 @@ export default function TeacherForm({ teacher, onSuccess }: TeacherFormProps = {
         }
 
         alert(isEdit ? "Teacher updated successfully!" : "Teacher created successfully!");
-        
+
         router.push("/dashboard/teachers");
         router.refresh();
         onSuccess?.();
-        reset(); // Reset form after success
+        reset();
       } catch (err: any) {
         console.error("Teacher save error:", err);
         alert(err.message || "Failed to save teacher. Please try again.");
@@ -111,7 +115,7 @@ export default function TeacherForm({ teacher, onSuccess }: TeacherFormProps = {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="staffNo">Staff Number *</Label>
+              <Label htmlFor="staffNo">Staff Number {isEdit ? "(Optional)" : "*"}</Label>
               <Input
                 id="staffNo"
                 placeholder="TCH-001"

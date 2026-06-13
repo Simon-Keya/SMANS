@@ -27,7 +27,7 @@ import { useState } from "react";
 
 interface Teacher {
   id: string;
-  name: string | null;        // ← Fixed: can be null from database
+  name: string | null;
   email: string;
   role?: string;
   createdAt: Date;
@@ -49,7 +49,7 @@ export default function TeacherTable({ teachers, onDelete }: TeacherTableProps) 
       await onDelete(id);
     } catch (err) {
       console.error("Delete failed:", err);
-      alert("Failed to delete teacher. Please try again."); // Temporary feedback
+      alert("Failed to delete teacher. Please try again.");
     } finally {
       setDeletingId(null);
     }
@@ -95,21 +95,18 @@ export default function TeacherTable({ teachers, onDelete }: TeacherTableProps) 
                   })}
                 </TableCell>
                 <TableCell className="text-right space-x-2">
-                  {/* View */}
                   <Button variant="ghost" size="icon" asChild>
                     <Link href={`/dashboard/teachers/${teacher.id}`}>
                       <Eye className="h-4 w-4" />
                     </Link>
                   </Button>
 
-                  {/* Edit */}
                   <Button variant="ghost" size="icon" asChild>
                     <Link href={`/dashboard/teachers/${teacher.id}/edit`}>
                       <Edit className="h-4 w-4" />
                     </Link>
                   </Button>
 
-                  {/* Delete */}
                   {onDelete && (
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
