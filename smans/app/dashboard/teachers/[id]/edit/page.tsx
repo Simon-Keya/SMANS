@@ -31,8 +31,18 @@ export default async function EditTeacherPage({ params }: EditTeacherPageProps) 
         staffNo: true,
       },
     });
+
+    console.log("✅ Teacher loaded for edit:", teacher?.name);
   } catch (error) {
-    console.error("❌ Error loading teacher for edit:", error);
+    console.error("❌ Database error loading teacher for edit:", error);
+    
+    return (
+      <div className="p-12 text-center">
+        <h2 className="text-2xl font-bold text-error mb-4">Unable to Load Teacher</h2>
+        <p className="text-base-content/70">There was an error retrieving this teacher&apos;s data.</p>
+        <p className="text-sm mt-6 text-base-content/50">Please check the server terminal for more details.</p>
+      </div>
+    );
   }
 
   if (!teacher) {
