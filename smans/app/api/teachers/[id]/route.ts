@@ -26,8 +26,12 @@ export async function GET(
         id: true,
         name: true,
         email: true,
+        phone: true,
+        staffNo: true,
         role: true,
+        isActive: true,
         createdAt: true,
+        updatedAt: true,
       },
     });
 
@@ -55,7 +59,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, email } = body;
+    const { name, email, phone, staffNo } = body;
 
     if (!name || !email) {
       return NextResponse.json(
@@ -64,11 +68,15 @@ export async function PUT(
       );
     }
 
-    const existing = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
+    // Check if email is already in use by another user
+    const existing = await prisma.user.findFirst({
+      where: {
+        email: email.toLowerCase(),
+        id: { not: id },
+      },
     });
 
-    if (existing && existing.id !== id) {
+    if (existing) {
       return NextResponse.json(
         { error: "Email already in use by another user" },
         { status: 409 }
@@ -78,15 +86,21 @@ export async function PUT(
     const updatedTeacher = await prisma.user.update({
       where: { id },
       data: {
-        name,
-        email: email.toLowerCase(),
+        name: name.trim(),
+        email: email.toLowerCase().trim(),
+        phone: phone?.trim() || null,
+        staffNo: staffNo?.trim() || null,
       },
       select: {
         id: true,
         name: true,
         email: true,
+        phone: true,
+        staffNo: true,
         role: true,
+        isActive: true,
         createdAt: true,
+        updatedAt: true,
       },
     });
 
@@ -121,11 +135,23 @@ export async function DELETE(
       return NextResponse.json({ error: "Teacher not found" }, { status: 404 });
     }
 
+    // Check if teacher has any classes assigned
+    const classCount = await prisma.class.count({
+      where: { teacherId: id },
+    });
+
+    if (classCount > 0) {
+      return NextResponse.json(
+        { error: `Cannot delete teacher with ${classCount} assigned class(es). Please reassign classes first.` },
+        { status: 409 }
+      );
+    }
+
     await prisma.user.delete({
       where: { id },
     });
 
-    return new NextResponse(null, { status: 204 });
+    return NextResponse.json({ success: true, message: "Teacher deleted successfully" });
   } catch (error) {
     console.error("[DELETE_TEACHER_ERROR]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

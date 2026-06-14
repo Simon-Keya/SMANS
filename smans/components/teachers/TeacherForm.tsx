@@ -15,7 +15,7 @@ const teacherSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").trim(),
   email: z.string().email("Invalid email").trim().toLowerCase(),
   phone: z.string().optional(),
-  staffNo: z.string().min(1, "Staff number is required").trim(),
+  staffNo: z.string().optional(),
   password: z.string().min(8, "Password must be at least 8 characters").optional(),
 });
 
@@ -38,7 +38,7 @@ export default function TeacherForm({ teacher, onSuccess }: TeacherFormProps = {
   const isEdit = !!teacher;
 
   const formSchema = isEdit
-    ? teacherSchema.omit({ password: true }) // Don't require password on edit
+    ? teacherSchema.omit({ password: true })
     : teacherSchema;
 
   const {
@@ -61,23 +61,42 @@ export default function TeacherForm({ teacher, onSuccess }: TeacherFormProps = {
     startTransition(async () => {
       try {
         let res: Response;
+        let url: string;
+        let options: RequestInit;
 
         if (isEdit && teacher?.id) {
-          // Update - remove password
-          const { password, ...updateData } = data;
-          res = await fetch(`/api/teachers/${teacher.id}`, {
+          // Update - only send fields that are defined
+          const updateData: Record<string, string> = {};
+          if (data.name !== undefined && data.name !== teacher.name) updateData.name = data.name;
+          if (data.email !== undefined && data.email !== teacher.email) updateData.email = data.email;
+          if (data.phone !== undefined && data.phone !== teacher.phone) updateData.phone = data.phone;
+          if (data.staffNo !== undefined && data.staffNo !== teacher.staffNo) updateData.staffNo = data.staffNo;
+
+          url = `/api/teachers/${teacher.id}`;
+          options = {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(updateData),
-          });
+          };
         } else {
           // Create
-          res = await fetch("/api/teachers", {
+          const createData: Record<string, string> = {
+            name: data.name,
+            email: data.email,
+            password: data.password || "",
+          };
+          if (data.phone) createData.phone = data.phone;
+          if (data.staffNo) createData.staffNo = data.staffNo;
+
+          url = "/api/teachers";
+          options = {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data),
-          });
+            body: JSON.stringify(createData),
+          };
         }
+
+        res = await fetch(url, options);
 
         if (!res.ok) {
           const errorData = await res.json().catch(() => ({}));
@@ -115,7 +134,7 @@ export default function TeacherForm({ teacher, onSuccess }: TeacherFormProps = {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="staffNo">Staff Number {isEdit ? "(Optional)" : "*"}</Label>
+              <Label htmlFor="staffNo">Staff Number</Label>
               <Input
                 id="staffNo"
                 placeholder="TCH-001"
@@ -140,7 +159,7 @@ export default function TeacherForm({ teacher, onSuccess }: TeacherFormProps = {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number (Optional)</Label>
+              <Label htmlFor="phone">Phone Number</Label>
               <Input
                 id="phone"
                 type="tel"
@@ -163,6 +182,9 @@ export default function TeacherForm({ teacher, onSuccess }: TeacherFormProps = {
                   disabled={isPending}
                 />
                 {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
+                <p className="text-xs text-base-content/50">
+                  Teacher can change this after first login.
+                </p>
               </div>
             )}
           </div>
