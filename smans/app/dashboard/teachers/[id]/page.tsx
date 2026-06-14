@@ -7,7 +7,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 interface TeacherDetailPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default async function TeacherDetailPage({ params }: TeacherDetailPageProps) {
@@ -17,12 +17,24 @@ export default async function TeacherDetailPage({ params }: TeacherDetailPagePro
     redirect("/auth/login");
   }
 
+  // ✅ CRITICAL: Await params to get the id
+  const { id } = await params;
+
+  if (!id) {
+    return (
+      <div className="p-12 text-center">
+        <h2 className="text-2xl font-bold text-error">Invalid Request</h2>
+        <p className="mt-4 text-base-content/70">No teacher ID was provided.</p>
+      </div>
+    );
+  }
+
   let teacher = null;
 
   try {
     teacher = await prisma.user.findUnique({
       where: { 
-        id: params.id,
+        id: id,
         role: "TEACHER" 
       },
       select: {
@@ -60,12 +72,14 @@ export default async function TeacherDetailPage({ params }: TeacherDetailPagePro
           <h1 className="text-3xl font-bold">{teacher.name ?? "Unnamed Teacher"}</h1>
         </div>
 
-        <Button asChild variant="outline">
-          <Link href={`/dashboard/teachers/${teacher.id}/edit`}>
-            <Edit className="mr-2 h-4 w-4" />
-            Edit Teacher
-          </Link>
-        </Button>
+        {user.role === "ADMIN" && (
+          <Button asChild variant="outline">
+            <Link href={`/dashboard/teachers/${teacher.id}/edit`}>
+              <Edit className="mr-2 h-4 w-4" />
+              Edit Teacher
+            </Link>
+          </Button>
+        )}
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -104,7 +118,7 @@ export default async function TeacherDetailPage({ params }: TeacherDetailPagePro
           </dl>
         </div>
 
-        {/* You can add more sections here later */}
+        {/* Additional sections can be added here */}
       </div>
     </div>
   );

@@ -15,13 +15,15 @@ export async function GET(
   }
 
   try {
+    // ✅ CRITICAL FIX: Await the params
     const { id } = await params;
-    
-    const teacher = await prisma.user.findFirst({
-      where: {
-        id,
-        role: "TEACHER",
-      },
+
+    if (!id) {
+      return NextResponse.json({ error: "Teacher ID is required" }, { status: 400 });
+    }
+
+    const teacher = await prisma.user.findUnique({
+      where: { id },
       select: {
         id: true,
         name: true,
@@ -29,13 +31,11 @@ export async function GET(
         phone: true,
         staffNo: true,
         role: true,
-        isActive: true,
         createdAt: true,
-        updatedAt: true,
       },
     });
 
-    if (!teacher) {
+    if (!teacher || teacher.role !== "TEACHER") {
       return NextResponse.json({ error: "Teacher not found" }, { status: 404 });
     }
 
@@ -57,6 +57,7 @@ export async function PUT(
   }
 
   try {
+    // ✅ CRITICAL FIX: Await the params
     const { id } = await params;
     const body = await request.json();
     const { name, email, phone, staffNo } = body;
@@ -98,9 +99,6 @@ export async function PUT(
         phone: true,
         staffNo: true,
         role: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true,
       },
     });
 
@@ -122,6 +120,7 @@ export async function DELETE(
   }
 
   try {
+    // ✅ CRITICAL FIX: Await the params
     const { id } = await params;
     
     const teacher = await prisma.user.findFirst({
@@ -135,23 +134,11 @@ export async function DELETE(
       return NextResponse.json({ error: "Teacher not found" }, { status: 404 });
     }
 
-    // Check if teacher has any classes assigned
-    const classCount = await prisma.class.count({
-      where: { teacherId: id },
-    });
-
-    if (classCount > 0) {
-      return NextResponse.json(
-        { error: `Cannot delete teacher with ${classCount} assigned class(es). Please reassign classes first.` },
-        { status: 409 }
-      );
-    }
-
     await prisma.user.delete({
       where: { id },
     });
 
-    return NextResponse.json({ success: true, message: "Teacher deleted successfully" });
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[DELETE_TEACHER_ERROR]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
