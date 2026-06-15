@@ -12,9 +12,9 @@ import { useTransition } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
-// Direct imports from your existing action files
-import { createClass } from "@/app/actions/classes/createClass";     // Adjust if path is different
-import { updateClass } from "@/app/actions/classes/updateClass";     // Adjust if path is different
+// Import your server actions - adjust path if needed
+import { createClass } from "@/app/actions/classes/createClass";
+import { updateClass } from "@/app/actions/classes/updateClass";
 
 const classSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters").trim(),
@@ -51,24 +51,25 @@ export default function ClassForm({ classData, teachers = [] }: ClassFormProps) 
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = form;
 
+  const selectedTeacherId = watch("teacherId");
+
   const onSubmit = async (data: ClassFormData) => {
     startTransition(async () => {
       try {
         let result;
 
-        if (isEdit && classData?.id) {
-          const formData = new FormData();
-          formData.append("name", data.name);
-          formData.append("level", data.level);
-          if (data.teacherId) formData.append("teacherId", data.teacherId);
+        const formData = new FormData();
+        formData.append("name", data.name);
+        formData.append("level", data.level);
+        
+        // Only append teacherId if a teacher is selected
+        if (data.teacherId && data.teacherId !== "none") {
+          formData.append("teacherId", data.teacherId);
+        }
 
+        if (isEdit && classData?.id) {
           result = await updateClass(classData.id, formData);
         } else {
-          const formData = new FormData();
-          formData.append("name", data.name);
-          formData.append("level", data.level);
-          if (data.teacherId) formData.append("teacherId", data.teacherId);
-
           result = await createClass(formData);
         }
 
@@ -115,14 +116,14 @@ export default function ClassForm({ classData, teachers = [] }: ClassFormProps) 
             <div className="space-y-2 md:col-span-2">
               <Label>Class Teacher (optional)</Label>
               <Select 
-                onValueChange={(value) => setValue("teacherId", value || null)}
-                defaultValue={watch("teacherId") || ""}
+                onValueChange={(value) => setValue("teacherId", value === "none" ? null : value)}
+                value={selectedTeacherId || "none"}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select teacher" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No teacher assigned</SelectItem>
+                  <SelectItem value="none">No teacher assigned</SelectItem>
                   {teachers.map((teacher) => (
                     <SelectItem key={teacher.id} value={teacher.id}>
                       {teacher.name || "Unnamed Teacher"}
