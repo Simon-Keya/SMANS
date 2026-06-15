@@ -1,3 +1,4 @@
+// components/classes/ClassForm.tsx
 "use client";
 
 import { Button } from "@/components/ui/Button";
@@ -7,7 +8,7 @@ import { Label } from "@/components/ui/Label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/Select";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -36,7 +37,8 @@ interface ClassFormProps {
 
 export default function ClassForm({ classData, teachers = [] }: ClassFormProps) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [isPending, setPending] = useState(false); // Use regular state instead of useTransition
+  const [error, setError] = useState<string | null>(null);
   const isEdit = !!classData;
 
   const {
@@ -59,41 +61,51 @@ export default function ClassForm({ classData, teachers = [] }: ClassFormProps) 
   const selectedTeacherId = watch("teacherId");
 
   const onSubmit = async (data: ClassFormData) => {
-    startTransition(async () => {
-      try {
-        const formData = new FormData();
-        formData.append("name", data.name);
-        formData.append("level", data.level);
-        
-        // Handle teacher selection
-        const teacherValue = data.teacherId === "none" || !data.teacherId ? "" : data.teacherId;
-        if (teacherValue) {
-          formData.append("teacherId", teacherValue);
-        }
-
-        let result;
-        if (isEdit && classData?.id) {
-          result = await updateClass(classData.id, formData);
-        } else {
-          result = await createClass(formData);
-        }
-
-        if (result.success) {
-          router.push("/dashboard/classes");
-          router.refresh();
-        } else {
-          alert(result.error || "Failed to save class");
-        }
-      } catch (err: any) {
-        console.error(err);
-        alert("An unexpected error occurred");
+    setPending(true);
+    setError(null);
+    
+    try {
+      const formData = new FormData();
+      formData.append("name", data.name);
+      formData.append("level", data.level);
+      
+      // Handle teacher selection
+      const teacherValue = data.teacherId === "none" || !data.teacherId ? "" : data.teacherId;
+      if (teacherValue) {
+        formData.append("teacherId", teacherValue);
       }
-    });
+
+      let result;
+      if (isEdit && classData?.id) {
+        result = await updateClass(classData.id, formData);
+      } else {
+        result = await createClass(formData);
+      }
+
+      if (result.success) {
+        // Navigate immediately
+        router.push("/dashboard/classes");
+        router.refresh();
+      } else {
+        setError(result.error || "Failed to save class");
+        setPending(false);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setError("An unexpected error occurred");
+      setPending(false);
+    }
   };
 
   return (
     <Card className="bg-base-100 shadow-lg border-base-200">
       <CardContent className="pt-6">
+        {error && (
+          <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+            <p className="text-sm">{error}</p>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <div className="grid gap-6 md:grid-cols-2">
             <div className="space-y-2">
@@ -123,6 +135,7 @@ export default function ClassForm({ classData, teachers = [] }: ClassFormProps) 
               <Select 
                 onValueChange={(value) => setValue("teacherId", value)}
                 value={selectedTeacherId || "none"}
+                disabled={isPending}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select teacher" />

@@ -26,7 +26,6 @@ export async function updateClass(classId: string, formData: FormData) {
       teacherId: formData.get("teacherId") || undefined,
     });
 
-    // Check for duplicate only if name or level is being changed
     if (data.name || data.level) {
       const existing = await prisma.class.findFirst({
         where: {
@@ -53,7 +52,6 @@ export async function updateClass(classId: string, formData: FormData) {
       },
     });
 
-    // Revalidate both list and detail pages
     revalidatePath("/dashboard/classes");
     revalidatePath(`/dashboard/classes/${classId}`);
 

@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z, ZodError } from "zod";
 
 const createClassSchema = z.object({
@@ -26,7 +27,6 @@ export async function createClass(formData: FormData) {
       teacherId: formData.get("teacherId") || null,
     });
 
-    // Check for duplicate
     const existing = await prisma.class.findFirst({
       where: {
         name: data.name,
@@ -49,9 +49,9 @@ export async function createClass(formData: FormData) {
       },
     });
 
-    // Revalidate the classes list page
     revalidatePath("/dashboard/classes");
-
+    
+    // Return success - let client handle navigation
     return { success: true, data: newClass };
   } catch (err: unknown) {
     if (err instanceof ZodError) {
