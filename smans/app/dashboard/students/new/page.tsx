@@ -1,25 +1,25 @@
+// app/dashboard/students/new/page.tsx
 import StudentForm from "@/components/students/StudentForm";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth/session";
 import { redirect } from "next/navigation";
 
-async function createStudent(data: any) {
-  "use server";
-  await prisma.student.create({ data });
-  redirect("/dashboard/students");
-}
+export default async function NewStudentPage() {
+  const user = await getCurrentUser();
 
-export default function NewStudentPage() {
+  if (!user || user.role !== "ADMIN") {
+    redirect("/dashboard");
+  }
+
   return (
-    <div className="max-w-2xl mx-auto">
-      <Card>
-        <CardHeader>
-          <CardTitle>Add New Student</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <StudentForm onSubmit={createStudent} />
-        </CardContent>
-      </Card>
+    <div className="max-w-3xl mx-auto">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold">Add New Student</h1>
+        <p className="text-base-content/60 mt-1">
+          Create a new student account and profile
+        </p>
+      </div>
+
+      <StudentForm />
     </div>
   );
 }
