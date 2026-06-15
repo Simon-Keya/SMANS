@@ -1,71 +1,51 @@
 // app/dashboard/students/[id]/edit/page.tsx
 import StudentForm from "@/components/students/StudentForm";
-import { Button } from "@/components/ui/Button";
+import { getCurrentUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { notFound, redirect } from "next/navigation";
 
-async function updateStudent(id: string, data: any) {
-  "use server";
-
-  await prisma.student.update({
-    where: { id },
-    data: {
-      name: data.name,
-      admissionNumber: data.admissionNumber,     // ← Changed
-      email: data.email ?? null,
-      phone: data.phone ?? null,
-      classId: data.classId,
-      parentId: data.parentId ?? null,
-    },
-  });
-
-  redirect(`/dashboard/students/${id}`);
+interface EditStudentPageProps {
+  params: Promise<{ id: string }>;
 }
 
-export default async function EditStudentPage({ params }: { params: { id: string } }) {
+export default async function EditStudentPage({ params }: EditStudentPageProps) {
+  const user = await getCurrentUser();
+
+  if (!user || user.role !== "ADMIN") {
+    redirect("/dashboard");
+  }
+
+  const { id } = await params;
+
   const student = await prisma.student.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
-      class: {
-        select: { name: true },
-      },
-      parent: {
-        select: { name: true, phone: true },
-      },
+      class: { select: { id: true, name: true } },
+      parent: { select: { id: true, name: true } },
     },
   });
 
   if (!student) notFound();
 
-  const normalizedStudent = {
-    name: student.name,
-    admissionNumber: student.admissionNumber,    // ← Changed
-    classId: student.classId,
-    className: student.class?.name || "Not assigned",
-    email: student.email ?? undefined,
-    phone: student.phone ?? undefined,
-    parentId: student.parentId ?? undefined,
-    parentName: student.parent?.name ?? undefined,
-    parentPhone: student.parent?.phone ?? undefined,
-  };
-
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
+    <div className="max-w-3xl mx-auto">
+      <div className="mb-8">
         <h1 className="text-3xl font-bold">Edit Student</h1>
-        <Button variant="outline" asChild>
-          <a href={`/dashboard/students/${params.id}`}>Back to Profile</a>
-        </Button>
+        <p className="text-base-content/60">Update {student.name}'s information</p>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-        <div className="p-6">
-          <StudentForm
-            defaultValues={normalizedStudent}
-            onSubmit={(data) => updateStudent(params.id, data)}
-          />
-        </div>
-      </div>
+      <StudentForm 
+        defaultValues={{
+          name: student.name,
+          admissionNumber: student.admissionNumber,
+          email: student.email || "",
+          phone: student.phone || "",
+          classId: student.classId,
+          parentId: student.parentId || "",
+        }}
+        isEdit={true}
+        studentId={id}
+      />
     </div>
   );
 }
