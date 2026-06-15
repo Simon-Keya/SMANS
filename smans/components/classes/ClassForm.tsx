@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/Select";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -27,9 +28,10 @@ interface ClassFormProps {
     level: string;
     teacherId?: string | null;
   };
+  teachers?: { id: string; name: string }[];   // ← Added
 }
 
-export default function ClassForm({ classData }: ClassFormProps = {}) {
+export default function ClassForm({ classData, teachers = [] }: ClassFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const isEdit = !!classData;
@@ -37,33 +39,29 @@ export default function ClassForm({ classData }: ClassFormProps = {}) {
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<ClassFormData>({
     resolver: zodResolver(classSchema),
     defaultValues: classData
-      ? {
-          name: classData.name,
-          level: classData.level,
-          teacherId: classData.teacherId ?? "",
-        }
-      : {
-          name: "",
-          level: "",
-          teacherId: "",
-        },
+      ? { name: classData.name, level: classData.level, teacherId: classData.teacherId ?? "" }
+      : { name: "", level: "", teacherId: "" },
   });
 
   const onSubmit = async (data: ClassFormData) => {
     startTransition(async () => {
       try {
-        const res = await fetch(isEdit ? `/api/classes/${classData?.id}` : "/api/classes", {
-          method: isEdit ? "PUT" : "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
-        });
+        const res = await fetch(
+          isEdit ? `/api/classes/${classData?.id}` : "/api/classes",
+          {
+            method: isEdit ? "PUT" : "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+          }
+        );
 
-        if (!res.ok) throw new Error("Failed to save class");
-
+        if (!res.ok) throw new Error("Failed to save");
         router.push("/dashboard/classes");
         router.refresh();
       } catch (err) {
@@ -82,7 +80,7 @@ export default function ClassForm({ classData }: ClassFormProps = {}) {
               <Label htmlFor="name">Class Name *</Label>
               <Input
                 id="name"
-                placeholder="e.g. Form 1A, Grade 7B"
+                placeholder="e.g. Grade 7B or Class 7A"
                 {...register("name")}
                 disabled={isPending}
               />
@@ -93,7 +91,7 @@ export default function ClassForm({ classData }: ClassFormProps = {}) {
               <Label htmlFor="level">Level/Grade *</Label>
               <Input
                 id="level"
-                placeholder="e.g. Form 1, Grade 7"
+                placeholder="e.g. Grade 7, PP2, Class 8"
                 {...register("level")}
                 disabled={isPending}
               />
@@ -101,27 +99,27 @@ export default function ClassForm({ classData }: ClassFormProps = {}) {
             </div>
 
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="teacherId">Class Teacher (optional)</Label>
-              <Input
-                id="teacherId"
-                placeholder="Teacher ID or name"
-                {...register("teacherId")}
-                disabled={isPending}
-              />
+              <Label>Class Teacher (optional)</Label>
+              <Select onValueChange={(value) => setValue("teacherId", value)} defaultValue={watch("teacherId")}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select teacher" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teachers.map((teacher) => (
+                    <SelectItem key={teacher.id} value={teacher.id}>
+                      {teacher.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
           <div className="flex justify-end gap-4 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => router.back()}
-              disabled={isPending}
-            >
+            <Button type="button" variant="outline" onClick={() => router.back()} disabled={isPending}>
               Cancel
             </Button>
-
-            <Button type="submit" className="btn-primary" disabled={isPending}>
+            <Button type="submit" disabled={isPending}>
               {isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
