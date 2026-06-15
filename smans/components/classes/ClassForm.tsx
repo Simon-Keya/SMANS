@@ -15,8 +15,8 @@ import * as z from "zod";
 
 const classSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters").trim(),
-  level: z.string().min(1, "Level/Grade is required"),
-  teacherId: z.string().optional(),
+  level: z.string().min(1, "Level/Grade is required").trim(),
+  teacherId: z.string().optional().nullable(),
 });
 
 type ClassFormData = z.infer<typeof classSchema>;
@@ -28,7 +28,7 @@ interface ClassFormProps {
     level: string;
     teacherId?: string | null;
   };
-  teachers?: { id: string; name: string }[];   // ← Added
+  teachers: { id: string; name: string | null }[];   // ← Important
 }
 
 export default function ClassForm({ classData, teachers = [] }: ClassFormProps) {
@@ -36,18 +36,18 @@ export default function ClassForm({ classData, teachers = [] }: ClassFormProps) 
   const [isPending, startTransition] = useTransition();
   const isEdit = !!classData;
 
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    formState: { errors },
-  } = useForm<ClassFormData>({
+  const form = useForm<ClassFormData>({
     resolver: zodResolver(classSchema),
     defaultValues: classData
-      ? { name: classData.name, level: classData.level, teacherId: classData.teacherId ?? "" }
+      ? {
+          name: classData.name,
+          level: classData.level,
+          teacherId: classData.teacherId ?? "",
+        }
       : { name: "", level: "", teacherId: "" },
   });
+
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = form;
 
   const onSubmit = async (data: ClassFormData) => {
     startTransition(async () => {
@@ -61,12 +61,16 @@ export default function ClassForm({ classData, teachers = [] }: ClassFormProps) 
           }
         );
 
-        if (!res.ok) throw new Error("Failed to save");
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || "Failed to save");
+        }
+
         router.push("/dashboard/classes");
         router.refresh();
-      } catch (err) {
+      } catch (err: any) {
         console.error(err);
-        alert("Failed to save class");
+        alert(err.message || "Failed to save class");
       }
     });
   };
@@ -80,7 +84,7 @@ export default function ClassForm({ classData, teachers = [] }: ClassFormProps) 
               <Label htmlFor="name">Class Name *</Label>
               <Input
                 id="name"
-                placeholder="e.g. Grade 7B or Class 7A"
+                placeholder="e.g. Grade 7B"
                 {...register("name")}
                 disabled={isPending}
               />
@@ -98,16 +102,21 @@ export default function ClassForm({ classData, teachers = [] }: ClassFormProps) 
               {errors.level && <p className="text-sm text-error">{errors.level.message}</p>}
             </div>
 
+            {/* Teacher Select - Fixed */}
             <div className="space-y-2 md:col-span-2">
               <Label>Class Teacher (optional)</Label>
-              <Select onValueChange={(value) => setValue("teacherId", value)} defaultValue={watch("teacherId")}>
+              <Select 
+                onValueChange={(value) => setValue("teacherId", value || null)}
+                defaultValue={watch("teacherId") || ""}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select teacher" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="">No teacher assigned</SelectItem>
                   {teachers.map((teacher) => (
                     <SelectItem key={teacher.id} value={teacher.id}>
-                      {teacher.name}
+                      {teacher.name || "Unnamed Teacher"}
                     </SelectItem>
                   ))}
                 </SelectContent>
