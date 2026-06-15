@@ -10,6 +10,19 @@ import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { useForm } from "react-hook-form";
+import * as z from "zod";
+
+// Import your server actions - adjust path if needed
+import { createClass } from "@/app/actions/classes/createClass";
+import { updateClass } from "@/app/actions/classes/updateClass";
+
+const classSchema = z.object({
+  name: z.string().min(3, "Name must be at least 3 characters").trim(),
+  level: z.string().min(1, "Level/Grade is required").trim(),
+  teacherId: z.string().optional().nullable(),
+});
+
+type ClassFormData = z.infer<typeof classSchema>;
 
 interface ClassFormProps {
   classData?: {
@@ -26,7 +39,7 @@ export default function ClassForm({ classData, teachers = [] }: ClassFormProps) 
   const [isPending, startTransition] = useTransition();
   const isEdit = !!classData;
 
-  const form = useForm({
+  const form = useForm<ClassFormData>({
     defaultValues: classData
       ? {
           name: classData.name,
@@ -36,38 +49,39 @@ export default function ClassForm({ classData, teachers = [] }: ClassFormProps) 
       : { name: "", level: "", teacherId: "" },
   });
 
-  const { register, handleSubmit, setValue, watch } = form;
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = form;
+
   const selectedTeacherId = watch("teacherId");
 
-  const onSubmit = async (data: any) => {
+  const onSubmit = async (data: ClassFormData) => {
     startTransition(async () => {
       try {
-        const payload = {
-          name: data.name,
-          level: data.level,
-          teacherId: data.teacherId && data.teacherId !== "none" ? data.teacherId : null,
-        };
+        let result;
 
-        const res = await fetch(
-          isEdit ? `/api/classes/${classData?.id}` : "/api/classes",
-          {
-            method: isEdit ? "PUT" : "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          }
-        );
-
-        const result = await res.json();
-
-        if (!res.ok) {
-          throw new Error(result.error || "Failed to save class");
+        const formData = new FormData();
+        formData.append("name", data.name);
+        formData.append("level", data.level);
+        
+        // Only append teacherId if a teacher is selected
+        if (data.teacherId && data.teacherId !== "none") {
+          formData.append("teacherId", data.teacherId);
         }
 
-        router.push("/dashboard/classes");
-        router.refresh();
+        if (isEdit && classData?.id) {
+          result = await updateClass(classData.id, formData);
+        } else {
+          result = await createClass(formData);
+        }
+
+        if (result.success) {
+          router.push("/dashboard/classes");
+          router.refresh();
+        } else {
+          alert(result.error || "Failed to save class");
+        }
       } catch (err: any) {
         console.error(err);
-        alert(err.message || "Failed to save class");
+        alert("An unexpected error occurred");
       }
     });
   };
@@ -85,6 +99,7 @@ export default function ClassForm({ classData, teachers = [] }: ClassFormProps) 
                 {...register("name")}
                 disabled={isPending}
               />
+              {errors.name && <p className="text-sm text-error">{errors.name.message}</p>}
             </div>
 
             <div className="space-y-2">
@@ -95,12 +110,13 @@ export default function ClassForm({ classData, teachers = [] }: ClassFormProps) 
                 {...register("level")}
                 disabled={isPending}
               />
+              {errors.level && <p className="text-sm text-error">{errors.level.message}</p>}
             </div>
 
             <div className="space-y-2 md:col-span-2">
               <Label>Class Teacher (optional)</Label>
               <Select 
-                onValueChange={(value) => setValue("teacherId", value)}
+                onValueChange={(value) => setValue("teacherId", value === "none" ? null : value)}
                 value={selectedTeacherId || "none"}
               >
                 <SelectTrigger>
