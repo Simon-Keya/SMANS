@@ -3,6 +3,7 @@
 import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
+import { revalidatePath } from "next/cache";
 import { z, ZodError } from "zod";
 
 const updateClassSchema = z.object({
@@ -25,7 +26,7 @@ export async function updateClass(classId: string, formData: FormData) {
       teacherId: formData.get("teacherId") || undefined,
     });
 
-    // Optional: Check duplicate only if name or level is being changed
+    // Check for duplicate only if name or level is being changed
     if (data.name || data.level) {
       const existing = await prisma.class.findFirst({
         where: {
@@ -45,14 +46,18 @@ export async function updateClass(classId: string, formData: FormData) {
       data: {
         name: data.name,
         level: data.level,
-        teacherId: data.teacherId,
+        teacherId: data.teacherId === "none" ? null : data.teacherId,
       },
       include: {
         teacher: { select: { id: true, name: true } },
       },
     });
 
-    return { success: true, class: updated };
+    // Revalidate both list and detail pages
+    revalidatePath("/dashboard/classes");
+    revalidatePath(`/dashboard/classes/${classId}`);
+
+    return { success: true, data: updated };
   } catch (error) {
     if (error instanceof ZodError) {
       return {

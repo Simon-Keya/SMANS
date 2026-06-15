@@ -3,6 +3,7 @@
 import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
+import { revalidatePath } from "next/cache";
 import { z, ZodError } from "zod";
 
 const createClassSchema = z.object({
@@ -41,14 +42,17 @@ export async function createClass(formData: FormData) {
       data: {
         name: data.name,
         level: data.level,
-        teacherId: data.teacherId,
+        teacherId: data.teacherId === "none" ? null : data.teacherId,
       },
       include: {
         teacher: { select: { id: true, name: true } },
       },
     });
 
-    return { success: true, class: newClass };
+    // Revalidate the classes list page
+    revalidatePath("/dashboard/classes");
+
+    return { success: true, data: newClass };
   } catch (err: unknown) {
     if (err instanceof ZodError) {
       return {

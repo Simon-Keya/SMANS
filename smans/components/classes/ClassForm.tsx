@@ -1,4 +1,3 @@
-// components/classes/ClassForm.tsx
 "use client";
 
 import { Button } from "@/components/ui/Button";
@@ -10,9 +9,10 @@ import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
-// Import your server actions - adjust path if needed
+// Import your server actions
 import { createClass } from "@/app/actions/classes/createClass";
 import { updateClass } from "@/app/actions/classes/updateClass";
 
@@ -39,7 +39,14 @@ export default function ClassForm({ classData, teachers = [] }: ClassFormProps) 
   const [isPending, startTransition] = useTransition();
   const isEdit = !!classData;
 
-  const form = useForm<ClassFormData>({
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm<ClassFormData>({
+    resolver: zodResolver(classSchema),
     defaultValues: classData
       ? {
           name: classData.name,
@@ -49,24 +56,22 @@ export default function ClassForm({ classData, teachers = [] }: ClassFormProps) 
       : { name: "", level: "", teacherId: "" },
   });
 
-  const { register, handleSubmit, setValue, watch, formState: { errors } } = form;
-
   const selectedTeacherId = watch("teacherId");
 
   const onSubmit = async (data: ClassFormData) => {
     startTransition(async () => {
       try {
-        let result;
-
         const formData = new FormData();
         formData.append("name", data.name);
         formData.append("level", data.level);
         
-        // Only append teacherId if a teacher is selected
-        if (data.teacherId && data.teacherId !== "none") {
-          formData.append("teacherId", data.teacherId);
+        // Handle teacher selection
+        const teacherValue = data.teacherId === "none" || !data.teacherId ? "" : data.teacherId;
+        if (teacherValue) {
+          formData.append("teacherId", teacherValue);
         }
 
+        let result;
         if (isEdit && classData?.id) {
           result = await updateClass(classData.id, formData);
         } else {
@@ -116,7 +121,7 @@ export default function ClassForm({ classData, teachers = [] }: ClassFormProps) 
             <div className="space-y-2 md:col-span-2">
               <Label>Class Teacher (optional)</Label>
               <Select 
-                onValueChange={(value) => setValue("teacherId", value === "none" ? null : value)}
+                onValueChange={(value) => setValue("teacherId", value)}
                 value={selectedTeacherId || "none"}
               >
                 <SelectTrigger>
