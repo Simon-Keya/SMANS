@@ -12,10 +12,14 @@ export async function deleteClass(classId: string) {
   }
 
   try {
-    // Check if class exists
     const classToDelete = await prisma.class.findUnique({
       where: { id: classId },
-      include: { students: true, exams: true },
+      include: {
+        students: { select: { id: true } },
+        exams: { select: { id: true } },
+        assessments: { select: { id: true } },
+        assignments: { select: { id: true } },
+      },
     });
 
     if (!classToDelete) {
@@ -26,8 +30,8 @@ export async function deleteClass(classId: string) {
       return { success: false, error: "Cannot delete class with enrolled students" };
     }
 
-    if (classToDelete.exams.length > 0) {
-      return { success: false, error: "Cannot delete class with scheduled exams" };
+    if (classToDelete.exams.length > 0 || classToDelete.assessments.length > 0) {
+      return { success: false, error: "Cannot delete class with existing exams or assessments" };
     }
 
     await prisma.class.delete({

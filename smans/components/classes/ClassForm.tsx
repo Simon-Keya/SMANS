@@ -6,12 +6,15 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/Select";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
+
+// Direct imports from your existing action files
+import { createClass } from "@/app/actions/classes/createClass";     // Adjust if path is different
+import { updateClass } from "@/app/actions/classes/updateClass";     // Adjust if path is different
 
 const classSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters").trim(),
@@ -37,7 +40,6 @@ export default function ClassForm({ classData, teachers = [] }: ClassFormProps) 
   const isEdit = !!classData;
 
   const form = useForm<ClassFormData>({
-    resolver: zodResolver(classSchema),
     defaultValues: classData
       ? {
           name: classData.name,
@@ -52,25 +54,33 @@ export default function ClassForm({ classData, teachers = [] }: ClassFormProps) 
   const onSubmit = async (data: ClassFormData) => {
     startTransition(async () => {
       try {
-        const res = await fetch(
-          isEdit ? `/api/classes/${classData?.id}` : "/api/classes",
-          {
-            method: isEdit ? "PUT" : "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data),
-          }
-        );
+        let result;
 
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.error || "Failed to save class");
+        if (isEdit && classData?.id) {
+          const formData = new FormData();
+          formData.append("name", data.name);
+          formData.append("level", data.level);
+          if (data.teacherId) formData.append("teacherId", data.teacherId);
+
+          result = await updateClass(classData.id, formData);
+        } else {
+          const formData = new FormData();
+          formData.append("name", data.name);
+          formData.append("level", data.level);
+          if (data.teacherId) formData.append("teacherId", data.teacherId);
+
+          result = await createClass(formData);
         }
 
-        router.push("/dashboard/classes");
-        router.refresh();
+        if (result.success) {
+          router.push("/dashboard/classes");
+          router.refresh();
+        } else {
+          alert(result.error || "Failed to save class");
+        }
       } catch (err: any) {
         console.error(err);
-        alert(err.message || "Failed to save class");
+        alert("An unexpected error occurred");
       }
     });
   };

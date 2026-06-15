@@ -3,12 +3,12 @@
 import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
-import { z, ZodError, ZodIssue } from "zod";
+import { z, ZodError } from "zod";
 
 const createClassSchema = z.object({
-  name: z.string().min(2, "Class name must be at least 2 characters").trim(),
+  name: z.string().min(3, "Class name must be at least 3 characters").trim(),
   level: z.string().min(1, "Level/grade is required").trim(),
-  teacherId: z.string().optional(),
+  teacherId: z.string().optional().nullable(),
 });
 
 export async function createClass(formData: FormData) {
@@ -22,10 +22,10 @@ export async function createClass(formData: FormData) {
     const data = createClassSchema.parse({
       name: formData.get("name"),
       level: formData.get("level"),
-      teacherId: formData.get("teacherId") || undefined,
+      teacherId: formData.get("teacherId") || null,
     });
 
-    // Prevent duplicate class + level combination
+    // Check for duplicate
     const existing = await prisma.class.findFirst({
       where: {
         name: data.name,
@@ -41,17 +41,19 @@ export async function createClass(formData: FormData) {
       data: {
         name: data.name,
         level: data.level,
-        teacherId: data.teacherId || null,
+        teacherId: data.teacherId,
+      },
+      include: {
+        teacher: { select: { id: true, name: true } },
       },
     });
 
     return { success: true, class: newClass };
   } catch (err: unknown) {
-    // Check if the error is a ZodError
     if (err instanceof ZodError) {
       return {
         success: false,
-        error: err.issues.map((e: ZodIssue) => e.message).join(", "),
+        error: err.issues.map((e) => e.message).join(", "),
       };
     }
 
