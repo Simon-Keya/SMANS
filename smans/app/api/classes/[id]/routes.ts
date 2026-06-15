@@ -27,7 +27,7 @@ export async function GET(
     const classRecord = await prisma.class.findUnique({
       where: { id },
       include: {
-        teacher: { select: { name: true } },
+        teacher: { select: { id: true, name: true } },
         _count: { select: { students: true } },
       },
     });
@@ -74,8 +74,14 @@ export async function PUT(
 
     const updatedClass = await prisma.class.update({
       where: { id },
-      data: parsed.data,
-      include: { teacher: { select: { name: true } } },
+      data: {
+        name: parsed.data.name,
+        level: parsed.data.level,
+        teacherId: parsed.data.teacherId || null,   // ← Fixed
+      },
+      include: { 
+        teacher: { select: { id: true, name: true } } 
+      },
     });
 
     return NextResponse.json({ success: true, data: updatedClass });
@@ -84,6 +90,7 @@ export async function PUT(
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
+
 
 export async function DELETE(
   request: NextRequest,

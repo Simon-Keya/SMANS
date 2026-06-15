@@ -28,7 +28,7 @@ interface ClassFormProps {
     level: string;
     teacherId?: string | null;
   };
-  teachers: { id: string; name: string | null }[];   // ← Important
+  teachers: { id: string; name: string | null }[];
 }
 
 export default function ClassForm({ classData, teachers = [] }: ClassFormProps) {
@@ -63,7 +63,7 @@ export default function ClassForm({ classData, teachers = [] }: ClassFormProps) 
 
         if (!res.ok) {
           const err = await res.json();
-          throw new Error(err.error || "Failed to save");
+          throw new Error(err.error || "Failed to save class");
         }
 
         router.push("/dashboard/classes");
@@ -102,7 +102,6 @@ export default function ClassForm({ classData, teachers = [] }: ClassFormProps) 
               {errors.level && <p className="text-sm text-error">{errors.level.message}</p>}
             </div>
 
-            {/* Teacher Select - Fixed */}
             <div className="space-y-2 md:col-span-2">
               <Label>Class Teacher (optional)</Label>
               <Select 
@@ -125,7 +124,12 @@ export default function ClassForm({ classData, teachers = [] }: ClassFormProps) 
           </div>
 
           <div className="flex justify-end gap-4 pt-4">
-            <Button type="button" variant="outline" onClick={() => router.back()} disabled={isPending}>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => router.back()} 
+              disabled={isPending}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={isPending}>
