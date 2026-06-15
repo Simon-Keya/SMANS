@@ -59,11 +59,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check for duplicate class
+    const existing = await prisma.class.findFirst({
+      where: {
+        name: parsed.data.name,
+        level: parsed.data.level,
+      },
+    });
+
+    if (existing) {
+      return NextResponse.json(
+        { error: `Class "${parsed.data.name} - ${parsed.data.level}" already exists` },
+        { status: 409 }
+      );
+    }
+
     const newClass = await prisma.class.create({
       data: {
         name: parsed.data.name,
         level: parsed.data.level,
-        teacherId: parsed.data.teacherId || null,   // ← Fixed
+        teacherId: parsed.data.teacherId || null,
       },
       include: {
         teacher: { select: { id: true, name: true } },

@@ -72,13 +72,15 @@ export async function PUT(
       );
     }
 
+    // Build update data with only provided fields
+    const updateData: any = {};
+    if (parsed.data.name !== undefined) updateData.name = parsed.data.name;
+    if (parsed.data.level !== undefined) updateData.level = parsed.data.level;
+    if (parsed.data.teacherId !== undefined) updateData.teacherId = parsed.data.teacherId || null;
+
     const updatedClass = await prisma.class.update({
       where: { id },
-      data: {
-        name: parsed.data.name,
-        level: parsed.data.level,
-        teacherId: parsed.data.teacherId || null,   // ← Fixed
-      },
+      data: updateData,
       include: { 
         teacher: { select: { id: true, name: true } } 
       },
@@ -90,7 +92,6 @@ export async function PUT(
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
-
 
 export async function DELETE(
   request: NextRequest,
@@ -116,7 +117,7 @@ export async function DELETE(
 
     if (classRecord._count.students > 0) {
       return NextResponse.json(
-        { error: "Cannot delete class with enrolled students" },
+        { error: `Cannot delete class with ${classRecord._count.students} enrolled students. Please reassign students first.` },
         { status: 409 }
       );
     }
@@ -125,7 +126,7 @@ export async function DELETE(
       where: { id },
     });
 
-    return NextResponse.json({ success: true, message: "Class deleted" });
+    return NextResponse.json({ success: true, message: "Class deleted successfully" });
   } catch (error) {
     console.error("[DELETE_CLASS]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
