@@ -15,7 +15,7 @@ const teacherSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").trim(),
   email: z.string().email("Invalid email").trim().toLowerCase(),
   phone: z.string().optional(),
-  staffNo: z.string().optional(),
+  staffNo: z.string().trim().optional(),
   password: z.string().min(8, "Password must be at least 8 characters").optional(),
 });
 
@@ -37,17 +37,13 @@ export default function TeacherForm({ teacher, onSuccess }: TeacherFormProps = {
   const [isPending, startTransition] = useTransition();
   const isEdit = !!teacher;
 
-  const formSchema = isEdit
-    ? teacherSchema.omit({ password: true })
-    : teacherSchema;
-
   const {
     register,
     handleSubmit,
     formState: { errors },
     reset,
   } = useForm<TeacherFormData>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(teacherSchema),
     defaultValues: {
       name: teacher?.name ?? "",
       email: teacher?.email ?? "",
@@ -61,42 +57,40 @@ export default function TeacherForm({ teacher, onSuccess }: TeacherFormProps = {
     startTransition(async () => {
       try {
         let res: Response;
-        let url: string;
-        let options: RequestInit;
 
         if (isEdit && teacher?.id) {
-          // Update - only send fields that are defined
-          const updateData: Record<string, string> = {};
-          if (data.name !== undefined && data.name !== teacher.name) updateData.name = data.name;
-          if (data.email !== undefined && data.email !== teacher.email) updateData.email = data.email;
-          if (data.phone !== undefined && data.phone !== teacher.phone) updateData.phone = data.phone;
-          if (data.staffNo !== undefined && data.staffNo !== teacher.staffNo) updateData.staffNo = data.staffNo;
+          // Update mode - only send fields that have changed
+          const updateData: Record<string, any> = {};
 
-          url = `/api/teachers/${teacher.id}`;
-          options = {
+          if (data.name && data.name !== teacher.name) updateData.name = data.name.trim();
+          if (data.email && data.email !== teacher.email) updateData.email = data.email.trim().toLowerCase();
+          if (data.phone !== undefined) updateData.phone = data.phone?.trim() || null;
+          if (data.staffNo !== undefined) updateData.staffNo = data.staffNo?.trim() || null;
+
+          if (Object.keys(updateData).length === 0) {
+            alert("No changes detected.");
+            return;
+          }
+
+          res = await fetch(`/api/teachers/${teacher.id}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(updateData),
-          };
+          });
         } else {
-          // Create
-          const createData: Record<string, string> = {
-            name: data.name,
-            email: data.email,
-            password: data.password || "",
-          };
-          if (data.phone) createData.phone = data.phone;
-          if (data.staffNo) createData.staffNo = data.staffNo;
-
-          url = "/api/teachers";
-          options = {
+          // Create mode
+          res = await fetch("/api/teachers", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(createData),
-          };
+            body: JSON.stringify({
+              name: data.name,
+              email: data.email,
+              password: data.password,
+              phone: data.phone || null,
+              staffNo: data.staffNo || null,
+            }),
+          });
         }
-
-        res = await fetch(url, options);
 
         if (!res.ok) {
           const errorData = await res.json().catch(() => ({}));
@@ -134,7 +128,7 @@ export default function TeacherForm({ teacher, onSuccess }: TeacherFormProps = {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="staffNo">Staff Number</Label>
+              <Label htmlFor="staffNo">Staff Number {isEdit ? "(Optional)" : "*"}</Label>
               <Input
                 id="staffNo"
                 placeholder="TCH-001"
@@ -159,7 +153,7 @@ export default function TeacherForm({ teacher, onSuccess }: TeacherFormProps = {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
+              <Label htmlFor="phone">Phone Number (Optional)</Label>
               <Input
                 id="phone"
                 type="tel"
@@ -182,9 +176,6 @@ export default function TeacherForm({ teacher, onSuccess }: TeacherFormProps = {
                   disabled={isPending}
                 />
                 {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
-                <p className="text-xs text-base-content/50">
-                  Teacher can change this after first login.
-                </p>
               </div>
             )}
           </div>

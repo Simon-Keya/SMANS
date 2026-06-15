@@ -24,6 +24,7 @@ import {
 import { Edit, Eye, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { deleteTeacher } from "@/app/actions/teachers/deleteTeacher";   // ← Import this
 
 interface Teacher {
   id: string;
@@ -35,21 +36,19 @@ interface Teacher {
 
 interface TeacherTableProps {
   teachers: Teacher[];
-  onDelete?: (id: string) => Promise<void>;
 }
 
-export default function TeacherTable({ teachers, onDelete }: TeacherTableProps) {
+export default function TeacherTable({ teachers }: TeacherTableProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const handleDelete = async (id: string) => {
-    if (!onDelete) return;
-
     setDeletingId(id);
     try {
-      await onDelete(id);
-    } catch (err) {
-      console.error("Delete failed:", err);
-      alert("Failed to delete teacher. Please try again.");
+      await deleteTeacher(id);
+      alert("Teacher deleted successfully");
+      window.location.reload(); // Simple refresh (you can improve this later)
+    } catch (err: any) {
+      alert(err.message || "Failed to delete teacher");
     } finally {
       setDeletingId(null);
     }
@@ -78,9 +77,7 @@ export default function TeacherTable({ teachers, onDelete }: TeacherTableProps) 
           ) : (
             teachers.map((teacher) => (
               <TableRow key={teacher.id} className="hover:bg-base-200">
-                <TableCell className="font-medium">
-                  {teacher.name || "Unnamed Teacher"}
-                </TableCell>
+                <TableCell className="font-medium">{teacher.name || "Unnamed Teacher"}</TableCell>
                 <TableCell>{teacher.email}</TableCell>
                 <TableCell>
                   <Badge variant="outline" className="capitalize">
@@ -107,43 +104,40 @@ export default function TeacherTable({ teachers, onDelete }: TeacherTableProps) 
                     </Link>
                   </Button>
 
-                  {onDelete && (
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                          disabled={deletingId === teacher.id}
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        disabled={deletingId === teacher.id}
+                      >
+                        {deletingId === teacher.id ? (
+                          <span className="loading loading-spinner loading-sm" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Teacher?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently delete <strong>{teacher.name || "this teacher"}</strong>.
+                          This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => handleDelete(teacher.id)}
+                          className="bg-destructive hover:bg-destructive/90"
                         >
-                          {deletingId === teacher.id ? (
-                            <span className="loading loading-spinner loading-sm" />
-                          ) : (
-                            <Trash2 className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete Teacher?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This will permanently delete{" "}
-                            <strong>{teacher.name || "this teacher"}</strong>.
-                            This action cannot be undone.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => handleDelete(teacher.id)}
-                            className="bg-destructive hover:bg-destructive/90"
-                          >
-                            Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  )}
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </TableCell>
               </TableRow>
             ))
