@@ -2,69 +2,54 @@
 "use client";
 
 import { useState } from "react";
+import StudentTable from "@/components/students/StudentTable";
+import { Student } from "@/components/students/StudentTable";
 
-type Student = {
-  id: string;
-  name: string;
-  admissionNumber: string;        // ← Changed
-  className: string;
-  email?: string;
-  studentPhone?: string;
-  parentPhone?: string;
-};
-
-interface Props {
+interface StudentsClientProps {
   students: Student[];
+  onDelete: (id: string) => Promise<void>;
 }
 
-export default function StudentsClient({ students }: Props) {
+export default function StudentsClient({ students, onDelete }: StudentsClientProps) {
   const [search, setSearch] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const filtered = students.filter(
     (s) =>
       s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.admissionNumber.toLowerCase().includes(search.toLowerCase()) ||   // ← Changed
+      s.admissionNumber.toLowerCase().includes(search.toLowerCase()) ||
       s.className.toLowerCase().includes(search.toLowerCase())
   );
 
+  const handleDelete = async (id: string) => {
+    setDeletingId(id);
+    try {
+      await onDelete(id);
+    } catch (err: any) {
+      console.error("Delete failed:", err);
+      alert(err.message || "Failed to delete student");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
-      <input
-        type="text"
-        placeholder="Search students by name, admission number or class..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="w-full max-w-md p-2 border rounded"
-      />
-
-      <div className="overflow-x-auto">
-        <table className="min-w-full border-collapse">
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="p-3 text-left">Name</th>
-              <th className="p-3 text-left">Admission No</th>   {/* ← Changed */}
-              <th className="p-3 text-left">Class</th>
-              <th className="p-3 text-left">Email</th>
-              <th className="p-3 text-left">Parent Phone</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((student) => (
-              <tr key={student.id} className="border-b hover:bg-gray-50">
-                <td className="p-3">{student.name}</td>
-                <td className="p-3 font-medium">{student.admissionNumber}</td>   {/* ← Changed */}
-                <td className="p-3">{student.className}</td>
-                <td className="p-3">{student.email || "-"}</td>
-                <td className="p-3">{student.parentPhone || "-"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="flex flex-wrap gap-4 items-center justify-between">
+        <input
+          type="text"
+          placeholder="Search students by name, admission number or class..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full max-w-md p-2 border rounded bg-base-100"
+        />
       </div>
 
-      {filtered.length === 0 && (
-        <p className="text-center text-gray-500 py-8">No students found</p>
-      )}
+      <StudentTable 
+        students={filtered} 
+        onDelete={handleDelete}
+        deletingId={deletingId}
+      />
     </div>
   );
 }

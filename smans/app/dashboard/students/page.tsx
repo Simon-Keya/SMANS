@@ -20,13 +20,18 @@ type NormalizedStudent = {
 async function handleDelete(id: string): Promise<void> {
   "use server";
   
-  const result = await deleteStudent(id);
-  
-  if (!result) {
-    throw new Error("Failed to delete student");
+  try {
+    const result = await deleteStudent(id);
+    
+    if (!result) {
+      throw new Error("Failed to delete student");
+    }
+    
+    revalidatePath("/dashboard/students");
+  } catch (error: any) {
+    console.error("Delete error:", error);
+    throw new Error(error.message || "Failed to delete student");
   }
-  
-  revalidatePath("/dashboard/students");
 }
 
 export default async function StudentsPage() {
