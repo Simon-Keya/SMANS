@@ -6,6 +6,8 @@ import { Plus } from "lucide-react";
 import { getServerSession } from "next-auth";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { deleteClass } from "@/app/actions/classes/deleteClass";
+import { revalidatePath } from "next/cache";
 
 export default async function ClassesPage() {
   const session = await getServerSession(authOptions);
@@ -38,6 +40,26 @@ export default async function ClassesPage() {
     studentCount: cls._count.students,
   }));
 
+  // Server action for delete - returns Promise<void> to match ClassTable expectation
+  async function handleDelete(id: string): Promise<void> {
+    "use server";
+    
+    try {
+      const result = await deleteClass(id);
+      
+      if (!result.success) {
+        throw new Error(result.error || "Failed to delete class");
+      }
+      
+      // Revalidate the page to show updated data
+      revalidatePath("/dashboard/classes");
+    } catch (error: any) {
+      console.error("Delete error:", error);
+      // Re-throw the error so the table component can handle it
+      throw new Error(error.message || "Failed to delete class");
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -57,7 +79,10 @@ export default async function ClassesPage() {
           No classes created yet.
         </div>
       ) : (
-        <ClassTable classes={classesWithCount} />
+        <ClassTable 
+          classes={classesWithCount} 
+          onDelete={handleDelete}
+        />
       )}
     </div>
   );

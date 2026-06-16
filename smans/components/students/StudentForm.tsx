@@ -13,7 +13,7 @@ import {
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
@@ -33,6 +33,8 @@ interface StudentFormProps {
   defaultValues?: Partial<StudentFormData>;
   isEdit?: boolean;
   studentId?: string;
+  classes: { id: string; name: string; level: string }[];
+  parents: { id: string; name: string }[];
   onSubmit?: (data: StudentFormData) => Promise<void>;
 }
 
@@ -40,10 +42,13 @@ export default function StudentForm({
   defaultValues = {},
   isEdit = false,
   studentId,
+  classes = [],
+  parents = [],
   onSubmit,
 }: StudentFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   const {
     register,
@@ -66,6 +71,7 @@ export default function StudentForm({
   });
 
   const handleFormSubmit = async (data: StudentFormData) => {
+    setError(null);
     startTransition(async () => {
       try {
         if (isEdit && studentId && onSubmit) {
@@ -78,9 +84,10 @@ export default function StudentForm({
             body: JSON.stringify(data),
           });
 
+          const result = await res.json();
+
           if (!res.ok) {
-            const error = await res.json();
-            throw new Error(error.error || "Failed to create student");
+            throw new Error(result.error || "Failed to create student");
           }
 
           alert("Student created successfully!");
@@ -89,13 +96,19 @@ export default function StudentForm({
         }
       } catch (err: any) {
         console.error(err);
-        alert(err.message || "Something went wrong");
+        setError(err.message || "Something went wrong");
       }
     });
   };
 
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
+      {error && (
+        <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+          <p className="text-sm">{error}</p>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-2">
           <Label htmlFor="name">Full Name *</Label>
@@ -111,19 +124,44 @@ export default function StudentForm({
 
         <div className="space-y-2">
           <Label htmlFor="classId">Class *</Label>
-          <Select onValueChange={(value) => setValue("classId", value)} defaultValue={watch("classId")} disabled={isPending}>
+          <Select 
+            onValueChange={(value) => setValue("classId", value)} 
+            defaultValue={watch("classId")} 
+            disabled={isPending}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Select Class" />
             </SelectTrigger>
             <SelectContent>
-              {Array.from({ length: 12 }, (_, i) => (
-                <SelectItem key={i} value={`class-${i + 1}`}>
-                  Class {i + 1}
+              {classes.map((cls) => (
+                <SelectItem key={cls.id} value={cls.id}>
+                  {cls.name} ({cls.level})
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
           {errors.classId && <p className="text-sm text-destructive">{errors.classId.message}</p>}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="parentId">Parent (Optional)</Label>
+          <Select 
+            onValueChange={(value) => setValue("parentId", value)} 
+            defaultValue={watch("parentId") || ""} 
+            disabled={isPending}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select Parent" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">No parent</SelectItem>
+              {parents.map((parent) => (
+                <SelectItem key={parent.id} value={parent.id}>
+                  {parent.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="space-y-2">

@@ -3,16 +3,8 @@ import { Button } from "@/components/ui/Button";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import StudentsClient from "./students-client";
-
-type StudentWithRelations = {
-  id: string;
-  name: string;
-  admissionNumber: string;
-  email: string | null;
-  phone: string | null;
-  class: { name: string } | null;
-  parent: { phone: string | null } | null;
-};
+import { deleteStudent } from "@/app/actions/students/deleteStudent";
+import { revalidatePath } from "next/cache";
 
 type NormalizedStudent = {
   id: string;
@@ -23,6 +15,19 @@ type NormalizedStudent = {
   studentPhone?: string;
   parentPhone?: string;
 };
+
+// Server action for delete - simplified version
+async function handleDelete(id: string): Promise<void> {
+  "use server";
+  
+  const result = await deleteStudent(id);
+  
+  if (!result) {
+    throw new Error("Failed to delete student");
+  }
+  
+  revalidatePath("/dashboard/students");
+}
 
 export default async function StudentsPage() {
   // Fetch students with relations
@@ -39,7 +44,7 @@ export default async function StudentsPage() {
   });
 
   // Transform the data with proper null handling
-  const students: NormalizedStudent[] = rawStudents.map((s: StudentWithRelations) => ({
+  const students: NormalizedStudent[] = rawStudents.map((s) => ({
     id: s.id,
     name: s.name,
     admissionNumber: s.admissionNumber,
@@ -52,13 +57,13 @@ export default async function StudentsPage() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Students</h1>
+        <h1 className="text-3xl font-bold text-primary">Students</h1>
         <Button asChild>
           <Link href="/dashboard/students/new">Add New Student</Link>
         </Button>
       </div>
 
-      <StudentsClient students={students} />
+      <StudentsClient students={students} onDelete={handleDelete} />
     </div>
   );
 }

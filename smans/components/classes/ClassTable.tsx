@@ -14,8 +14,6 @@ import {
 import { Edit, Eye, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-
-// ─── Import ALL AlertDialog components ────────
 import {
     AlertDialog,
     AlertDialogAction,
@@ -38,20 +36,26 @@ interface Class {
 
 interface ClassTableProps {
   classes: Class[];
-  onDelete?: (id: string) => Promise<void>;
+  onDelete?: (id: string) => Promise<void>;  // Keep as Promise<void>
 }
 
 export default function ClassTable({ classes, onDelete }: ClassTableProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleDelete = async (id: string) => {
     if (!onDelete) return;
 
     setDeletingId(id);
+    setError(null);
+    
     try {
       await onDelete(id);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Delete failed:", err);
+      setError(err.message || "Failed to delete class");
+      // Re-throw so the dialog can handle it
+      throw err;
     } finally {
       setDeletingId(null);
     }
@@ -59,6 +63,12 @@ export default function ClassTable({ classes, onDelete }: ClassTableProps) {
 
   return (
     <div className="rounded-md border">
+      {error && (
+        <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-t-lg">
+          <p className="text-sm">{error}</p>
+        </div>
+      )}
+      
       <Table>
         <TableHeader>
           <TableRow>

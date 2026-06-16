@@ -1,3 +1,4 @@
+// app/dashboard/students/[id]/page.tsx
 import StudentCard from "@/components/students/StudentCard";
 import { Button } from "@/components/ui/Button";
 import { prisma } from "@/lib/prisma";
@@ -16,13 +17,19 @@ export default async function StudentDetailPage({ params }: StudentDetailPagePro
     include: {
       class: {
         select: {
-          name: true, // Get the class name as a string
+          name: true,
         },
       },
       parent: {
         select: {
           name: true,
           phone: true,
+          email: true,
+        },
+      },
+      user: {
+        select: {
+          email: true,
         },
       },
     },
@@ -37,11 +44,11 @@ export default async function StudentDetailPage({ params }: StudentDetailPagePro
     id: student.id,
     name: student.name,
     admissionNumber: student.admissionNumber,
-    class: student.class?.name || "Not Assigned", // Extract class name as string
-    email: student.email,
-    phone: student.phone,
-    parentName: student.parent?.name,
-    parentPhone: student.parent?.phone,
+    class: student.class?.name || "Not Assigned",
+    email: student.email || student.user?.email || undefined,
+    phone: student.phone || undefined,
+    parentName: student.parent?.name || undefined,
+    parentPhone: student.parent?.phone || undefined,
   };
 
   return (
