@@ -42,7 +42,7 @@ interface StudentTableProps {
 
 export default function StudentTable({ students, onDelete, deletingId }: StudentTableProps) {
   return (
-    <div className="rounded-md border border-neutral/30">
+    <div className="rounded-md border border-neutral/30 overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow className="bg-base-200">
@@ -58,18 +58,18 @@ export default function StudentTable({ students, onDelete, deletingId }: Student
           {students.length === 0 ? (
             <TableRow>
               <TableCell colSpan={6} className="h-24 text-center text-base-content/60">
-                No students found
+                No students found. Create a student or wait for signups.
               </TableCell>
             </TableRow>
           ) : (
             students.map((student) => (
               <TableRow key={student.id} className="hover:bg-base-200/50">
-                <TableCell className="font-medium">{student.name}</TableCell>
-                <TableCell>{student.admissionNumber}</TableCell>
-                <TableCell>{student.className}</TableCell>
+                <TableCell className="font-medium">{student.name || "—"}</TableCell>
+                <TableCell>{student.admissionNumber || "—"}</TableCell>
+                <TableCell>{student.className || "—"}</TableCell>
                 <TableCell>{student.email || "—"}</TableCell>
                 <TableCell>{student.parentPhone || "—"}</TableCell>
-                <TableCell className="text-right space-x-2">
+                <TableCell className="text-right space-x-2 whitespace-nowrap">
                   <Button variant="ghost" size="icon" asChild>
                     <Link href={`/dashboard/students/${student.id}`}>
                       <Eye className="h-4 w-4" />

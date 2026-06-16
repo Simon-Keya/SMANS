@@ -5,6 +5,8 @@ import Link from "next/link";
 import StudentsClient from "./students-client";
 import { deleteStudent } from "@/app/actions/students/deleteStudent";
 import { revalidatePath } from "next/cache";
+import { getCurrentUser } from "@/lib/auth/session";
+import { redirect } from "next/navigation";
 
 type NormalizedStudent = {
   id: string;
@@ -16,7 +18,7 @@ type NormalizedStudent = {
   parentPhone?: string;
 };
 
-// Server action for delete - simplified version
+// Server action for delete
 async function handleDelete(id: string): Promise<void> {
   "use server";
   
@@ -35,7 +37,13 @@ async function handleDelete(id: string): Promise<void> {
 }
 
 export default async function StudentsPage() {
-  // Fetch students with relations
+  // Check if user is admin
+  const user = await getCurrentUser();
+  if (!user || user.role !== "ADMIN") {
+    redirect("/dashboard");
+  }
+
+  // Fetch ALL students with their relations
   const rawStudents = await prisma.student.findMany({
     orderBy: { admissionNumber: "asc" },
     include: {
@@ -43,29 +51,39 @@ export default async function StudentsPage() {
         select: { name: true },
       },
       parent: {
-        select: { phone: true },
+        select: { phone: true, name: true },
+      },
+      user: {
+        select: { email: true, name: true, phone: true },
       },
     },
   });
 
+  console.log(`📊 Total students found: ${rawStudents.length}`);
+
   // Transform the data with proper null handling
   const students: NormalizedStudent[] = rawStudents.map((s) => ({
     id: s.id,
-    name: s.name,
-    admissionNumber: s.admissionNumber,
+    name: s.name || s.user?.name || "Unnamed Student",
+    admissionNumber: s.admissionNumber || `STU/${String(s.id).slice(-6)}`,
     className: s.class?.name || "Not assigned",
-    email: s.email ?? undefined,
-    studentPhone: s.phone ?? undefined,
-    parentPhone: s.parent?.phone ?? undefined,
+    email: s.email || s.user?.email || undefined,
+    studentPhone: s.phone || s.user?.phone || undefined,
+    parentPhone: s.parent?.phone || undefined,
   }));
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-primary">Students</h1>
-        <Button asChild>
-          <Link href="/dashboard/students/new">Add New Student</Link>
-        </Button>
+        <div className="flex gap-3">
+          <span className="text-sm text-base-content/60 flex items-center">
+            {students.length} student{students.length !== 1 ? 's' : ''}
+          </span>
+          <Button asChild>
+            <Link href="/dashboard/students/new">Add New Student</Link>
+          </Button>
+        </div>
       </div>
 
       <StudentsClient students={students} onDelete={handleDelete} />

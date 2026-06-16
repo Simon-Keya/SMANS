@@ -16,9 +16,9 @@ export default function StudentsClient({ students, onDelete }: StudentsClientPro
 
   const filtered = students.filter(
     (s) =>
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.admissionNumber.toLowerCase().includes(search.toLowerCase()) ||
-      s.className.toLowerCase().includes(search.toLowerCase())
+      s.name?.toLowerCase().includes(search.toLowerCase()) ||
+      s.admissionNumber?.toLowerCase().includes(search.toLowerCase()) ||
+      s.className?.toLowerCase().includes(search.toLowerCase())
   );
 
   const handleDelete = async (id: string) => {
@@ -43,6 +43,9 @@ export default function StudentsClient({ students, onDelete }: StudentsClientPro
           onChange={(e) => setSearch(e.target.value)}
           className="w-full max-w-md p-2 border rounded bg-base-100"
         />
+        <div className="text-sm text-base-content/60">
+          {filtered.length} of {students.length} student{students.length !== 1 ? 's' : ''} shown
+        </div>
       </div>
 
       <StudentTable 
