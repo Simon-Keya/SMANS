@@ -39,10 +39,10 @@ export default async function EditStudentPage({ params }: EditStudentPageProps) 
   if (!student) notFound();
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="max-w-3xl mx-auto py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold">Edit Student</h1>
-        <p className="text-base-content/60">Update {student.name}'s information</p>
+        <h1 className="text-3xl font-bold tracking-tight">Edit Student</h1>
+        <p className="text-muted-foreground mt-2">Update {student.name}'s information</p>
       </div>
 
       <StudentForm 

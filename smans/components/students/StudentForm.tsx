@@ -1,3 +1,4 @@
+// components/students/StudentForm.tsx
 "use client";
 
 import { Button } from "@/components/ui/Button";
@@ -22,7 +23,7 @@ const studentSchema = z.object({
   admissionNumber: z.string().min(3, "Admission number is required"),
   email: z.string().email("Invalid email").optional().or(z.literal("")),
   phone: z.string().optional(),
-  classId: z.string().min(1, "Class is required"),
+  classId: z.string().min(1, "Please select a class"),
   parentId: z.string().optional(),
   password: z.string().min(8, "Password must be at least 8 characters").optional(),
 });
@@ -33,7 +34,7 @@ interface StudentFormProps {
   defaultValues?: Partial<StudentFormData>;
   isEdit?: boolean;
   studentId?: string;
-  classes: { id: string; name: string; level: string }[];
+  classes: { id: string; name: string; level: string | null }[]; // Allow null
   parents: { id: string; name: string }[];
   onSubmit?: (data: StudentFormData) => Promise<void>;
 }
@@ -77,7 +78,6 @@ export default function StudentForm({
         if (isEdit && studentId && onSubmit) {
           await onSubmit(data);
         } else {
-          // Create mode
           const res = await fetch("/api/students", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -87,7 +87,7 @@ export default function StudentForm({
           const result = await res.json();
 
           if (!res.ok) {
-            throw new Error(result.error || "Failed to create student");
+            throw new Error(result.error || result.message || "Failed to create student");
           }
 
           alert("Student created successfully!");
@@ -96,7 +96,7 @@ export default function StudentForm({
         }
       } catch (err: any) {
         console.error(err);
-        setError(err.message || "Something went wrong");
+        setError(err.message || "Something went wrong. Please try again.");
       }
     });
   };
@@ -104,8 +104,8 @@ export default function StudentForm({
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
       {error && (
-        <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-          <p className="text-sm">{error}</p>
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+          {error}
         </div>
       )}
 
@@ -113,48 +113,52 @@ export default function StudentForm({
         <div className="space-y-2">
           <Label htmlFor="name">Full Name *</Label>
           <Input id="name" {...register("name")} disabled={isPending} />
-          {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
+          {errors.name && <p className="text-sm text-red-500">{errors.name.message}</p>}
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="admissionNumber">Admission Number *</Label>
           <Input id="admissionNumber" {...register("admissionNumber")} disabled={isPending} />
-          {errors.admissionNumber && <p className="text-sm text-destructive">{errors.admissionNumber.message}</p>}
+          {errors.admissionNumber && <p className="text-sm text-red-500">{errors.admissionNumber.message}</p>}
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="classId">Class *</Label>
           <Select 
             onValueChange={(value) => setValue("classId", value)} 
-            defaultValue={watch("classId")} 
+            defaultValue={watch("classId")}
             disabled={isPending}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Select Class" />
+              <SelectValue placeholder="Select a class" />
             </SelectTrigger>
             <SelectContent>
-              {classes.map((cls) => (
-                <SelectItem key={cls.id} value={cls.id}>
-                  {cls.name} ({cls.level})
-                </SelectItem>
-              ))}
+              {classes.length === 0 ? (
+                <SelectItem value="" disabled>No classes available</SelectItem>
+              ) : (
+                classes.map((cls) => (
+                  <SelectItem key={cls.id} value={cls.id}>
+                    {cls.name} {cls.level ? `(${cls.level})` : ""}
+                  </SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
-          {errors.classId && <p className="text-sm text-destructive">{errors.classId.message}</p>}
+          {errors.classId && <p className="text-sm text-red-500">{errors.classId.message}</p>}
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="parentId">Parent (Optional)</Label>
           <Select 
             onValueChange={(value) => setValue("parentId", value)} 
-            defaultValue={watch("parentId") || ""} 
+            defaultValue={watch("parentId") || ""}
             disabled={isPending}
           >
             <SelectTrigger>
               <SelectValue placeholder="Select Parent" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">No parent</SelectItem>
+              <SelectItem value="">No Parent</SelectItem>
               {parents.map((parent) => (
                 <SelectItem key={parent.id} value={parent.id}>
                   {parent.name}
@@ -167,7 +171,7 @@ export default function StudentForm({
         <div className="space-y-2">
           <Label htmlFor="email">Email (Optional)</Label>
           <Input id="email" type="email" {...register("email")} disabled={isPending} />
-          {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
+          {errors.email && <p className="text-sm text-red-500">{errors.email.message}</p>}
         </div>
 
         <div className="space-y-2">
@@ -179,12 +183,13 @@ export default function StudentForm({
           <div className="space-y-2">
             <Label htmlFor="password">Initial Password *</Label>
             <Input id="password" type="password" {...register("password")} disabled={isPending} />
-            {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
+            {errors.password && <p className="text-sm text-red-500">{errors.password.message}</p>}
+            <p className="text-xs text-gray-500">Student can change this after first login.</p>
           </div>
         )}
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex justify-end pt-4">
         <Button type="submit" disabled={isPending} className="w-full md:w-auto">
           {isPending ? (
             <>
