@@ -4,17 +4,11 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 
 export default async function DashboardHome() {
-  console.log("🔍 [Dashboard] Page loading...");
-
   const user = await getCurrentUser();
-  console.log("🔍 [Dashboard] Current user:", user);
 
   if (!user) {
-    console.log("🔍 [Dashboard] No user → Redirecting to login");
     redirect("/auth/login");
   }
-
-  console.log("🔍 [Dashboard] User authenticated as:", user.role);
 
   // Fetch stats safely
   let stats = {
@@ -23,15 +17,12 @@ export default async function DashboardHome() {
   };
 
   try {
-    // Only count if models exist
     stats.totalStudents = await prisma.student?.count() ?? 0;
     stats.totalTeachers = await prisma.user.count({
       where: { role: "TEACHER" },
     });
-
-    console.log("🔍 [Dashboard] Stats loaded:", stats);
   } catch (error) {
-    console.error("🔍 [Dashboard] Stats error:", error);
+    console.error("Failed to fetch dashboard stats:", error);
   }
 
   return (
@@ -97,16 +88,6 @@ export default async function DashboardHome() {
               </>
             )}
           </div>
-        </div>
-
-        {/* Debug Panel - Remove in production */}
-        <div className="mt-12 p-6 bg-amber-100 border border-amber-300 rounded-2xl text-sm">
-          <details>
-            <summary className="font-semibold cursor-pointer">Debug Info (Development Only)</summary>
-            <pre className="mt-4 text-xs overflow-auto bg-base-300 p-4 rounded-lg">
-              {JSON.stringify({ user, stats }, null, 2)}
-            </pre>
-          </details>
         </div>
       </div>
     </div>
