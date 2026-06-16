@@ -17,14 +17,24 @@ export default async function EditStudentPage({ params }: EditStudentPageProps) 
 
   const { id } = await params;
 
-  // Only fetch the student data - classes and parents are fetched by StudentForm
-  const student = await prisma.student.findUnique({
-    where: { id },
-    include: {
-      class: { select: { id: true, name: true } },
-      parent: { select: { id: true, name: true } },
-    },
-  });
+  // Fetch all data in parallel
+  const [student, classes, parents] = await Promise.all([
+    prisma.student.findUnique({
+      where: { id },
+      include: {
+        class: { select: { id: true, name: true } },
+        parent: { select: { id: true, name: true } },
+      },
+    }),
+    prisma.class.findMany({
+      select: { id: true, name: true, level: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.parent.findMany({
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   if (!student) notFound();
 
@@ -47,6 +57,8 @@ export default async function EditStudentPage({ params }: EditStudentPageProps) 
         }}
         isEdit={true}
         studentId={id}
+        classes={classes}
+        parents={parents}
       />
     </div>
   );

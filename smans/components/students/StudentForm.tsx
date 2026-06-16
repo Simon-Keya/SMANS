@@ -34,23 +34,23 @@ const studentSchema = z.object({
 
 type StudentFormData = z.infer<typeof studentSchema>;
 
-// Props for the client component
-interface StudentFormClientProps {
+interface StudentFormProps {
   defaultValues?: Partial<StudentFormData>;
   isEdit?: boolean;
   studentId?: string;
   classes: { id: string; name: string; level: string | null }[];
   parents: { id: string; name: string }[];
+  onSuccess?: () => void;
 }
 
-// Client component that handles the form UI and submission
-function StudentFormClient({
+export default function StudentForm({
   defaultValues = {},
   isEdit = false,
   studentId,
   classes = [],
   parents = [],
-}: StudentFormClientProps) {
+  onSuccess,
+}: StudentFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -117,8 +117,12 @@ function StudentFormClient({
           alert("Student created successfully!");
         }
 
-        router.push("/dashboard/students");
-        router.refresh();
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          router.push("/dashboard/students");
+          router.refresh();
+        }
       } catch (err: any) {
         console.error(err);
         setError(err.message || "Something went wrong. Please try again.");
@@ -230,49 +234,5 @@ function StudentFormClient({
         </Button>
       </div>
     </form>
-  );
-}
-
-// Main Server Component - fetches data and passes to client component
-import { prisma } from "@/lib/prisma";
-
-interface StudentFormProps {
-  defaultValues?: Partial<StudentFormData>;
-  isEdit?: boolean;
-  studentId?: string;
-}
-
-export default async function StudentForm({
-  defaultValues = {},
-  isEdit = false,
-  studentId,
-}: StudentFormProps) {
-  // Fetch classes and parents on the server
-  const [classes, parents] = await Promise.all([
-    prisma.class.findMany({
-      select: { 
-        id: true, 
-        name: true, 
-        level: true 
-      },
-      orderBy: { name: "asc" },
-    }),
-    prisma.parent.findMany({
-      select: { 
-        id: true, 
-        name: true 
-      },
-      orderBy: { name: "asc" },
-    }),
-  ]);
-
-  return (
-    <StudentFormClient
-      defaultValues={defaultValues}
-      isEdit={isEdit}
-      studentId={studentId}
-      classes={classes}
-      parents={parents}
-    />
   );
 }

@@ -1,6 +1,7 @@
-// app/dashboard/students/new/page.tsx.
+// app/dashboard/students/new/page.tsx
 import StudentForm from "@/components/students/StudentForm";
 import { getCurrentUser } from "@/lib/auth/session";
+import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 
 export default async function NewStudentPage() {
@@ -9,6 +10,25 @@ export default async function NewStudentPage() {
   if (!user || user.role !== "ADMIN") {
     redirect("/dashboard");
   }
+
+  // Fetch classes and parents on the server (page level)
+  const [classes, parents] = await Promise.all([
+    prisma.class.findMany({
+      select: { 
+        id: true, 
+        name: true, 
+        level: true 
+      },
+      orderBy: { name: "asc" },
+    }),
+    prisma.parent.findMany({
+      select: { 
+        id: true, 
+        name: true 
+      },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   return (
     <div className="max-w-3xl mx-auto py-8">
@@ -19,7 +39,10 @@ export default async function NewStudentPage() {
         </p>
       </div>
 
-      <StudentForm />
+      <StudentForm 
+        classes={classes}
+        parents={parents}
+      />
     </div>
   );
 }
