@@ -1,4 +1,4 @@
-// app/dashboard/students/new/page.tsx
+// app/dashboard/students/new/page.tsx.
 import StudentForm from "@/components/students/StudentForm";
 import { getCurrentUser } from "@/lib/auth/session";
 import { redirect } from "next/navigation";
