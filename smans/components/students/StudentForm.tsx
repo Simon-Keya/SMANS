@@ -185,14 +185,14 @@ export default function StudentForm({
           <Label htmlFor="parentId">Parent (Optional)</Label>
           <Select 
             onValueChange={(value) => setValue("parentId", value)} 
-            defaultValue={watch("parentId") || ""}
+            defaultValue={watch("parentId") || undefined}
             disabled={isPending}
           >
             <SelectTrigger>
               <SelectValue placeholder="Select Parent" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">No Parent</SelectItem>
+              <SelectItem value="no-parent">No Parent</SelectItem>
               {parents.map((parent) => (
                 <SelectItem key={parent.id} value={parent.id}>
                   {parent.name}
