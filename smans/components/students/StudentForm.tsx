@@ -18,6 +18,10 @@ import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
+// Import server actions
+import { createStudent } from "@/app/actions/students/createStudent";
+import { updateStudent } from "@/app/actions/students/updateStudent";
+
 const studentSchema = z.object({
   name: z.string().min(2, "Name is required"),
   admissionNumber: z.string().min(3, "Admission number is required"),
@@ -30,23 +34,23 @@ const studentSchema = z.object({
 
 type StudentFormData = z.infer<typeof studentSchema>;
 
-interface StudentFormProps {
+// Props for the client component
+interface StudentFormClientProps {
   defaultValues?: Partial<StudentFormData>;
   isEdit?: boolean;
   studentId?: string;
-  classes: { id: string; name: string; level: string | null }[]; // Allow null
+  classes: { id: string; name: string; level: string | null }[];
   parents: { id: string; name: string }[];
-  onSubmit?: (data: StudentFormData) => Promise<void>;
 }
 
-export default function StudentForm({
+// Client component that handles the form UI and submission
+function StudentFormClient({
   defaultValues = {},
   isEdit = false,
   studentId,
   classes = [],
   parents = [],
-  onSubmit,
-}: StudentFormProps) {
+}: StudentFormClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -75,25 +79,46 @@ export default function StudentForm({
     setError(null);
     startTransition(async () => {
       try {
-        if (isEdit && studentId && onSubmit) {
-          await onSubmit(data);
+        if (isEdit && studentId) {
+          // Update mode
+          const updateData = {
+            name: data.name,
+            admissionNumber: data.admissionNumber,
+            email: data.email || null,
+            phone: data.phone || null,
+            classId: data.classId,
+            parentId: data.parentId || null,
+          };
+          await updateStudent(studentId, updateData);
+          alert("Student updated successfully!");
         } else {
-          const res = await fetch("/api/students", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data),
-          });
-
-          const result = await res.json();
-
-          if (!res.ok) {
-            throw new Error(result.error || result.message || "Failed to create student");
-          }
-
+          // Create mode - use Prisma's nested create structure
+          const createData = {
+            name: data.name,
+            admissionNumber: data.admissionNumber,
+            email: data.email || null,
+            phone: data.phone || null,
+            class: {
+              connect: { id: data.classId }
+            },
+            parent: data.parentId ? {
+              connect: { id: data.parentId }
+            } : undefined,
+            user: {
+              create: {
+                email: data.email || `${data.admissionNumber}@school.com`,
+                password: data.password || "default123",
+                name: data.name,
+                role: "STUDENT",
+              }
+            }
+          };
+          await createStudent(createData as any);
           alert("Student created successfully!");
-          router.push("/dashboard/students");
-          router.refresh();
         }
+
+        router.push("/dashboard/students");
+        router.refresh();
       } catch (err: any) {
         console.error(err);
         setError(err.message || "Something went wrong. Please try again.");
@@ -145,6 +170,9 @@ export default function StudentForm({
             </SelectContent>
           </Select>
           {errors.classId && <p className="text-sm text-red-500">{errors.classId.message}</p>}
+          {classes.length === 0 && !errors.classId && (
+            <p className="text-sm text-yellow-600">No classes available. Please create a class first.</p>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -202,5 +230,49 @@ export default function StudentForm({
         </Button>
       </div>
     </form>
+  );
+}
+
+// Main Server Component - fetches data and passes to client component
+import { prisma } from "@/lib/prisma";
+
+interface StudentFormProps {
+  defaultValues?: Partial<StudentFormData>;
+  isEdit?: boolean;
+  studentId?: string;
+}
+
+export default async function StudentForm({
+  defaultValues = {},
+  isEdit = false,
+  studentId,
+}: StudentFormProps) {
+  // Fetch classes and parents on the server
+  const [classes, parents] = await Promise.all([
+    prisma.class.findMany({
+      select: { 
+        id: true, 
+        name: true, 
+        level: true 
+      },
+      orderBy: { name: "asc" },
+    }),
+    prisma.parent.findMany({
+      select: { 
+        id: true, 
+        name: true 
+      },
+      orderBy: { name: "asc" },
+    }),
+  ]);
+
+  return (
+    <StudentFormClient
+      defaultValues={defaultValues}
+      isEdit={isEdit}
+      studentId={studentId}
+      classes={classes}
+      parents={parents}
+    />
   );
 }
