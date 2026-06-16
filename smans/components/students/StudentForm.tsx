@@ -163,7 +163,9 @@ export default function StudentForm({
             </SelectTrigger>
             <SelectContent>
               {classes.length === 0 ? (
-                <SelectItem value="" disabled>No classes available</SelectItem>
+                <SelectItem value="no-class" disabled>
+                  No classes available
+                </SelectItem>
               ) : (
                 classes.map((cls) => (
                   <SelectItem key={cls.id} value={cls.id}>
