@@ -12,12 +12,15 @@ type SelectedStudent = {
 };
 
 interface ClassDetailPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default async function ClassDetailPage({ params }: ClassDetailPageProps) {
+  // ✅ CRITICAL: Await params to get the id
+  const { id } = await params;
+
   const classData = await prisma.class.findUnique({
-    where: { id: params.id },
+    where: { id },
     select: {
       id: true,
       name: true,
