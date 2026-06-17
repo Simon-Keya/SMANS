@@ -5,62 +5,151 @@ import { signUpAction } from "@/app/actions/auth/signUp";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
-import { GraduationCap, CheckCircle2, User, Mail, Lock } from "lucide-react";
+import { GraduationCap, CheckCircle2, User, Mail, Lock, Phone, BookOpen, Users } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
-const signUpSchema = z.object({
+// Base schema without role-specific fields
+const baseSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Please enter a valid email address"),
   password: z.string().min(8, "Password must be at least 8 characters"),
   role: z.enum(["TEACHER", "STUDENT", "PARENT"]),
+  phone: z.string().optional(),
 });
 
-type SignUpFormData = z.infer<typeof signUpSchema>;
+// Student schema
+const studentSchema = baseSchema.extend({
+  admissionNumber: z.string().min(1, "Admission number is required"),
+  classId: z.string().min(1, "Class is required"),
+});
+
+// Parent schema
+const parentSchema = baseSchema.extend({
+  occupation: z.string().optional(),
+  relationship: z.string().optional(),
+});
+
+// Teacher schema
+const teacherSchema = baseSchema.extend({
+  staffNo: z.string().min(1, "Staff number is required"),
+});
+
+// Union type for all possible form data
+type SignUpFormData = 
+  | z.infer<typeof baseSchema>
+  | z.infer<typeof studentSchema>
+  | z.infer<typeof parentSchema>
+  | z.infer<typeof teacherSchema>;
 
 export default function SignUpPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const router = useRouter();
+  const [selectedRole, setSelectedRole] = useState<"STUDENT" | "TEACHER" | "PARENT">("STUDENT");
+
+  // Get the appropriate schema based on role
+  const getSchema = (role: string) => {
+    switch (role) {
+      case "STUDENT":
+        return studentSchema;
+      case "PARENT":
+        return parentSchema;
+      case "TEACHER":
+        return teacherSchema;
+      default:
+        return baseSchema;
+    }
+  };
 
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
     reset,
-  } = useForm<SignUpFormData>({
-    resolver: zodResolver(signUpSchema),
-    defaultValues: { role: "STUDENT" },
+    setValue,
+  } = useForm<any>({
+    resolver: zodResolver(getSchema(selectedRole)),
+    defaultValues: { 
+      role: "STUDENT",
+      name: "",
+      email: "",
+      password: "",
+      phone: "",
+      admissionNumber: "",
+      classId: "",
+      occupation: "",
+      relationship: "",
+      staffNo: "",
+    },
   });
 
-  const onSubmit = async (data: SignUpFormData) => {
+  const watchedRole = watch("role");
+
+  // Update selected role when form role changes
+  useEffect(() => {
+    const subscription = watch((value, { name }) => {
+      if (name === "role" && value.role) {
+        setSelectedRole(value.role as "STUDENT" | "TEACHER" | "PARENT");
+        // Reset role-specific fields when role changes
+        setValue("admissionNumber", "");
+        setValue("classId", "");
+        setValue("occupation", "");
+        setValue("relationship", "");
+        setValue("staffNo", "");
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [watch, setValue]);
+
+  const onSubmit = async (data: any) => {
     setLoading(true);
     setError("");
 
     try {
-      console.log("🚀 Submitting signup form:", data);
+      const signUpData: any = {
+        name: data.name,
+        email: data.email,
+        password: data.password,
+        role: data.role,
+        phone: data.phone,
+      };
 
-      const result = await signUpAction(data);
+      // Add role-specific fields
+      if (data.role === "STUDENT") {
+        signUpData.admissionNumber = data.admissionNumber;
+        signUpData.classId = data.classId;
+      }
+
+      if (data.role === "PARENT") {
+        signUpData.occupation = data.occupation;
+        signUpData.relationship = data.relationship;
+      }
+
+      if (data.role === "TEACHER") {
+        signUpData.staffNo = data.staffNo;
+      }
+
+      const result = await signUpAction(signUpData);
 
       if (result.success) {
-        console.log("✅ Signup successful:", result);
         setSuccess(true);
         reset();
 
-        // Redirect to login after success
         setTimeout(() => {
           router.push("/auth/login?success=account_created");
-        }, 1800);
+        }, 1500);
       } else {
         setError(result.error || "Failed to create account");
       }
     } catch (err: any) {
-      console.error("❌ Signup error:", err);
+      console.error("Signup error:", err);
       setError("An unexpected error occurred. Please try again.");
     } finally {
       setLoading(false);
@@ -90,7 +179,6 @@ export default function SignUpPage() {
             </p>
           </div>
 
-          {/* Success Message */}
           {success && (
             <div className="flex items-center gap-3 bg-success/10 border border-success text-success p-4 rounded-xl mb-6">
               <CheckCircle2 className="w-5 h-5" />
@@ -98,49 +186,53 @@ export default function SignUpPage() {
             </div>
           )}
 
-          {/* Error Message */}
           {error && (
             <div className="bg-error/10 border border-error text-error p-4 rounded-xl mb-6">
               {error}
             </div>
           )}
 
-          <form 
-            onSubmit={handleSubmit(onSubmit)} 
-            method="POST"
-            noValidate
-            className="space-y-5"
-          >
-            {/* Full Name */}
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <div>
               <Label>Full Name</Label>
               <div className="relative mt-1">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content/40" />
                 <Input
-                  placeholder="Simon Keya"
+                  placeholder="John Doe"
                   {...register("name")}
                   className="pl-10"
                 />
               </div>
-              {errors.name && <p className="text-error text-sm mt-1">{errors.name.message}</p>}
+              {errors.name && <p className="text-error text-sm mt-1">{String(errors.name.message)}</p>}
             </div>
 
-            {/* Email */}
             <div>
               <Label>Email Address</Label>
               <div className="relative mt-1">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content/40" />
                 <Input
                   type="email"
-                  placeholder="keya8020@gmail.com"
+                  placeholder="john@school.com"
                   {...register("email")}
                   className="pl-10"
                 />
               </div>
-              {errors.email && <p className="text-error text-sm mt-1">{errors.email.message}</p>}
+              {errors.email && <p className="text-error text-sm mt-1">{String(errors.email.message)}</p>}
             </div>
 
-            {/* Password */}
+            <div>
+              <Label>Phone Number</Label>
+              <div className="relative mt-1">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content/40" />
+                <Input
+                  type="tel"
+                  placeholder="+254 712 345 678"
+                  {...register("phone")}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
             <div>
               <Label>Password</Label>
               <div className="relative mt-1">
@@ -152,21 +244,97 @@ export default function SignUpPage() {
                   className="pl-10"
                 />
               </div>
-              {errors.password && <p className="text-error text-sm mt-1">{errors.password.message}</p>}
+              {errors.password && <p className="text-error text-sm mt-1">{String(errors.password.message)}</p>}
             </div>
 
-            {/* Role */}
             <div>
-              <Label>Account Type</Label>
+              <Label>Role</Label>
               <select 
                 {...register("role")} 
                 className="select select-bordered w-full mt-1"
+                onChange={(e) => {
+                  const newRole = e.target.value as "STUDENT" | "TEACHER" | "PARENT";
+                  setSelectedRole(newRole);
+                  // Reset role-specific fields when role changes
+                  setValue("admissionNumber", "");
+                  setValue("classId", "");
+                  setValue("occupation", "");
+                  setValue("relationship", "");
+                  setValue("staffNo", "");
+                }}
               >
                 <option value="STUDENT">Student</option>
                 <option value="TEACHER">Teacher</option>
                 <option value="PARENT">Parent</option>
               </select>
             </div>
+
+            {/* Student-specific fields */}
+            {selectedRole === "STUDENT" && (
+              <>
+                <div>
+                  <Label>Admission Number *</Label>
+                  <div className="relative mt-1">
+                    <BookOpen className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content/40" />
+                    <Input
+                      placeholder="e.g. STU/001/2025"
+                      {...register("admissionNumber")}
+                      className="pl-10"
+                    />
+                  </div>
+                  {errors.admissionNumber && <p className="text-error text-sm mt-1">{String(errors.admissionNumber.message)}</p>}
+                </div>
+
+                <div>
+                  <Label>Class ID *</Label>
+                  <Input
+                    placeholder="Class ID"
+                    {...register("classId")}
+                    className="mt-1"
+                  />
+                  {errors.classId && <p className="text-error text-sm mt-1">{String(errors.classId.message)}</p>}
+                </div>
+              </>
+            )}
+
+            {/* Parent-specific fields */}
+            {selectedRole === "PARENT" && (
+              <>
+                <div>
+                  <Label>Occupation</Label>
+                  <Input
+                    placeholder="e.g. Teacher, Engineer, Doctor"
+                    {...register("occupation")}
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label>Relationship to Children</Label>
+                  <Input
+                    placeholder="e.g. Father, Mother, Guardian"
+                    {...register("relationship")}
+                    className="mt-1"
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Teacher-specific fields */}
+            {selectedRole === "TEACHER" && (
+              <div>
+                <Label>Staff Number *</Label>
+                <div className="relative mt-1">
+                  <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content/40" />
+                  <Input
+                    placeholder="e.g. TCH/001/2025"
+                    {...register("staffNo")}
+                    className="pl-10"
+                  />
+                </div>
+                {errors.staffNo && <p className="text-error text-sm mt-1">{String(errors.staffNo.message)}</p>}
+              </div>
+            )}
 
             <Button 
               type="submit" 

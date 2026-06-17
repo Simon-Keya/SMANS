@@ -1,3 +1,4 @@
+// app/api/students/[id]/route.ts
 import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
@@ -18,9 +19,57 @@ export async function GET(
   const student = await prisma.student.findUnique({
     where: { id },
     include: {
-      class: { select: { name: true } },
-      parent: { select: { name: true, phone: true, userId: true } },
-      user: { select: { email: true } },
+      class: { 
+        select: { 
+          id: true,
+          name: true, 
+          level: true 
+        } 
+      },
+      parent: { 
+        select: { 
+          id: true,
+          name: true, 
+          phone: true, 
+          userId: true,
+          email: true,
+          occupation: true,
+          relationship: true,
+        } 
+      },
+      user: { 
+        select: { 
+          id: true,
+          email: true,
+          name: true,
+          phone: true,
+          isActive: true,
+        } 
+      },
+      grades: {
+        take: 5,
+        orderBy: { createdAt: "desc" },
+        include: {
+          subject: { select: { name: true, code: true } },
+          exam: { select: { name: true, term: true, year: true } },
+        },
+      },
+      attendance: {
+        take: 10,
+        orderBy: { date: "desc" },
+      },
+      invoices: {
+        where: { status: { not: "PAID" } },
+        orderBy: { dueDate: "asc" },
+        take: 3,
+      },
+      _count: {
+        select: {
+          grades: true,
+          attendance: true,
+          invoices: true,
+        },
+      },
     },
   });
 
@@ -84,26 +133,59 @@ export async function PUT(
       }
     }
 
-    const updatedStudent = await prisma.student.update({
-      where: { id },
-      data: {
-        name: data.name.trim(),
-        admissionNumber: data.admissionNumber.trim(),
-        email: data.email?.trim() || null,
-        phone: data.phone?.trim() || null,
-        dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
-        gender: data.gender || null,
-        address: data.address?.trim() || null,
-        classId: data.classId,
-        parentId: data.parentId || null,
-      },
-      include: {
-        class: { select: { name: true } },
-        parent: { select: { name: true, phone: true } },
-      },
+    // Check email uniqueness (if changed and provided)
+    if (data.email && data.email !== existingStudent.email) {
+      const existingUser = await prisma.user.findFirst({
+        where: {
+          email: data.email.toLowerCase().trim(),
+          id: { not: existingStudent.userId || undefined },
+        },
+      });
+
+      if (existingUser) {
+        return NextResponse.json({ error: "Email already in use by another user" }, { status: 409 });
+      }
+    }
+
+    // Update both Student and User in a transaction
+    const updatedStudent = await prisma.$transaction(async (tx) => {
+      // Update User if linked
+      if (existingStudent.userId) {
+        await tx.user.update({
+          where: { id: existingStudent.userId },
+          data: {
+            name: data.name.trim(),
+            email: data.email?.trim().toLowerCase() || null,
+            phone: data.phone?.trim() || null,
+          },
+        });
+      }
+
+      // Update Student
+      const student = await tx.student.update({
+        where: { id },
+        data: {
+          name: data.name.trim(),
+          admissionNumber: data.admissionNumber.trim(),
+          email: data.email?.trim() || null,
+          phone: data.phone?.trim() || null,
+          dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
+          gender: data.gender || null,
+          address: data.address?.trim() || null,
+          classId: data.classId,
+          parentId: data.parentId || null,
+        },
+        include: {
+          class: { select: { id: true, name: true, level: true } },
+          parent: { select: { id: true, name: true, phone: true, email: true } },
+          user: { select: { id: true, email: true, name: true, phone: true } },
+        },
+      });
+
+      return student;
     });
 
-    // Audit log (check if auditLog table exists)
+    // Audit log
     if (prisma.auditLog) {
       await prisma.auditLog.create({
         data: {
@@ -114,6 +196,7 @@ export async function PUT(
           metadata: {
             admissionNumber: updatedStudent.admissionNumber,
             classId: updatedStudent.classId,
+            updatedFields: Object.keys(data),
           },
         },
       });
@@ -124,7 +207,7 @@ export async function PUT(
     console.error("[UPDATE_STUDENT]", error);
 
     if (error.code === "P2002") {
-      return NextResponse.json({ error: "Admission number already in use" }, { status: 409 });
+      return NextResponse.json({ error: "Admission number or email already in use" }, { status: 409 });
     }
 
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -149,6 +232,9 @@ export async function DELETE(
       include: {
         parent: { select: { userId: true } },
         user: { select: { id: true } },
+        grades: { select: { id: true }, take: 1 },
+        attendance: { select: { id: true }, take: 1 },
+        invoices: { select: { id: true }, take: 1 },
       },
     });
 
@@ -156,30 +242,48 @@ export async function DELETE(
       return NextResponse.json({ error: "Student not found" }, { status: 404 });
     }
 
-    // Optional safety: Prevent deleting if student has important records
+    // Safety checks
     const hasGrades = await prisma.grade.count({ where: { studentId: id } });
     const hasAttendance = await prisma.attendance.count({ where: { studentId: id } });
+    const hasInvoices = await prisma.invoice.count({ where: { studentId: id } });
 
-    if (hasGrades > 0 || hasAttendance > 0) {
+    if (hasGrades > 0) {
       return NextResponse.json(
-        { error: "Cannot delete student with existing grades or attendance records" },
+        { error: `Cannot delete student with ${hasGrades} existing grade(s). Please delete grades first.` },
         { status: 403 }
       );
     }
 
-    // Delete student
-    await prisma.student.delete({
-      where: { id },
-    });
-
-    // If student has a linked user account, delete it too (optional but common)
-    if (student.user?.id) {
-      await prisma.user.delete({
-        where: { id: student.user.id },
-      });
+    if (hasAttendance > 0) {
+      return NextResponse.json(
+        { error: `Cannot delete student with ${hasAttendance} attendance record(s). Please delete attendance records first.` },
+        { status: 403 }
+      );
     }
 
-    // Audit log (check if auditLog table exists)
+    if (hasInvoices > 0) {
+      return NextResponse.json(
+        { error: `Cannot delete student with ${hasInvoices} invoice(s). Please delete invoices first.` },
+        { status: 403 }
+      );
+    }
+
+    // Delete student and related data in transaction
+    await prisma.$transaction(async (tx) => {
+      // Delete student
+      await tx.student.delete({
+        where: { id },
+      });
+
+      // If student has a linked user account, delete it too
+      if (student.user?.id) {
+        await tx.user.delete({
+          where: { id: student.user.id },
+        });
+      }
+    });
+
+    // Audit log
     if (prisma.auditLog) {
       await prisma.auditLog.create({
         data: {
@@ -190,6 +294,7 @@ export async function DELETE(
           metadata: {
             admissionNumber: student.admissionNumber,
             name: student.name,
+            deletedAt: new Date().toISOString(),
           },
         },
       });

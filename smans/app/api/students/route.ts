@@ -30,6 +30,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Admission number already exists" }, { status: 409 });
     }
 
+    // Check email uniqueness if provided
+    if (data.email) {
+      const existingUser = await prisma.user.findUnique({
+        where: { email: data.email.toLowerCase().trim() },
+      });
+      if (existingUser) {
+        return NextResponse.json({ error: "Email already in use" }, { status: 409 });
+      }
+    }
+
     // Create User + Student in a transaction
     const newStudent = await prisma.$transaction(async (tx) => {
       // 1. Create User account
@@ -38,28 +48,30 @@ export async function POST(request: NextRequest) {
       const user = await tx.user.create({
         data: {
           name: data.name.trim(),
-          email: data.email?.trim() || null,
+          email: data.email?.trim().toLowerCase() || null,
           password: hashedPassword,
           role: "STUDENT",
           phone: data.phone?.trim() || null,
+          emailVerified: new Date(),
         },
       });
 
       // 2. Create Student record linked to User
       const student = await tx.student.create({
         data: {
+          userId: user.id,
           name: data.name.trim(),
           admissionNumber: data.admissionNumber.trim(),
+          admissionDate: new Date(),
           email: data.email?.trim() || null,
           phone: data.phone?.trim() || null,
           classId: data.classId,
           parentId: data.parentId || null,
-          userId: user.id,           // Important link
         },
         include: {
-          class: { select: { name: true } },
-          parent: { select: { name: true, phone: true } },
-          user: { select: { email: true } },
+          class: { select: { id: true, name: true, level: true } },
+          parent: { select: { id: true, name: true, phone: true, email: true } },
+          user: { select: { id: true, email: true, name: true, phone: true } },
         },
       });
 

@@ -13,7 +13,6 @@ function checkRateLimit(key: string, maxRequests: number = 5, windowMs: number =
   const now = Date.now();
   const record = rateLimitStore.get(key);
 
-  // Clean up expired
   if (record && record.resetTime < now) {
     rateLimitStore.delete(key);
   }
@@ -44,13 +43,33 @@ interface SignUpInput {
   email: string;
   password: string;
   role?: Role;
+  // Student fields
+  admissionNumber?: string;
+  classId?: string;
+  // Teacher fields
+  staffNo?: string;
+  // Parent fields
+  phone?: string;
+  occupation?: string;
+  relationship?: string;
 }
 
 export async function signUpAction(data: SignUpInput) {
   console.log("🔥 signUpAction EXECUTED →", data);
 
   try {
-    const { name, email, password, role = "STUDENT" } = data;
+    const { 
+      name, 
+      email, 
+      password, 
+      role = "STUDENT",
+      admissionNumber,
+      classId,
+      staffNo,
+      phone,
+      occupation,
+      relationship,
+    } = data;
 
     if (!name?.trim() || !email?.trim() || !password?.trim()) {
       return { success: false, error: "All fields are required" };
@@ -84,17 +103,82 @@ export async function signUpAction(data: SignUpInput) {
 
     const hashedPassword = await bcrypt.hash(password, 12);
 
+    // Prepare user data with role-specific fields
+    const userData: any = {
+      name: name.trim(),
+      email: normalizedEmail,
+      password: hashedPassword,
+      role: finalRole,
+      emailVerified: finalRole === "ADMIN" ? new Date() : null,
+      phone: phone?.trim() || null,
+    };
+
+    // Add staff number for teachers
+    if (finalRole === "TEACHER" && staffNo) {
+      userData.staffNo = staffNo.trim();
+    }
+
+    // Create user
     const newUser = await prisma.user.create({
-      data: {
-        name: name.trim(),
-        email: normalizedEmail,
-        password: hashedPassword,
-        role: finalRole,
-        emailVerified: finalRole === "ADMIN" ? new Date() : null,
-      },
+      data: userData,
     });
 
-    console.log("🎉 SUCCESS! User created → ID:", newUser.id, "Email:", newUser.email);
+    console.log("🎉 User created → ID:", newUser.id, "Role:", finalRole);
+
+    // Create role-specific records
+    if (finalRole === "STUDENT") {
+      // Validate required fields
+      if (!admissionNumber) {
+        await prisma.user.delete({ where: { id: newUser.id } });
+        return { success: false, error: "Admission number is required for students" };
+      }
+      if (!classId) {
+        await prisma.user.delete({ where: { id: newUser.id } });
+        return { success: false, error: "Class is required for students" };
+      }
+
+      // Check if admission number already exists
+      const existingStudent = await prisma.student.findUnique({
+        where: { admissionNumber: admissionNumber.trim() },
+      });
+
+      if (existingStudent) {
+        await prisma.user.delete({ where: { id: newUser.id } });
+        return { success: false, error: "Admission number already exists" };
+      }
+
+      await prisma.student.create({
+        data: {
+          userId: newUser.id,
+          name: name.trim(),
+          admissionNumber: admissionNumber.trim(),
+          classId: classId,
+          phone: phone?.trim() || null,
+          email: normalizedEmail,
+          admissionDate: new Date(),
+        },
+      });
+      console.log("🎉 Student record created for:", newUser.id);
+    }
+
+    if (finalRole === "PARENT") {
+      await prisma.parent.create({
+        data: {
+          userId: newUser.id,
+          name: name.trim(),
+          phone: phone?.trim() || null,
+          email: normalizedEmail,
+          occupation: occupation?.trim() || null,
+          relationship: relationship?.trim() || null,
+        },
+      });
+      console.log("🎉 Parent record created for:", newUser.id);
+    }
+
+    if (finalRole === "TEACHER") {
+      // Teacher-specific logic if needed
+      console.log("🎉 Teacher account created for:", newUser.id);
+    }
 
     // Verification email (skip for first admin)
     if (finalRole !== "ADMIN") {
@@ -129,6 +213,6 @@ export async function signUpAction(data: SignUpInput) {
     };
   } catch (error: any) {
     console.error("💥 CRITICAL ERROR in signUpAction:", error);
-    return { success: false, error: "Failed to create account - check terminal" };
+    return { success: false, error: error.message || "Failed to create account" };
   }
 }
