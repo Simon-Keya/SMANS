@@ -1,4 +1,5 @@
 // lib/permissions.ts
+export {}; 
 import { authOptions } from "@/lib/auth/auth";
 import { getServerSession } from "next-auth";
 
@@ -9,7 +10,7 @@ import { getServerSession } from "next-auth";
 /**
  * All supported roles in the system
  */
-export type Role = "ADMIN" | "TEACHER" | "STUDENT" | "PARENT";
+export type Role = "ADMIN" | "TEACHER" | "STUDENT" | "PARENT" | "ACCOUNTANT";
 
 /**
  * All possible permissions in the system (central source of truth)
@@ -17,7 +18,7 @@ export type Role = "ADMIN" | "TEACHER" | "STUDENT" | "PARENT";
  */
 export type Permission =
   // Wildcards
-  | "*"                       // Full access (admin only)
+  | "*"
   | "users:*"
   | "students:*"
   | "teachers:*"
@@ -29,12 +30,15 @@ export type Permission =
   | "notifications:*"
   | "fees:*"
   | "settings:*"
-
   // Specific permissions
   | "users:read"
   | "users:write"
   | "students:read"
   | "students:write"
+  | "teachers:read"
+  | "teachers:write"
+  | "classes:read"
+  | "classes:write"
   | "attendance:mark"
   | "attendance:read"
   | "attendance:edit"
@@ -49,15 +53,15 @@ export type Permission =
   | "notifications:read"
   | "fees:read"
   | "fees:pay"
+  | "fees:write"
   | "profile:read"
   | "profile:write";
 
 /* =========================
    PERMISSION MAP
-   (central source of truth – update here only)
 ========================= */
 export const permissions: Record<Role, Permission[]> = {
-  ADMIN: ["*"], // wildcard: full access
+  ADMIN: ["*"],
 
   TEACHER: [
     "students:read",
@@ -76,6 +80,8 @@ export const permissions: Record<Role, Permission[]> = {
     "notifications:send",
     "profile:read",
     "profile:write",
+    "classes:read",
+    "classes:write",
   ],
 
   STUDENT: [
@@ -84,10 +90,11 @@ export const permissions: Record<Role, Permission[]> = {
     "profile:read",
     "profile:write",
     "notifications:read",
+    "exams:read",
   ],
 
   PARENT: [
-    "students:read",      // their own children
+    "students:read",
     "grades:read",
     "attendance:read",
     "fees:read",
@@ -95,80 +102,90 @@ export const permissions: Record<Role, Permission[]> = {
     "profile:write",
     "notifications:read",
   ],
+
+  ACCOUNTANT: [
+    "fees:read",
+    "fees:pay",
+    "fees:write",
+    "reports:read",
+    "reports:generate",
+    "profile:read",
+    "profile:write",
+    "students:read",
+  ],
 };
 
 /* =========================
-   BASIC PERMISSION CHECK
+   PERMISSION CHECK FUNCTIONS
 ========================= */
 
 /**
  * Check if a given role has the specified permission.
- * Supports wildcards: "*" (full access) and "resource:*" (all actions on a resource)
- * @param role The user's role
- * @param permission The permission string to check (e.g. "grades:read")
- * @returns true if the role has the permission
  */
 export function hasPermission(role: Role, permission: Permission): boolean {
-  // Admin has everything
   if (role === "ADMIN") return true;
 
   const perms = permissions[role];
   if (!perms) return false;
 
-  // Direct match
   if (perms.includes(permission)) return true;
 
-  // Wildcard: resource:*
   const parts = permission.split(":");
   if (parts.length === 2) {
     const resource = parts[0];
     if (perms.includes(`${resource}:*` as Permission)) return true;
   }
 
-  // Full wildcard (should only be on ADMIN)
   if (perms.includes("*")) return true;
 
   return false;
 }
 
-/* =========================
-   RESOURCE-SPECIFIC CHECK (optional)
-========================= */
+/**
+ * Client-side permission check (no async, no session)
+ * Use this in client components for conditional rendering
+ */
+export function hasClientPermission(role: Role, permission: Permission): boolean {
+  return hasPermission(role, permission);
+}
 
 /**
- * Check permission for a specific resource instance
- * Example: can user view student #123?
- * Useful for ownership checks (e.g. parents only see their children)
+ * Check if a role has any of the given permissions
  */
+export function hasAnyPermission(role: Role, permissionsList: Permission[]): boolean {
+  return permissionsList.some(p => hasPermission(role, p));
+}
+
+/**
+ * Check if a role has all of the given permissions
+ */
+export function hasAllPermissions(role: Role, permissionsList: Permission[]): boolean {
+  return permissionsList.every(p => hasPermission(role, p));
+}
+
+/* =========================
+   RESOURCE-SPECIFIC CHECK
+========================= */
+
 export function hasResourcePermission(
   role: Role,
   permission: Permission,
   resourceId: string,
   currentUserId?: string
 ): boolean {
-  // Admin always has access
   if (role === "ADMIN") return true;
 
-  // Example: parents can only read their own children
   if (permission === "students:read") {
-    // In real app: query DB to check ownership
-    // For now: allow teachers + parents
     return role === "TEACHER" || role === "PARENT";
   }
 
-  // Fallback to regular permission check
   return hasPermission(role, permission);
 }
 
 /* =========================
-   SERVER HELPERS: REQUIRE ROLE / PERMISSION
+   SERVER HELPERS
 ========================= */
 
-/**
- * Throw if user is not authenticated or doesn't have one of the allowed roles.
- * Returns the session for chaining.
- * @throws Error if unauthorized or forbidden
- */
 export async function requireRole(...allowedRoles: Role[]) {
   const session = await getServerSession(authOptions);
 
@@ -187,11 +204,6 @@ export async function requireRole(...allowedRoles: Role[]) {
   return session;
 }
 
-/**
- * Throw if user lacks a specific permission.
- * Returns the session for chaining.
- * @throws Error if unauthorized or forbidden
- */
 export async function requirePermission(permission: Permission) {
   const session = await getServerSession(authOptions);
 
@@ -208,14 +220,6 @@ export async function requirePermission(permission: Permission) {
   return session;
 }
 
-/* =========================
-   CLIENT/SERVER SAFE CHECK
-========================= */
-
-/**
- * Safe permission check — returns boolean (never throws).
- * Perfect for UI conditional rendering or non-critical logic.
- */
 export async function can(permission: Permission): Promise<boolean> {
   const session = await getServerSession(authOptions);
   if (!session?.user) return false;
@@ -225,3 +229,6 @@ export async function can(permission: Permission): Promise<boolean> {
 
   return hasPermission(role, permission);
 }
+
+// Re-export commonly used types for convenience
+export type { Role as AppRole, Permission as AppPermission };

@@ -12,12 +12,14 @@ declare module "next-auth" {
     user: {
       id: string;
       role: "ADMIN" | "TEACHER" | "STUDENT" | "PARENT" | "ACCOUNTANT";
+      isActive?: boolean;
     } & DefaultSession["user"];
   }
 
   interface User {
     id: string;
     role: "ADMIN" | "TEACHER" | "STUDENT" | "PARENT" | "ACCOUNTANT";
+    isActive?: boolean;
   }
 }
 
@@ -25,6 +27,7 @@ declare module "next-auth/jwt" {
   interface JWT {
     id: string;
     role: "ADMIN" | "TEACHER" | "STUDENT" | "PARENT" | "ACCOUNTANT";
+    isActive?: boolean;
   }
 }
 
@@ -46,10 +49,19 @@ export const authOptions = {
 
         const user = await prisma.user.findUnique({
           where: { email: credentials.email.toLowerCase().trim() },
+          include: {
+            student: { select: { id: true, name: true, admissionNumber: true } },
+            parent: { select: { id: true, name: true } },
+          },
         });
 
         if (!user || !user.password) {
           return null;
+        }
+
+        // Check if account is active
+        if (!user.isActive) {
+          throw new Error("Your account has been deactivated. Please contact support.");
         }
 
         const isValid = await bcrypt.compare(credentials.password, user.password);
@@ -63,6 +75,7 @@ export const authOptions = {
           name: user.name ?? null,
           email: user.email,
           role: user.role,
+          isActive: user.isActive,
         };
       },
     }),
@@ -70,49 +83,53 @@ export const authOptions = {
 
   pages: {
     signIn: "/auth/login",
-    error: "/auth/error",        // recommended – shows auth errors nicely
-    signOut: "/auth/signout",    // optional but good practice
+    error: "/auth/error",
+    signOut: "/auth/signout",
   },
 
   session: {
     strategy: "jwt" as const,
-    maxAge: 30 * 24 * 60 * 60,   // 30 days – adjust as needed
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
 
   callbacks: {
     async jwt({ token, user }) {
-      // First sign-in: copy user data into token
       if (user) {
         token.id = user.id;
         token.role = user.role;
+        token.isActive = user.isActive;
       }
       return token;
     },
 
     async session({ session, token }) {
-      // Copy token data into session.user
       if (token?.id) {
         session.user.id = token.id as string;
       }
       if (token?.role) {
         session.user.role = token.role as "ADMIN" | "TEACHER" | "STUDENT" | "PARENT" | "ACCOUNTANT";
       }
+      if (token?.isActive !== undefined) {
+        session.user.isActive = token.isActive as boolean;
+      }
       return session;
+    },
+
+    async redirect({ url, baseUrl }) {
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      else if (new URL(url).origin === baseUrl) return url;
+      return baseUrl;
     },
   },
 
   secret: process.env.NEXTAUTH_SECRET,
 
-  // Enable debug logs in development
   debug: process.env.NODE_ENV === "development",
 
-  // Optional: improve security
   jwt: {
-    maxAge: 30 * 24 * 60 * 60, // match session maxAge
+    maxAge: 30 * 24 * 60 * 60,
   },
 } satisfies import("next-auth").NextAuthOptions;
 
-// Export handler for App Router API route
 const handler = NextAuth(authOptions);
-
 export { handler as GET, handler as POST };

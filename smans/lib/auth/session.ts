@@ -24,6 +24,7 @@ export async function getCurrentUser() {
     name: session.user.name,
     email: session.user.email,
     role: session.user.role,
+    isActive: session.user.isActive,
   };
 }
 
@@ -41,4 +42,22 @@ export async function requireRole(requiredRole: "ADMIN" | "TEACHER" | "PARENT" |
     throw new Error(`Access denied. Required role: ${requiredRole}`);
   }
   return user;
+}
+
+export async function requireActive() {
+  const user = await requireAuth();
+  if (!user.isActive) {
+    throw new Error("Your account has been deactivated.");
+  }
+  return user;
+}
+
+export async function hasRole(role: "ADMIN" | "TEACHER" | "PARENT" | "STUDENT" | "ACCOUNTANT"): Promise<boolean> {
+  const user = await getCurrentUser();
+  return user?.role === role;
+}
+
+export async function isAuthenticated(): Promise<boolean> {
+  const user = await getCurrentUser();
+  return !!user;
 }

@@ -14,46 +14,67 @@ import {
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [redirecting, setRedirecting] = useState(false);
 
   const searchParams = useSearchParams();
   const router = useRouter();
   const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
 
+  // Clear redirecting state after navigation
+  useEffect(() => {
+    if (redirecting) {
+      const timer = setTimeout(() => setRedirecting(false), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [redirecting]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
+    setRedirecting(false);
 
     console.log("🔐 Attempting login for:", email);
 
-    const result = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-      callbackUrl,
-    });
+    try {
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+        callbackUrl,
+      });
 
-    console.log("🔐 Login result:", result);
+      console.log("🔐 Login result:", result);
 
-    if (result?.error) {
-      setError("Invalid email or password. Please try again.");
-      setLoading(false);
-    } else if (result?.ok) {
-      console.log("✅ Login successful! Redirecting to:", callbackUrl);
-      
-      // Strong redirect strategy for Vercel
-      router.push(callbackUrl);
-      router.refresh();           // Refresh session
-      window.location.href = callbackUrl; // Strong fallback for Vercel
-    } else {
-      setError("Something went wrong. Please try again.");
+      if (result?.error) {
+        setError("Invalid email or password. Please try again.");
+        setLoading(false);
+      } else if (result?.ok) {
+        console.log("✅ Login successful! Redirecting to:", callbackUrl);
+        setRedirecting(true);
+        
+        // Multiple redirect strategies for reliability
+        router.push(callbackUrl);
+        router.refresh();
+        
+        // Fallback redirect after a delay
+        setTimeout(() => {
+          window.location.href = callbackUrl;
+        }, 500);
+      } else {
+        setError("Something went wrong. Please try again.");
+        setLoading(false);
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      setError("An unexpected error occurred. Please try again.");
       setLoading(false);
     }
   };
@@ -127,6 +148,14 @@ export default function LoginPage() {
             </div>
           )}
 
+          {/* Redirecting Message */}
+          {redirecting && (
+            <div className="flex items-center gap-3 bg-primary/10 border border-primary text-primary rounded-xl px-4 py-3 text-sm mb-6 animate-pulse">
+              <span className="loading loading-spinner loading-sm" />
+              Redirecting to dashboard...
+            </div>
+          )}
+
           {/* Error Message */}
           {error && (
             <div className="bg-error/10 border border-error text-error rounded-xl px-4 py-3 text-sm mb-6">
@@ -175,11 +204,16 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <Button type="submit" disabled={loading} className="w-full">
+            <Button type="submit" disabled={loading || redirecting} className="w-full">
               {loading ? (
                 <>
                   <span className="loading loading-spinner loading-sm" />
                   Signing in...
+                </>
+              ) : redirecting ? (
+                <>
+                  <span className="loading loading-spinner loading-sm" />
+                  Redirecting...
                 </>
               ) : (
                 <>

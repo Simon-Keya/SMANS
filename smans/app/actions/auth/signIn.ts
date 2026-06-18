@@ -4,6 +4,8 @@
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth/auth";
 
 // Simple in-memory rate limiter
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
@@ -62,6 +64,10 @@ export async function signInAction({ email, password, callbackUrl = "/dashboard"
   try {
     const user = await prisma.user.findUnique({
       where: { email: normalizedEmail },
+      include: {
+        student: { select: { id: true, name: true, admissionNumber: true } },
+        parent: { select: { id: true, name: true } },
+      },
     });
 
     if (!user || !user.password) {
@@ -71,6 +77,14 @@ export async function signInAction({ email, password, callbackUrl = "/dashboard"
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       return { success: false, error: "Invalid email or password" };
+    }
+
+    // Check if user is active
+    if (!user.isActive) {
+      return { 
+        success: false, 
+        error: "Your account has been deactivated. Please contact support." 
+      };
     }
 
     // Check email verification (except for ADMIN)
@@ -86,6 +100,10 @@ export async function signInAction({ email, password, callbackUrl = "/dashboard"
     // Redirect to dashboard
     redirect(callbackUrl);
   } catch (error: any) {
+    // If it's a redirect, re-throw it
+    if (error.message?.includes('NEXT_REDIRECT')) {
+      throw error;
+    }
     console.error("💥 SignIn Action Error:", error);
     return { success: false, error: "Something went wrong. Please try again." };
   }
