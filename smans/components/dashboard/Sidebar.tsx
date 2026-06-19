@@ -17,7 +17,6 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-// Define types with all required permissions and roles
 type Role = "ADMIN" | "TEACHER" | "STUDENT" | "PARENT" | "ACCOUNTANT";
 
 type Permission = 
@@ -58,7 +57,6 @@ type Permission =
   | "profile:read"
   | "profile:write";
 
-// Permission map for each role
 const rolePermissions: Record<Role, Permission[]> = {
   ADMIN: ["*"],
   TEACHER: [
@@ -87,6 +85,7 @@ const rolePermissions: Record<Role, Permission[]> = {
     "profile:read",
     "profile:write",
     "notifications:read",
+    "exams:read",
   ],
   PARENT: [
     "students:read",
@@ -128,34 +127,29 @@ function hasPermission(role: Role, permission: Permission): boolean {
 }
 
 interface SidebarProps {
-  role?: Role;
-  userPermissions?: Permission[];
+  role?: string;
 }
 
 interface NavItem {
   href: string;
   label: string;
   icon: any;
-  permission?: Permission;
   roles?: Role[];
+  permission?: Permission;
 }
 
-export default function Sidebar({ role = "STUDENT", userPermissions = [] }: SidebarProps) {
+export default function Sidebar({ role = "STUDENT" }: SidebarProps) {
   const pathname = usePathname();
+  const userRole = role.toUpperCase() as Role;
 
   const checkPermission = (permission?: Permission): boolean => {
     if (!permission) return true;
-    if (userPermissions.length > 0) {
-      return userPermissions.includes(permission) || userPermissions.includes("*");
-    }
-    return hasPermission(role, permission);
+    return hasPermission(userRole, permission);
   };
 
   const allNavItems: NavItem[] = [
-    // Dashboard (always visible)
     { href: "/dashboard", label: "Dashboard", icon: Home },
 
-    // Students
     { 
       href: "/dashboard/students", 
       label: "Students", 
@@ -164,7 +158,6 @@ export default function Sidebar({ role = "STUDENT", userPermissions = [] }: Side
       roles: ["ADMIN", "TEACHER", "ACCOUNTANT"]
     },
 
-    // Teachers
     { 
       href: "/dashboard/teachers", 
       label: "Teachers", 
@@ -173,7 +166,6 @@ export default function Sidebar({ role = "STUDENT", userPermissions = [] }: Side
       roles: ["ADMIN"]
     },
 
-    // Classes
     { 
       href: "/dashboard/classes", 
       label: "My Classes", 
@@ -189,7 +181,6 @@ export default function Sidebar({ role = "STUDENT", userPermissions = [] }: Side
       roles: ["ADMIN"]
     },
 
-    // Assessments
     { 
       href: "/dashboard/assessments", 
       label: "Assessments", 
@@ -198,7 +189,6 @@ export default function Sidebar({ role = "STUDENT", userPermissions = [] }: Side
       roles: ["ADMIN", "TEACHER"]
     },
 
-    // Attendance
     { 
       href: "/dashboard/attendance", 
       label: "Attendance", 
@@ -214,7 +204,6 @@ export default function Sidebar({ role = "STUDENT", userPermissions = [] }: Side
       roles: ["TEACHER"]
     },
 
-    // Grades
     { 
       href: "/dashboard/grades", 
       label: "Grades", 
@@ -230,7 +219,6 @@ export default function Sidebar({ role = "STUDENT", userPermissions = [] }: Side
       roles: ["TEACHER"]
     },
 
-    // Timetable
     { 
       href: "/dashboard/timetable", 
       label: "Timetable", 
@@ -239,7 +227,6 @@ export default function Sidebar({ role = "STUDENT", userPermissions = [] }: Side
       roles: ["ADMIN", "TEACHER", "STUDENT"]
     },
 
-    // Fees
     { 
       href: "/dashboard/fees", 
       label: "Fees & Finance", 
@@ -248,7 +235,6 @@ export default function Sidebar({ role = "STUDENT", userPermissions = [] }: Side
       roles: ["ADMIN", "ACCOUNTANT", "PARENT"]
     },
 
-    // Children (Parent specific)
     { 
       href: "/dashboard/children", 
       label: "My Children", 
@@ -257,7 +243,6 @@ export default function Sidebar({ role = "STUDENT", userPermissions = [] }: Side
       roles: ["PARENT"]
     },
 
-    // Settings (Admin only)
     { 
       href: "/dashboard/settings", 
       label: "Settings", 
@@ -266,7 +251,6 @@ export default function Sidebar({ role = "STUDENT", userPermissions = [] }: Side
       roles: ["ADMIN"]
     },
 
-    // Profile (everyone)
     { 
       href: "/dashboard/profile", 
       label: "Profile", 
@@ -275,25 +259,18 @@ export default function Sidebar({ role = "STUDENT", userPermissions = [] }: Side
     },
   ];
 
-  // Filter nav items based on role and permissions
   const filteredNavItems = allNavItems.filter((item) => {
-    // Check role-based access first
-    if (item.roles && !item.roles.includes(role)) return false;
-
-    // Check permission-based access
+    if (item.roles && !item.roles.includes(userRole)) return false;
     if (item.permission) {
       return checkPermission(item.permission);
     }
-
     return true;
   });
 
-  // Remove duplicates based on href (keep first occurrence)
   const uniqueNavItems = filteredNavItems.filter(
     (item, index, self) => self.findIndex((i) => i.href === item.href) === index
   );
 
-  // Sort items: Dashboard first, then alphabetically
   const sortedNavItems = uniqueNavItems.sort((a, b) => {
     if (a.href === "/dashboard") return -1;
     if (b.href === "/dashboard") return 1;
@@ -301,12 +278,12 @@ export default function Sidebar({ role = "STUDENT", userPermissions = [] }: Side
   });
 
   return (
-    <div className="hidden md:flex flex-col w-64 bg-base-200 border-r border-neutral h-screen">
+    <div className="hidden md:flex flex-col w-64 bg-base-200 border-r border-neutral h-screen sticky top-0">
       <div className="p-6 border-b border-neutral">
         <h2 className="font-bold text-xl text-primary">SMANS</h2>
         <p className="text-xs text-base-content/60 mt-1">Kenya CBC System</p>
         <div className="mt-2 text-xs text-primary/60 font-medium">
-          {role}
+          {userRole}
         </div>
       </div>
 
