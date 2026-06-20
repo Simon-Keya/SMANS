@@ -1,5 +1,4 @@
 // lib/permissions.ts
-export {}; 
 import { authOptions } from "@/lib/auth/auth";
 import { getServerSession } from "next-auth";
 

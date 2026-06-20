@@ -24,7 +24,7 @@ export async function getCurrentUser() {
     name: session.user.name,
     email: session.user.email,
     role: session.user.role,
-    isActive: session.user.isActive,
+    isActive: session.user.isActive ?? true, // Default to true if not set
   };
 }
 
@@ -46,7 +46,7 @@ export async function requireRole(requiredRole: "ADMIN" | "TEACHER" | "PARENT" |
 
 export async function requireActive() {
   const user = await requireAuth();
-  if (!user.isActive) {
+  if (user.isActive === false) {
     throw new Error("Your account has been deactivated.");
   }
   return user;

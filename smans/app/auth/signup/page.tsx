@@ -46,12 +46,33 @@ type SignUpFormData =
   | z.infer<typeof parentSchema>
   | z.infer<typeof teacherSchema>;
 
+// Note: This is a client component, we'll fetch classes via API
 export default function SignUpPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [classes, setClasses] = useState<{ id: string; name: string; level: string }[]>([]);
+  const [loadingClasses, setLoadingClasses] = useState(true);
   const router = useRouter();
   const [selectedRole, setSelectedRole] = useState<"STUDENT" | "TEACHER" | "PARENT">("STUDENT");
+
+  // Fetch classes from API
+  useEffect(() => {
+    async function fetchClasses() {
+      try {
+        const res = await fetch("/api/classes");
+        if (res.ok) {
+          const data = await res.json();
+          setClasses(data.data || []);
+        }
+      } catch (error) {
+        console.error("Failed to fetch classes:", error);
+      } finally {
+        setLoadingClasses(false);
+      }
+    }
+    fetchClasses();
+  }, []);
 
   // Get the appropriate schema based on role
   const getSchema = (role: string) => {
@@ -92,7 +113,6 @@ export default function SignUpPage() {
 
   const watchedRole = watch("role");
 
-  // Update selected role when form role changes
   useEffect(() => {
     const subscription = watch((value, { name }) => {
       if (name === "role" && value.role) {
@@ -121,7 +141,6 @@ export default function SignUpPage() {
         phone: data.phone,
       };
 
-      // Add role-specific fields
       if (data.role === "STUDENT") {
         signUpData.admissionNumber = data.admissionNumber;
         signUpData.classId = data.classId;
@@ -158,31 +177,28 @@ export default function SignUpPage() {
 
   return (
     <div className="min-h-screen flex bg-base-100">
-      {/* Left Branding Panel */}
+      {/* Left Panel - Same as before */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary to-primary-focus flex-col items-center justify-center p-16 text-primary-content relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(#ffffff33_1px,transparent_1px)] [background-size:40px_40px]" />
-        
         <div className="relative z-10 text-center max-w-sm">
-          <GraduationCap className="w-20 h-20 mx-auto mb-6 text-primary-content" />
+          <GraduationCap className="w-20 h-20 mx-auto mb-6" />
           <h1 className="text-5xl font-black mb-4">SMANS</h1>
           <p className="text-lg opacity-80">School Management System</p>
         </div>
       </div>
 
-      {/* Right Form Panel */}
+      {/* Right Panel */}
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-md">
           <div className="mb-8">
             <h2 className="text-3xl font-bold">Create Account</h2>
-            <p className="text-base-content/60 mt-1">
-              First user will become Administrator
-            </p>
+            <p className="text-base-content/60 mt-1">First user becomes Administrator</p>
           </div>
 
           {success && (
-            <div className="flex items-center gap-3 bg-success/10 border border-success text-success p-4 rounded-xl mb-6">
+            <div className="bg-success/10 border border-success text-success p-4 rounded-xl mb-6 flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5" />
-              Account created successfully! Redirecting to login...
+              Account created successfully! Redirecting...
             </div>
           )}
 
@@ -255,7 +271,6 @@ export default function SignUpPage() {
                 onChange={(e) => {
                   const newRole = e.target.value as "STUDENT" | "TEACHER" | "PARENT";
                   setSelectedRole(newRole);
-                  // Reset role-specific fields when role changes
                   setValue("admissionNumber", "");
                   setValue("classId", "");
                   setValue("occupation", "");
@@ -286,13 +301,26 @@ export default function SignUpPage() {
                 </div>
 
                 <div>
-                  <Label>Class ID *</Label>
-                  <Input
-                    placeholder="Class ID"
-                    {...register("classId")}
-                    className="mt-1"
-                  />
+                  <Label>Class *</Label>
+                  <select 
+                    {...register("classId")} 
+                    className="select select-bordered w-full mt-1"
+                    disabled={loadingClasses}
+                  >
+                    <option value="">Select a class</option>
+                    {classes.map((cls) => (
+                      <option key={cls.id} value={cls.id}>
+                        {cls.name} {cls.level ? `(${cls.level})` : ""}
+                      </option>
+                    ))}
+                  </select>
                   {errors.classId && <p className="text-error text-sm mt-1">{String(errors.classId.message)}</p>}
+                  {loadingClasses && <p className="text-sm text-base-content/60 mt-1">Loading classes...</p>}
+                  {!loadingClasses && classes.length === 0 && (
+                    <p className="text-sm text-warning mt-1">
+                      No classes available. Please contact the administrator.
+                    </p>
+                  )}
                 </div>
               </>
             )}
