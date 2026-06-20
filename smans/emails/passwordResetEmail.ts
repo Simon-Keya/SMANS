@@ -1,3 +1,4 @@
+// lib/email.ts
 import nodemailer from "nodemailer";
 
 // ───────────────────────────────────────────────
@@ -14,16 +15,23 @@ interface EmailConfig {
   from: string;
 }
 
+// ───────────────────────────────────────────────
 // Validate required env vars at startup (crash early if missing)
+// ───────────────────────────────────────────────
 function getEmailConfig(): EmailConfig {
-  const required = [
-    "SMTP_HOST",
-    "SMTP_PORT",
-    "SMTP_USER",
-    "SMTP_PASS",
-    "SMTP_FROM",
-  ];
+  // Allow email to be disabled in development
+  if (process.env.NODE_ENV === "development" && !process.env.SMTP_HOST) {
+    console.warn("⚠️ SMTP not configured - email sending will be simulated");
+    return {
+      host: "smtp.example.com",
+      port: 587,
+      secure: false,
+      auth: { user: "test", pass: "test" },
+      from: "noreply@smans.local",
+    };
+  }
 
+  const required = ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"];
   const missing = required.filter((key) => !process.env[key]);
 
   if (missing.length > 0) {
@@ -40,7 +48,7 @@ function getEmailConfig(): EmailConfig {
   return {
     host: process.env.SMTP_HOST!,
     port,
-    secure: port === 465, // 465 = SSL, 587 = STARTTLS
+    secure: port === 465,
     auth: {
       user: process.env.SMTP_USER!,
       pass: process.env.SMTP_PASS!,
@@ -166,15 +174,21 @@ export async function sendPasswordResetEmail({
 }) {
   const config = getEmailConfig();
 
+  // Skip actual email sending in development if SMTP not configured
+  if (process.env.NODE_ENV === "development" && !process.env.SMTP_HOST) {
+    console.log(`📧 [DEV] Password reset email would be sent to ${to}`);
+    console.log(`🔗 [DEV] Reset URL: ${resetUrl}`);
+    return { success: true, devMode: true };
+  }
+
   const transporter = nodemailer.createTransport({
     host: config.host,
     port: config.port,
-    secure: config.secure, // true for 465, false for 587 (STARTTLS)
+    secure: config.secure,
     auth: config.auth,
-    tls: config.secure ? undefined : { rejectUnauthorized: false }, // for self-signed certs in dev
+    tls: config.secure ? undefined : { rejectUnauthorized: false },
   });
 
-  // Verify SMTP connection in development
   if (process.env.NODE_ENV !== "production") {
     try {
       await transporter.verify();

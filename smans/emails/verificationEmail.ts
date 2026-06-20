@@ -12,6 +12,16 @@ export async function sendVerificationEmail({
   name,
   verifyUrl,
 }: SendVerificationEmailInput) {
+  const appName = "SMANS";
+  const subject = `Verify your ${appName} account`;
+
+  // Skip actual email sending in development if SMTP not configured
+  if (process.env.NODE_ENV === "development" && !process.env.SMTP_HOST) {
+    console.log(`📧 [DEV] Verification email would be sent to ${to}`);
+    console.log(`🔗 [DEV] Verify URL: ${verifyUrl}`);
+    return { success: true, devMode: true };
+  }
+
   const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST!,
     port: Number(process.env.SMTP_PORT),
@@ -21,9 +31,6 @@ export async function sendVerificationEmail({
       pass: process.env.SMTP_PASS!,
     },
   });
-
-  const appName = "SMANS";
-  const subject = `Verify your ${appName} account`;
 
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -77,6 +84,7 @@ ${appName} Team
     });
 
     console.log(`Verification email sent to ${to}`);
+    return { success: true };
   } catch (err) {
     console.error("Failed to send verification email:", err);
     throw new Error("Failed to send verification email");
