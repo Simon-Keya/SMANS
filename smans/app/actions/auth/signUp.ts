@@ -106,7 +106,7 @@ export async function signUpAction(data: SignUpInput) {
       return { success: false, error: "Too many attempts. Try again later." };
     }
 
-    // ── Check Existing User ──────────────────────────────────────────────
+    // ──────────────────────────────────────────────
 
     const existing = await prisma.user.findUnique({
       where: { email: normalizedEmail },
