@@ -11,10 +11,9 @@ const createClassSchema = z.object({
   teacherId: z.string().optional().nullable(),
 });
 
+// ✅ PUBLIC - No authentication required
 export async function GET() {
   try {
-    // Allow public access for signup page
-    // We don't require authentication for GET /api/classes
     const classes = await prisma.class.findMany({
       select: {
         id: true,
@@ -49,6 +48,7 @@ export async function GET() {
   }
 }
 
+// ✅ POST - Protected (Admin only)
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
@@ -68,7 +68,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check for duplicate class
     const existing = await prisma.class.findFirst({
       where: {
         name: parsed.data.name,

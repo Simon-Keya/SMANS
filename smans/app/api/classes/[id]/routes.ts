@@ -11,13 +11,11 @@ const updateClassSchema = z.object({
   teacherId: z.string().optional().nullable(),
 });
 
+// ✅ PUBLIC - No authentication required for viewing class details
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // Allow public access for viewing class details
-  // (used in dashboard for students/parents viewing class info)
-  
   try {
     const { id } = await params;
     
@@ -52,6 +50,7 @@ export async function GET(
   }
 }
 
+// ✅ PUT - Protected (Admin only)
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -75,7 +74,6 @@ export async function PUT(
       );
     }
 
-    // Build update data with only provided fields
     const updateData: any = {};
     if (parsed.data.name !== undefined) updateData.name = parsed.data.name;
     if (parsed.data.level !== undefined) updateData.level = parsed.data.level;
@@ -99,6 +97,7 @@ export async function PUT(
   }
 }
 
+// ✅ DELETE - Protected (Admin only)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
