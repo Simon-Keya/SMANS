@@ -35,6 +35,7 @@ export async function GET() {
         id: cls.id,
         name: cls.name,
         level: cls.level,
+        teacherId: cls.teacher?.id || null,
         teacher: cls.teacher,
         studentCount: cls._count.students,
       })),
@@ -66,6 +67,19 @@ export async function POST(request: NextRequest) {
         { error: firstError?.message || "Validation failed" },
         { status: 400 }
       );
+    }
+
+    // Validate teacher if provided
+    if (parsed.data.teacherId) {
+      const teacher = await prisma.user.findFirst({
+        where: { id: parsed.data.teacherId, role: "TEACHER" },
+      });
+      if (!teacher) {
+        return NextResponse.json(
+          { error: "Teacher not found or not a teacher" },
+          { status: 400 }
+        );
+      }
     }
 
     // Check for duplicate class
