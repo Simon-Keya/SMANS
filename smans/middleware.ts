@@ -19,8 +19,11 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Allow public API routes
-  if (pathname.startsWith("/api/auth") || pathname === "/api/webhooks") {
+  // ✅ ALLOW PUBLIC API ROUTES (including /api/classes)
+  if (pathname.startsWith("/api/auth") || 
+      pathname === "/api/webhooks" ||
+      pathname === "/api/classes" ||
+      pathname.startsWith("/api/classes/")) {
     return NextResponse.next();
   }
 
@@ -80,6 +83,8 @@ export const config = {
     "/dashboard/:path*",
     "/api/protected/:path*",
     "/auth/:path*",
+    "/api/classes",
+    "/api/classes/:path*",
     "/((?!api/auth|_next/static|_next/image|favicon.ico).*)",
   ],
 };
