@@ -74,6 +74,7 @@ export async function PUT(
       );
     }
 
+    // Build update data with only provided fields
     const updateData: any = {};
     if (parsed.data.name !== undefined) updateData.name = parsed.data.name;
     if (parsed.data.level !== undefined) updateData.level = parsed.data.level;

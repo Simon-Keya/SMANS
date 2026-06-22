@@ -39,34 +39,40 @@ const teacherSchema = baseSchema.extend({
   staffNo: z.string().min(1, "Staff number is required"),
 });
 
-// Union type for all possible form data
 type SignUpFormData = 
   | z.infer<typeof baseSchema>
   | z.infer<typeof studentSchema>
   | z.infer<typeof parentSchema>
   | z.infer<typeof teacherSchema>;
 
-// Note: This is a client component, we'll fetch classes via API
 export default function SignUpPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
-  const [classes, setClasses] = useState<{ id: string; name: string; level: string }[]>([]);
+  const [classes, setClasses] = useState<{ id: string; name: string; level: string | null }[]>([]);
   const [loadingClasses, setLoadingClasses] = useState(true);
   const router = useRouter();
   const [selectedRole, setSelectedRole] = useState<"STUDENT" | "TEACHER" | "PARENT">("STUDENT");
 
-  // Fetch classes from API
+  // Fetch classes from public API
   useEffect(() => {
     async function fetchClasses() {
       try {
+        console.log("🔍 Fetching classes from /api/classes...");
         const res = await fetch("/api/classes");
+        console.log("📡 Response status:", res.status);
+        
         if (res.ok) {
           const data = await res.json();
+          console.log("📚 Classes received:", data.data?.length || 0);
           setClasses(data.data || []);
+        } else {
+          console.error("❌ Failed to fetch classes. Status:", res.status);
+          setClasses([]);
         }
       } catch (error) {
-        console.error("Failed to fetch classes:", error);
+        console.error("❌ Network error fetching classes:", error);
+        setClasses([]);
       } finally {
         setLoadingClasses(false);
       }
@@ -177,7 +183,7 @@ export default function SignUpPage() {
 
   return (
     <div className="min-h-screen flex bg-base-100">
-      {/* Left Panel - Same as before */}
+      {/* Left Panel */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary to-primary-focus flex-col items-center justify-center p-16 text-primary-content relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(#ffffff33_1px,transparent_1px)] [background-size:40px_40px]" />
         <div className="relative z-10 text-center max-w-sm">
@@ -348,7 +354,7 @@ export default function SignUpPage() {
               </>
             )}
 
-            {/* Teacher-specific fields. */}
+            {/* Teacher-specific fields */}
             {selectedRole === "TEACHER" && (
               <div>
                 <Label>Staff Number *</Label>

@@ -146,18 +146,18 @@ export async function signUpAction(data: SignUpInput) {
     // ── Create Role-Specific Records ────────────────────────────────────
 
     if (finalRole === "STUDENT") {
-      // Find or create the class
+      // Validate classId exists and get the actual class
       let actualClassId = classId;
       let classRecord = null;
 
-      // Try to find class by ID first (if it's a valid ID format)
-      if (classId && classId.length > 10) {
+      // First try to find class by ID
+      if (classId) {
         classRecord = await prisma.class.findUnique({
           where: { id: classId },
         });
       }
 
-      // If not found by ID, try to find by name
+      // If not found by ID, try to find by name (case-insensitive)
       if (!classRecord && classId) {
         classRecord = await prisma.class.findFirst({
           where: { 
@@ -178,8 +178,9 @@ export async function signUpAction(data: SignUpInput) {
       }
 
       if (!classRecord) {
+        // Rollback user creation
         await prisma.user.delete({ where: { id: newUser.id } });
-        return { success: false, error: "Failed to find or create class" };
+        return { success: false, error: "Failed to find or create class. Please try again." };
       }
 
       actualClassId = classRecord.id;
@@ -237,7 +238,6 @@ export async function signUpAction(data: SignUpInput) {
 
     if (finalRole === "TEACHER") {
       // Teacher-specific logic (if needed)
-      // Additional teacher profile setup can go here
       console.log("🎉 Teacher account created for:", newUser.id);
     }
 
