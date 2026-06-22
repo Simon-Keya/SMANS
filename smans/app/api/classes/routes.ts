@@ -12,17 +12,20 @@ const createClassSchema = z.object({
 });
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
-
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
+    // Allow public access for signup page
+    // We don't require authentication for GET /api/classes
     const classes = await prisma.class.findMany({
-      include: {
-        teacher: { select: { id: true, name: true } },
-        _count: { select: { students: true } },
+      select: {
+        id: true,
+        name: true,
+        level: true,
+        teacher: {
+          select: { id: true, name: true },
+        },
+        _count: {
+          select: { students: true },
+        },
       },
       orderBy: { name: "asc" },
     });
@@ -30,13 +33,19 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       data: classes.map(cls => ({
-        ...cls,
+        id: cls.id,
+        name: cls.name,
+        level: cls.level,
+        teacher: cls.teacher,
         studentCount: cls._count.students,
       })),
     });
   } catch (error) {
     console.error("[GET_CLASSES]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch classes" },
+      { status: 500 }
+    );
   }
 }
 
@@ -85,9 +94,15 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ success: true, data: newClass }, { status: 201 });
+    return NextResponse.json(
+      { success: true, data: newClass },
+      { status: 201 }
+    );
   } catch (error) {
     console.error("[CREATE_CLASS]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }

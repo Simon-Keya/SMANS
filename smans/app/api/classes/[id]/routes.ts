@@ -15,12 +15,9 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions);
-
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+  // Allow public access for viewing class details
+  // (used in dashboard for students/parents viewing class info)
+  
   try {
     const { id } = await params;
     
@@ -39,13 +36,19 @@ export async function GET(
     return NextResponse.json({
       success: true,
       data: {
-        ...classRecord,
+        id: classRecord.id,
+        name: classRecord.name,
+        level: classRecord.level,
+        teacher: classRecord.teacher,
         studentCount: classRecord._count.students,
       },
     });
   } catch (error) {
     console.error("[GET_CLASS]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }
 
@@ -89,7 +92,10 @@ export async function PUT(
     return NextResponse.json({ success: true, data: updatedClass });
   } catch (error) {
     console.error("[UPDATE_CLASS]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }
 
@@ -129,6 +135,9 @@ export async function DELETE(
     return NextResponse.json({ success: true, message: "Class deleted successfully" });
   } catch (error) {
     console.error("[DELETE_CLASS]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }
