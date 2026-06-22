@@ -348,7 +348,7 @@ export default function SignUpPage() {
               </>
             )}
 
-            {/* Teacher-specific fields */}
+            {/* Teacher-specific fields. */}
             {selectedRole === "TEACHER" && (
               <div>
                 <Label>Staff Number *</Label>
