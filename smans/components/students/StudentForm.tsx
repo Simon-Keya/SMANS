@@ -18,10 +18,6 @@ import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
-// Remove server action imports - we'll use API routes instead
-// import { createStudent } from "@/app/actions/students/createStudent";
-// import { updateStudent } from "@/app/actions/students/updateStudent";
-
 const studentSchema = z.object({
   name: z.string().min(2, "Name is required"),
   admissionNumber: z.string().min(3, "Admission number is required"),
@@ -77,19 +73,15 @@ export default function StudentForm({
 
   const handleFormSubmit = async (data: StudentFormData) => {
     setError(null);
+    console.log("🔍 Form submitted with data:", data);
+    console.log("🔍 isEdit:", isEdit);
+    console.log("🔍 studentId:", studentId);
 
     startTransition(async () => {
       try {
-        let response;
-        let url: string;
-        let method: string;
-        let body: any;
-
         if (isEdit && studentId) {
-          // ✅ UPDATE - Use API route
-          url = `/api/students/${studentId}`;
-          method = "PUT";
-          body = {
+          // ✅ UPDATE - Use fetch to API
+          const updateData = {
             name: data.name.trim(),
             admissionNumber: data.admissionNumber.trim(),
             email: data.email?.trim() || null,
@@ -97,11 +89,36 @@ export default function StudentForm({
             classId: data.classId === "unassigned" ? null : data.classId || null,
             parentId: data.parentId === "no-parent" ? null : data.parentId || null,
           };
+
+          console.log("📤 Sending PUT request to /api/students/" + studentId);
+          console.log("📤 Data:", updateData);
+
+          const response = await fetch(`/api/students/${studentId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(updateData),
+          });
+
+          console.log("📥 Response status:", response.status);
+
+          const result = await response.json();
+          console.log("📥 Response data:", result);
+
+          if (!response.ok) {
+            throw new Error(result.error || "Failed to update student");
+          }
+
+          alert("Student updated successfully!");
+          
+          if (onSuccess) {
+            onSuccess();
+          } else {
+            router.push("/dashboard/students");
+            router.refresh();
+          }
         } else {
-          // ✅ CREATE - Use API route
-          url = "/api/students";
-          method = "POST";
-          body = {
+          // ✅ CREATE - Use fetch to API
+          const createData = {
             name: data.name.trim(),
             admissionNumber: data.admissionNumber.trim(),
             email: data.email?.trim() || null,
@@ -110,29 +127,32 @@ export default function StudentForm({
             parentId: data.parentId && data.parentId !== "no-parent" ? data.parentId : null,
             password: data.password || "default123",
           };
-        }
 
-        console.log(`📤 ${method} ${url} - Sending:`, body);
+          console.log("📤 Sending POST request to /api/students");
+          console.log("📤 Data:", createData);
 
-        response = await fetch(url, {
-          method,
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
+          const response = await fetch("/api/students", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(createData),
+          });
 
-        const result = await response.json();
+          console.log("📥 Response status:", response.status);
 
-        if (!response.ok) {
-          throw new Error(result.error || `Failed to ${isEdit ? 'update' : 'create'} student`);
-        }
+          const result = await response.json();
 
-        alert(isEdit ? "Student updated successfully!" : "Student created successfully!");
+          if (!response.ok) {
+            throw new Error(result.error || "Failed to create student");
+          }
 
-        if (onSuccess) {
-          onSuccess();
-        } else {
-          router.push("/dashboard/students");
-          router.refresh();
+          alert("Student created successfully!");
+          
+          if (onSuccess) {
+            onSuccess();
+          } else {
+            router.push("/dashboard/students");
+            router.refresh();
+          }
         }
       } catch (err: any) {
         console.error("❌ Form submission error:", err);
@@ -238,6 +258,7 @@ export default function StudentForm({
           type="submit" 
           disabled={isPending} 
           className="w-full md:w-auto min-w-[140px]"
+          onClick={() => console.log("🖱️ Update button clicked")}
         >
           {isPending ? (
             <>
