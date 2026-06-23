@@ -86,26 +86,21 @@ export default function StudentForm({
             admissionNumber: data.admissionNumber.trim(),
             email: data.email?.trim() || null,
             phone: data.phone?.trim() || null,
-            classId: data.classId === "unassigned" || data.classId === "" ? null : data.classId,
-            parentId: data.parentId === "no-parent" || data.parentId === "" ? null : data.parentId,
+            classId: data.classId === "unassigned" ? null : data.classId || null,
+            parentId: data.parentId === "no-parent" ? null : data.parentId || null,
           };
 
           console.log("📤 Updating student with data:", updateData);
 
           const result = await updateStudent(studentId, updateData);
 
-          // Handle both {success} format and direct throw
-          if (result && typeof result === 'object' && 'success' in result) {
-            if (result.success) {
-              alert("Student updated successfully!");
-            } else {
-              throw new Error(result.error || "Update failed");
-            }
-          } else {
+          if (result.success) {
             alert("Student updated successfully!");
+          } else {
+            throw new Error(result.error || "Update failed");
           }
         } else {
-          // Create mode (unchanged)
+          // Create mode
           const createData = {
             name: data.name.trim(),
             admissionNumber: data.admissionNumber.trim(),
@@ -245,7 +240,7 @@ export default function StudentForm({
           {isPending ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {isEdit ? "Updating Student..." : "Creating Student..."}
+              {isEdit ? "Updating..." : "Creating..."}
             </>
           ) : (
             isEdit ? "Update Student" : "Create Student"

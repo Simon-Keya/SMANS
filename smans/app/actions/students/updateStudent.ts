@@ -14,19 +14,45 @@ export async function updateStudent(studentId: string, data: any) {
   }
 
   try {
+    // Build update data with proper Prisma nested relations
     const updateData: any = {
       name: data.name,
       admissionNumber: data.admissionNumber,
       email: data.email,
       phone: data.phone,
-      classId: data.classId,
-      parentId: data.parentId,
     };
+
+    // Handle class relation - use connect or disconnect
+    if (data.classId !== undefined) {
+      if (data.classId) {
+        // Connect to existing class
+        updateData.class = { connect: { id: data.classId } };
+      } else {
+        // Disconnect from current class
+        updateData.class = { disconnect: true };
+      }
+    }
+
+    // Handle parent relation - use connect or disconnect
+    if (data.parentId !== undefined) {
+      if (data.parentId) {
+        // Connect to existing parent
+        updateData.parent = { connect: { id: data.parentId } };
+      } else {
+        // Disconnect from current parent
+        updateData.parent = { disconnect: true };
+      }
+    }
+
+    console.log("📤 Prisma update data:", JSON.stringify(updateData, null, 2));
 
     const updatedStudent = await prisma.student.update({
       where: { id: studentId },
       data: updateData,
-      include: { class: true, parent: true },
+      include: { 
+        class: { select: { id: true, name: true, level: true } },
+        parent: { select: { id: true, name: true, phone: true, email: true } }
+      },
     });
 
     revalidatePath("/dashboard/students");
@@ -36,8 +62,15 @@ export async function updateStudent(studentId: string, data: any) {
   } catch (error: any) {
     console.error("Update student error:", error);
     
-    if (error.code === "P2025") return { success: false, error: "Student not found" };
-    if (error.code === "P2002") return { success: false, error: "Admission number already exists" };
+    if (error.code === "P2025") {
+      return { success: false, error: "Student not found" };
+    }
+    if (error.code === "P2002") {
+      return { success: false, error: "Admission number already exists" };
+    }
+    if (error.code === "P2003") {
+      return { success: false, error: "Invalid class or parent ID provided" };
+    }
 
     return { success: false, error: error.message || "Failed to update student" };
   }
