@@ -18,9 +18,9 @@ import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
-// Import server actions
-import { createStudent } from "@/app/actions/students/createStudent";
-import { updateStudent } from "@/app/actions/students/updateStudent";
+// Remove server action imports - we'll use API routes instead
+// import { createStudent } from "@/app/actions/students/createStudent";
+// import { updateStudent } from "@/app/actions/students/updateStudent";
 
 const studentSchema = z.object({
   name: z.string().min(2, "Name is required"),
@@ -80,8 +80,16 @@ export default function StudentForm({
 
     startTransition(async () => {
       try {
+        let response;
+        let url: string;
+        let method: string;
+        let body: any;
+
         if (isEdit && studentId) {
-          const updateData = {
+          // ✅ UPDATE - Use API route
+          url = `/api/students/${studentId}`;
+          method = "PUT";
+          body = {
             name: data.name.trim(),
             admissionNumber: data.admissionNumber.trim(),
             email: data.email?.trim() || null,
@@ -89,42 +97,36 @@ export default function StudentForm({
             classId: data.classId === "unassigned" ? null : data.classId || null,
             parentId: data.parentId === "no-parent" ? null : data.parentId || null,
           };
-
-          console.log("📤 Updating student with data:", updateData);
-
-          const result = await updateStudent(studentId, updateData);
-
-          if (result.success) {
-            alert("Student updated successfully!");
-          } else {
-            throw new Error(result.error || "Update failed");
-          }
         } else {
-          // Create mode
-          const createData = {
+          // ✅ CREATE - Use API route
+          url = "/api/students";
+          method = "POST";
+          body = {
             name: data.name.trim(),
             admissionNumber: data.admissionNumber.trim(),
             email: data.email?.trim() || null,
             phone: data.phone?.trim() || null,
-            class: data.classId && data.classId !== "unassigned" ? {
-              connect: { id: data.classId }
-            } : undefined,
-            parent: data.parentId && data.parentId !== "no-parent" ? {
-              connect: { id: data.parentId }
-            } : undefined,
-            user: {
-              create: {
-                email: data.email || `${data.admissionNumber}@school.com`,
-                password: data.password || "default123",
-                name: data.name.trim(),
-                role: "STUDENT",
-              }
-            }
+            classId: data.classId && data.classId !== "unassigned" ? data.classId : null,
+            parentId: data.parentId && data.parentId !== "no-parent" ? data.parentId : null,
+            password: data.password || "default123",
           };
-
-          await createStudent(createData as any);
-          alert("Student created successfully!");
         }
+
+        console.log(`📤 ${method} ${url} - Sending:`, body);
+
+        response = await fetch(url, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || `Failed to ${isEdit ? 'update' : 'create'} student`);
+        }
+
+        alert(isEdit ? "Student updated successfully!" : "Student created successfully!");
 
         if (onSuccess) {
           onSuccess();
