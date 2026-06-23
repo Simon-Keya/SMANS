@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
 
-    // Validate required fields (classId is now optional)
+    // Validate required fields (classId is optional)
     if (!data.name || !data.admissionNumber) {
       return NextResponse.json({ 
         error: "Missing required fields: name, admissionNumber" 
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // 2. Create Student record linked to User (classId optional)
+      // 2. Create Student record linked to User
       const student = await tx.student.create({
         data: {
           userId: user.id,

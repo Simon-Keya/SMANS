@@ -111,7 +111,7 @@ export async function PUT(
     const { id } = await params;
     const data = await request.json();
 
-    // Basic validation - classId is now optional
+    // Basic validation - classId is optional
     if (!data.name || !data.admissionNumber) {
       return NextResponse.json(
         { error: "Missing required fields: name, admissionNumber" },
@@ -167,20 +167,43 @@ export async function PUT(
         });
       }
 
-      // Update Student - allow null classId
+      // Build the update data with proper Prisma nested relations
+      const updateData: any = {
+        name: data.name.trim(),
+        admissionNumber: data.admissionNumber.trim(),
+        email: data.email?.trim() || null,
+        phone: data.phone?.trim() || null,
+        dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
+        gender: data.gender || null,
+        address: data.address?.trim() || null,
+      };
+
+      // Handle class relation using connect/disconnect
+      if (data.classId !== undefined) {
+        if (data.classId) {
+          // Connect to existing class
+          updateData.class = { connect: { id: data.classId } };
+        } else {
+          // Disconnect from current class
+          updateData.class = { disconnect: true };
+        }
+      }
+
+      // Handle parent relation using connect/disconnect
+      if (data.parentId !== undefined) {
+        if (data.parentId) {
+          // Connect to existing parent
+          updateData.parent = { connect: { id: data.parentId } };
+        } else {
+          // Disconnect from current parent
+          updateData.parent = { disconnect: true };
+        }
+      }
+
+      // Update Student
       const student = await tx.student.update({
         where: { id },
-        data: {
-          name: data.name.trim(),
-          admissionNumber: data.admissionNumber.trim(),
-          email: data.email?.trim() || null,
-          phone: data.phone?.trim() || null,
-          dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
-          gender: data.gender || null,
-          address: data.address?.trim() || null,
-          classId: data.classId || null, // Allow null for unassigned
-          parentId: data.parentId || null,
-        },
+        data: updateData,
         include: {
           class: { select: { id: true, name: true, level: true } },
           parent: { select: { id: true, name: true, phone: true, email: true } },
@@ -201,7 +224,7 @@ export async function PUT(
           entityId: id,
           metadata: {
             admissionNumber: updatedStudent.admissionNumber,
-            classId: updatedStudent.classId,
+            classId: updatedStudent.class?.id || null,
             updatedFields: Object.keys(data),
           },
         },
@@ -214,6 +237,10 @@ export async function PUT(
 
     if (error.code === "P2002") {
       return NextResponse.json({ error: "Admission number or email already in use" }, { status: 409 });
+    }
+
+    if (error.code === "P2025") {
+      return NextResponse.json({ error: "Student not found" }, { status: 404 });
     }
 
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

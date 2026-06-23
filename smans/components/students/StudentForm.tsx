@@ -75,46 +75,50 @@ export default function StudentForm({
     },
   });
 
-  const selectedClassId = watch("classId");
-
   const handleFormSubmit = async (data: StudentFormData) => {
     setError(null);
     startTransition(async () => {
       try {
         if (isEdit && studentId) {
-          // Update mode - include classId even if empty
+          // ✅ FIXED: Match what updateStudent expects
+          // The updateStudent action expects an object with classId and parentId
+          // directly (not nested relations)
           const updateData = {
-            name: data.name,
-            admissionNumber: data.admissionNumber,
-            email: data.email || null,
-            phone: data.phone || null,
-            classId: data.classId || null, // Allow null for unassigned
-            parentId: data.parentId || null,
+            name: data.name.trim(),
+            admissionNumber: data.admissionNumber.trim(),
+            email: data.email?.trim() || null,
+            phone: data.phone?.trim() || null,
+            classId: data.classId === "unassigned" ? null : data.classId || null,
+            parentId: data.parentId === "no-parent" ? null : data.parentId || null,
           };
+
+          console.log("📤 Updating student:", updateData);
+          
           await updateStudent(studentId, updateData);
           alert("Student updated successfully!");
         } else {
-          // Create mode
+          // Create mode - uses nested relations
           const createData = {
-            name: data.name,
-            admissionNumber: data.admissionNumber,
-            email: data.email || null,
-            phone: data.phone || null,
-            class: data.classId ? {
+            name: data.name.trim(),
+            admissionNumber: data.admissionNumber.trim(),
+            email: data.email?.trim() || null,
+            phone: data.phone?.trim() || null,
+            class: data.classId && data.classId !== "unassigned" ? {
               connect: { id: data.classId }
-            } : undefined, // Don't connect if no class selected
-            parent: data.parentId ? {
+            } : undefined,
+            parent: data.parentId && data.parentId !== "no-parent" ? {
               connect: { id: data.parentId }
             } : undefined,
             user: {
               create: {
                 email: data.email || `${data.admissionNumber}@school.com`,
                 password: data.password || "default123",
-                name: data.name,
+                name: data.name.trim(),
                 role: "STUDENT",
               }
             }
           };
+
           await createStudent(createData as any);
           alert("Student created successfully!");
         }
@@ -126,7 +130,7 @@ export default function StudentForm({
           router.refresh();
         }
       } catch (err: any) {
-        console.error(err);
+        console.error("❌ Form error:", err);
         setError(err.message || "Something went wrong. Please try again.");
       }
     });
@@ -163,7 +167,7 @@ export default function StudentForm({
           </Label>
           <Select 
             onValueChange={(value) => setValue("classId", value)} 
-            defaultValue={watch("classId") || "unassigned"}
+            value={watch("classId") || "unassigned"}
             disabled={isPending}
           >
             <SelectTrigger>
@@ -189,7 +193,7 @@ export default function StudentForm({
           <Label htmlFor="parentId">Parent (Optional)</Label>
           <Select 
             onValueChange={(value) => setValue("parentId", value)} 
-            defaultValue={watch("parentId") || undefined}
+            value={watch("parentId") || "no-parent"}
             disabled={isPending}
           >
             <SelectTrigger>
