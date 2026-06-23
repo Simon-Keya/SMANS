@@ -1,3 +1,4 @@
+// app/actions/students/updateStudent.ts
 "use server";
 
 import { authOptions } from "@/lib/auth/auth";
@@ -11,6 +12,11 @@ export async function updateStudent(
 ) {
   const session = await getServerSession(authOptions);
   if (!session) throw new Error("Unauthorized");
+
+  // Ensure admin can update
+  if (session.user.role !== "ADMIN") {
+    throw new Error("Only admins can update students");
+  }
 
   return prisma.student.update({
     where: { id: studentId },

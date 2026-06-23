@@ -22,10 +22,9 @@ const baseSchema = z.object({
   phone: z.string().optional(),
 });
 
-// Student schema
+// Student schema - class no longer required
 const studentSchema = baseSchema.extend({
   admissionNumber: z.string().min(1, "Admission number is required"),
-  classId: z.string().min(1, "Class is required"),
 });
 
 // Parent schema
@@ -49,36 +48,8 @@ export default function SignUpPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
-  const [classes, setClasses] = useState<{ id: string; name: string; level: string | null }[]>([]);
-  const [loadingClasses, setLoadingClasses] = useState(true);
   const router = useRouter();
   const [selectedRole, setSelectedRole] = useState<"STUDENT" | "TEACHER" | "PARENT">("STUDENT");
-
-  // Fetch classes from public API
-  useEffect(() => {
-    async function fetchClasses() {
-      try {
-        console.log("🔍 Fetching classes from /api/classes...");
-        const res = await fetch("/api/classes");
-        console.log("📡 Response status:", res.status);
-        
-        if (res.ok) {
-          const data = await res.json();
-          console.log("📚 Classes received:", data.data?.length || 0);
-          setClasses(data.data || []);
-        } else {
-          console.error("❌ Failed to fetch classes. Status:", res.status);
-          setClasses([]);
-        }
-      } catch (error) {
-        console.error("❌ Network error fetching classes:", error);
-        setClasses([]);
-      } finally {
-        setLoadingClasses(false);
-      }
-    }
-    fetchClasses();
-  }, []);
 
   // Get the appropriate schema based on role
   const getSchema = (role: string) => {
@@ -110,7 +81,6 @@ export default function SignUpPage() {
       password: "",
       phone: "",
       admissionNumber: "",
-      classId: "",
       occupation: "",
       relationship: "",
       staffNo: "",
@@ -125,7 +95,6 @@ export default function SignUpPage() {
         setSelectedRole(value.role as "STUDENT" | "TEACHER" | "PARENT");
         // Reset role-specific fields when role changes
         setValue("admissionNumber", "");
-        setValue("classId", "");
         setValue("occupation", "");
         setValue("relationship", "");
         setValue("staffNo", "");
@@ -149,7 +118,7 @@ export default function SignUpPage() {
 
       if (data.role === "STUDENT") {
         signUpData.admissionNumber = data.admissionNumber;
-        signUpData.classId = data.classId;
+        // classId is NOT sent - admin will assign later
       }
 
       if (data.role === "PARENT") {
@@ -167,6 +136,7 @@ export default function SignUpPage() {
         setSuccess(true);
         reset();
 
+        // Show success message with note about class assignment
         setTimeout(() => {
           router.push("/auth/login?success=account_created");
         }, 1500);
@@ -199,6 +169,11 @@ export default function SignUpPage() {
           <div className="mb-8">
             <h2 className="text-3xl font-bold">Create Account</h2>
             <p className="text-base-content/60 mt-1">First user becomes Administrator</p>
+            {selectedRole === "STUDENT" && (
+              <p className="text-sm text-primary/70 mt-2">
+                ℹ️ After signup, an admin will assign your class.
+              </p>
+            )}
           </div>
 
           {success && (
@@ -278,7 +253,6 @@ export default function SignUpPage() {
                   const newRole = e.target.value as "STUDENT" | "TEACHER" | "PARENT";
                   setSelectedRole(newRole);
                   setValue("admissionNumber", "");
-                  setValue("classId", "");
                   setValue("occupation", "");
                   setValue("relationship", "");
                   setValue("staffNo", "");
@@ -290,45 +264,23 @@ export default function SignUpPage() {
               </select>
             </div>
 
-            {/* Student-specific fields */}
+            {/* Student-specific fields - class removed */}
             {selectedRole === "STUDENT" && (
-              <>
-                <div>
-                  <Label>Admission Number *</Label>
-                  <div className="relative mt-1">
-                    <BookOpen className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content/40" />
-                    <Input
-                      placeholder="e.g. STU/001/2025"
-                      {...register("admissionNumber")}
-                      className="pl-10"
-                    />
-                  </div>
-                  {errors.admissionNumber && <p className="text-error text-sm mt-1">{String(errors.admissionNumber.message)}</p>}
+              <div>
+                <Label>Admission Number *</Label>
+                <div className="relative mt-1">
+                  <BookOpen className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content/40" />
+                  <Input
+                    placeholder="e.g. STU/001/2025"
+                    {...register("admissionNumber")}
+                    className="pl-10"
+                  />
                 </div>
-
-                <div>
-                  <Label>Class *</Label>
-                  <select 
-                    {...register("classId")} 
-                    className="select select-bordered w-full mt-1"
-                    disabled={loadingClasses}
-                  >
-                    <option value="">Select a class</option>
-                    {classes.map((cls) => (
-                      <option key={cls.id} value={cls.id}>
-                        {cls.name} {cls.level ? `(${cls.level})` : ""}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.classId && <p className="text-error text-sm mt-1">{String(errors.classId.message)}</p>}
-                  {loadingClasses && <p className="text-sm text-base-content/60 mt-1">Loading classes...</p>}
-                  {!loadingClasses && classes.length === 0 && (
-                    <p className="text-sm text-warning mt-1">
-                      No classes available. Please contact the administrator.
-                    </p>
-                  )}
-                </div>
-              </>
+                {errors.admissionNumber && <p className="text-error text-sm mt-1">{String(errors.admissionNumber.message)}</p>}
+                <p className="text-xs text-base-content/50 mt-1">
+                  An admin will assign your class after verification.
+                </p>
+              </div>
             )}
 
             {/* Parent-specific fields */}

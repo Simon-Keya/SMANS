@@ -27,7 +27,7 @@ const studentSchema = z.object({
   admissionNumber: z.string().min(3, "Admission number is required"),
   email: z.string().email("Invalid email").optional().or(z.literal("")),
   phone: z.string().optional(),
-  classId: z.string().min(1, "Please select a class"),
+  classId: z.string().optional(), // Made optional for unassigned students
   parentId: z.string().optional(),
   password: z.string().min(8, "Password must be at least 8 characters").optional(),
 });
@@ -75,32 +75,34 @@ export default function StudentForm({
     },
   });
 
+  const selectedClassId = watch("classId");
+
   const handleFormSubmit = async (data: StudentFormData) => {
     setError(null);
     startTransition(async () => {
       try {
         if (isEdit && studentId) {
-          // Update mode
+          // Update mode - include classId even if empty
           const updateData = {
             name: data.name,
             admissionNumber: data.admissionNumber,
             email: data.email || null,
             phone: data.phone || null,
-            classId: data.classId,
+            classId: data.classId || null, // Allow null for unassigned
             parentId: data.parentId || null,
           };
           await updateStudent(studentId, updateData);
           alert("Student updated successfully!");
         } else {
-          // Create mode - use Prisma's nested create structure
+          // Create mode
           const createData = {
             name: data.name,
             admissionNumber: data.admissionNumber,
             email: data.email || null,
             phone: data.phone || null,
-            class: {
+            class: data.classId ? {
               connect: { id: data.classId }
-            },
+            } : undefined, // Don't connect if no class selected
             parent: data.parentId ? {
               connect: { id: data.parentId }
             } : undefined,
@@ -139,48 +141,50 @@ export default function StudentForm({
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Name */}
         <div className="space-y-2">
           <Label htmlFor="name">Full Name *</Label>
           <Input id="name" {...register("name")} disabled={isPending} />
           {errors.name && <p className="text-sm text-red-500">{errors.name.message}</p>}
         </div>
 
+        {/* Admission Number */}
         <div className="space-y-2">
           <Label htmlFor="admissionNumber">Admission Number *</Label>
           <Input id="admissionNumber" {...register("admissionNumber")} disabled={isPending} />
           {errors.admissionNumber && <p className="text-sm text-red-500">{errors.admissionNumber.message}</p>}
         </div>
 
+        {/* Class - Optional for unassigned students */}
         <div className="space-y-2">
-          <Label htmlFor="classId">Class *</Label>
+          <Label htmlFor="classId">
+            Class
+            <span className="text-xs text-base-content/50 ml-1">(optional)</span>
+          </Label>
           <Select 
             onValueChange={(value) => setValue("classId", value)} 
-            defaultValue={watch("classId")}
+            defaultValue={watch("classId") || "unassigned"}
             disabled={isPending}
           >
             <SelectTrigger>
               <SelectValue placeholder="Select a class" />
             </SelectTrigger>
             <SelectContent>
-              {classes.length === 0 ? (
-                <SelectItem value="no-class" disabled>
-                  No classes available
+              <SelectItem value="unassigned">Not Assigned</SelectItem>
+              {classes.map((cls) => (
+                <SelectItem key={cls.id} value={cls.id}>
+                  {cls.name} {cls.level ? `(${cls.level})` : ""}
                 </SelectItem>
-              ) : (
-                classes.map((cls) => (
-                  <SelectItem key={cls.id} value={cls.id}>
-                    {cls.name} {cls.level ? `(${cls.level})` : ""}
-                  </SelectItem>
-                ))
-              )}
+              ))}
             </SelectContent>
           </Select>
           {errors.classId && <p className="text-sm text-red-500">{errors.classId.message}</p>}
-          {classes.length === 0 && !errors.classId && (
+          {classes.length === 0 && (
             <p className="text-sm text-yellow-600">No classes available. Please create a class first.</p>
           )}
         </div>
 
+        {/* Parent */}
         <div className="space-y-2">
           <Label htmlFor="parentId">Parent (Optional)</Label>
           <Select 
@@ -202,17 +206,20 @@ export default function StudentForm({
           </Select>
         </div>
 
+        {/* Email */}
         <div className="space-y-2">
           <Label htmlFor="email">Email (Optional)</Label>
           <Input id="email" type="email" {...register("email")} disabled={isPending} />
           {errors.email && <p className="text-sm text-red-500">{errors.email.message}</p>}
         </div>
 
+        {/* Phone */}
         <div className="space-y-2">
           <Label htmlFor="phone">Phone (Optional)</Label>
           <Input id="phone" type="tel" {...register("phone")} disabled={isPending} />
         </div>
 
+        {/* Password (only for new students) */}
         {!isEdit && (
           <div className="space-y-2">
             <Label htmlFor="password">Initial Password *</Label>

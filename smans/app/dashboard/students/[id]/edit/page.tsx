@@ -38,11 +38,19 @@ export default async function EditStudentPage({ params }: EditStudentPageProps) 
 
   if (!student) notFound();
 
+  // Check if student is unassigned to show a helpful note
+  const isUnassigned = !student.classId;
+
   return (
     <div className="max-w-3xl mx-auto py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight">Edit Student</h1>
         <p className="text-muted-foreground mt-2">Update {student.name}'s information</p>
+        {isUnassigned && (
+          <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-lg text-sm">
+            ⚠️ This student hasn't been assigned to a class yet. Please select a class below.
+          </div>
+        )}
       </div>
 
       <StudentForm 
@@ -51,7 +59,7 @@ export default async function EditStudentPage({ params }: EditStudentPageProps) 
           admissionNumber: student.admissionNumber,
           email: student.email || "",
           phone: student.phone || "",
-          classId: student.classId,
+          classId: student.classId || "", // Empty string if unassigned
           parentId: student.parentId || "",
           password: "",
         }}

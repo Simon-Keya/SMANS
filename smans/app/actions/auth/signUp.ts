@@ -43,12 +43,8 @@ interface SignUpInput {
   email: string;
   password: string;
   role?: Role;
-  // Student fields
   admissionNumber?: string;
-  classId?: string;
-  // Teacher fields
   staffNo?: string;
-  // Parent fields
   phone?: string;
   occupation?: string;
   relationship?: string;
@@ -64,7 +60,6 @@ export async function signUpAction(data: SignUpInput) {
       password, 
       role = "STUDENT",
       admissionNumber,
-      classId,
       staffNo,
       phone,
       occupation,
@@ -87,9 +82,6 @@ export async function signUpAction(data: SignUpInput) {
     if (role === "STUDENT") {
       if (!admissionNumber?.trim()) {
         return { success: false, error: "Admission number is required for students" };
-      }
-      if (!classId?.trim()) {
-        return { success: false, error: "Class is required for students" };
       }
     }
 
@@ -146,45 +138,6 @@ export async function signUpAction(data: SignUpInput) {
     // ── Create Role-Specific Records ────────────────────────────────────
 
     if (finalRole === "STUDENT") {
-      // Validate classId exists and get the actual class
-      let actualClassId = classId;
-      let classRecord = null;
-
-      // First try to find class by ID
-      if (classId) {
-        classRecord = await prisma.class.findUnique({
-          where: { id: classId },
-        });
-      }
-
-      // If not found by ID, try to find by name (case-insensitive)
-      if (!classRecord && classId) {
-        classRecord = await prisma.class.findFirst({
-          where: { 
-            name: { equals: classId.trim(), mode: 'insensitive' }
-          },
-        });
-      }
-
-      // If still not found, create a new class
-      if (!classRecord && classId) {
-        classRecord = await prisma.class.create({
-          data: {
-            name: classId.trim(),
-            level: "Unknown",
-          },
-        });
-        console.log("📚 Created new class:", classRecord.name, "with ID:", classRecord.id);
-      }
-
-      if (!classRecord) {
-        // Rollback user creation
-        await prisma.user.delete({ where: { id: newUser.id } });
-        return { success: false, error: "Failed to find or create class. Please try again." };
-      }
-
-      actualClassId = classRecord.id;
-
       // Check if admission number already exists
       const existingStudent = await prisma.student.findUnique({
         where: { admissionNumber: admissionNumber!.trim() },
@@ -195,23 +148,37 @@ export async function signUpAction(data: SignUpInput) {
         return { success: false, error: "Admission number already exists" };
       }
 
-      // Create student
+      // 🔥 FIX: Find or create a default "Unassigned" class
+      let defaultClass = await prisma.class.findFirst({
+        where: { name: "Unassigned" },
+      });
+
+      if (!defaultClass) {
+        defaultClass = await prisma.class.create({
+          data: {
+            name: "Unassigned",
+            level: "N/A",
+          },
+        });
+        console.log("📚 Created 'Unassigned' class for students without a class");
+      }
+
+      // Create student with the default class
       await prisma.student.create({
         data: {
           userId: newUser.id,
           name: name.trim(),
           admissionNumber: admissionNumber!.trim(),
-          classId: actualClassId,
+          classId: defaultClass.id, // Use default class instead of null
           phone: phone?.trim() || null,
           email: normalizedEmail,
           admissionDate: new Date(),
         },
       });
-      console.log("🎉 Student record created for:", newUser.id);
+      console.log("🎉 Student record created with default class for:", newUser.id);
     }
 
     if (finalRole === "PARENT") {
-      // Check if email already exists in Parent table
       if (email) {
         const existingParent = await prisma.parent.findFirst({
           where: { email: normalizedEmail },
@@ -237,7 +204,6 @@ export async function signUpAction(data: SignUpInput) {
     }
 
     if (finalRole === "TEACHER") {
-      // Teacher-specific logic (if needed)
       console.log("🎉 Teacher account created for:", newUser.id);
     }
 
@@ -267,11 +233,8 @@ export async function signUpAction(data: SignUpInput) {
         console.log("📧 Verification email sent to:", newUser.email);
       } catch (err) {
         console.error("Email sending failed (non-blocking):", err);
-        // Don't fail the signup if email fails
       }
     }
-
-    // ── Success ──────────────────────────────────────────────────────────
 
     return {
       success: true,
@@ -281,13 +244,8 @@ export async function signUpAction(data: SignUpInput) {
   } catch (error: any) {
     console.error("💥 CRITICAL ERROR in signUpAction:", error);
     
-    // Handle specific Prisma errors
     if (error.code === "P2002") {
       return { success: false, error: "Email or admission number already in use" };
-    }
-    
-    if (error.code === "P2003") {
-      return { success: false, error: "Invalid class ID. Please select a valid class." };
     }
 
     return { success: false, error: error.message || "Failed to create account" };

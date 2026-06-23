@@ -88,7 +88,13 @@ export async function GET(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  return NextResponse.json({ success: true, data: student });
+  // Include a flag for unassigned students
+  const responseData = {
+    ...student,
+    isUnassigned: !student.classId,
+  };
+
+  return NextResponse.json({ success: true, data: responseData });
 }
 
 export async function PUT(
@@ -105,10 +111,10 @@ export async function PUT(
     const { id } = await params;
     const data = await request.json();
 
-    // Basic validation
-    if (!data.name || !data.admissionNumber || !data.classId) {
+    // Basic validation - classId is now optional
+    if (!data.name || !data.admissionNumber) {
       return NextResponse.json(
-        { error: "Missing required fields: name, admissionNumber, classId" },
+        { error: "Missing required fields: name, admissionNumber" },
         { status: 400 }
       );
     }
@@ -161,7 +167,7 @@ export async function PUT(
         });
       }
 
-      // Update Student
+      // Update Student - allow null classId
       const student = await tx.student.update({
         where: { id },
         data: {
@@ -172,7 +178,7 @@ export async function PUT(
           dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
           gender: data.gender || null,
           address: data.address?.trim() || null,
-          classId: data.classId,
+          classId: data.classId || null, // Allow null for unassigned
           parentId: data.parentId || null,
         },
         include: {

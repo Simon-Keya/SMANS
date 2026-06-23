@@ -15,9 +15,10 @@ export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
 
-    if (!data.name || !data.admissionNumber || !data.classId) {
+    // Validate required fields (classId is now optional)
+    if (!data.name || !data.admissionNumber) {
       return NextResponse.json({ 
-        error: "Missing required fields: name, admissionNumber, classId" 
+        error: "Missing required fields: name, admissionNumber" 
       }, { status: 400 });
     }
 
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // 2. Create Student record linked to User
+      // 2. Create Student record linked to User (classId optional)
       const student = await tx.student.create({
         data: {
           userId: user.id,
@@ -65,7 +66,7 @@ export async function POST(request: NextRequest) {
           admissionDate: new Date(),
           email: data.email?.trim() || null,
           phone: data.phone?.trim() || null,
-          classId: data.classId,
+          classId: data.classId || null, // Allow null for unassigned
           parentId: data.parentId || null,
         },
         include: {
