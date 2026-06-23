@@ -27,7 +27,7 @@ const studentSchema = z.object({
   admissionNumber: z.string().min(3, "Admission number is required"),
   email: z.string().email("Invalid email").optional().or(z.literal("")),
   phone: z.string().optional(),
-  classId: z.string().optional(), // Made optional for unassigned students
+  classId: z.string().optional(),
   parentId: z.string().optional(),
   password: z.string().min(8, "Password must be at least 8 characters").optional(),
 });
@@ -77,27 +77,35 @@ export default function StudentForm({
 
   const handleFormSubmit = async (data: StudentFormData) => {
     setError(null);
+
     startTransition(async () => {
       try {
         if (isEdit && studentId) {
-          // ✅ FIXED: Match what updateStudent expects
-          // The updateStudent action expects an object with classId and parentId
-          // directly (not nested relations)
           const updateData = {
             name: data.name.trim(),
             admissionNumber: data.admissionNumber.trim(),
             email: data.email?.trim() || null,
             phone: data.phone?.trim() || null,
-            classId: data.classId === "unassigned" ? null : data.classId || null,
-            parentId: data.parentId === "no-parent" ? null : data.parentId || null,
+            classId: data.classId === "unassigned" || data.classId === "" ? null : data.classId,
+            parentId: data.parentId === "no-parent" || data.parentId === "" ? null : data.parentId,
           };
 
-          console.log("📤 Updating student:", updateData);
-          
-          await updateStudent(studentId, updateData);
-          alert("Student updated successfully!");
+          console.log("📤 Updating student with data:", updateData);
+
+          const result = await updateStudent(studentId, updateData);
+
+          // Handle both {success} format and direct throw
+          if (result && typeof result === 'object' && 'success' in result) {
+            if (result.success) {
+              alert("Student updated successfully!");
+            } else {
+              throw new Error(result.error || "Update failed");
+            }
+          } else {
+            alert("Student updated successfully!");
+          }
         } else {
-          // Create mode - uses nested relations
+          // Create mode (unchanged)
           const createData = {
             name: data.name.trim(),
             admissionNumber: data.admissionNumber.trim(),
@@ -130,7 +138,7 @@ export default function StudentForm({
           router.refresh();
         }
       } catch (err: any) {
-        console.error("❌ Form error:", err);
+        console.error("❌ Form submission error:", err);
         setError(err.message || "Something went wrong. Please try again.");
       }
     });
@@ -159,11 +167,10 @@ export default function StudentForm({
           {errors.admissionNumber && <p className="text-sm text-red-500">{errors.admissionNumber.message}</p>}
         </div>
 
-        {/* Class - Optional for unassigned students */}
+        {/* Class */}
         <div className="space-y-2">
           <Label htmlFor="classId">
-            Class
-            <span className="text-xs text-base-content/50 ml-1">(optional)</span>
+            Class <span className="text-xs text-base-content/50">(optional)</span>
           </Label>
           <Select 
             onValueChange={(value) => setValue("classId", value)} 
@@ -182,10 +189,6 @@ export default function StudentForm({
               ))}
             </SelectContent>
           </Select>
-          {errors.classId && <p className="text-sm text-red-500">{errors.classId.message}</p>}
-          {classes.length === 0 && (
-            <p className="text-sm text-yellow-600">No classes available. Please create a class first.</p>
-          )}
         </div>
 
         {/* Parent */}
@@ -223,23 +226,26 @@ export default function StudentForm({
           <Input id="phone" type="tel" {...register("phone")} disabled={isPending} />
         </div>
 
-        {/* Password (only for new students) */}
+        {/* Password - only for create */}
         {!isEdit && (
           <div className="space-y-2">
             <Label htmlFor="password">Initial Password *</Label>
             <Input id="password" type="password" {...register("password")} disabled={isPending} />
             {errors.password && <p className="text-sm text-red-500">{errors.password.message}</p>}
-            <p className="text-xs text-gray-500">Student can change this after first login.</p>
           </div>
         )}
       </div>
 
       <div className="flex justify-end pt-4">
-        <Button type="submit" disabled={isPending} className="w-full md:w-auto">
+        <Button 
+          type="submit" 
+          disabled={isPending} 
+          className="w-full md:w-auto min-w-[140px]"
+        >
           {isPending ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {isEdit ? "Updating..." : "Creating Student..."}
+              {isEdit ? "Updating Student..." : "Creating Student..."}
             </>
           ) : (
             isEdit ? "Update Student" : "Create Student"
