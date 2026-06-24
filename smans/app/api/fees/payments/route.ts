@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { PaymentStatus } from "@prisma/client"; // Import enum
+import { PaymentStatus } from "@prisma/client";
+import { requireRole } from "@/lib/permissions";
 
 const createPaymentSchema = z.object({
   invoiceId: z.string().min(1, "Invoice is required"),
@@ -16,10 +17,14 @@ const createPaymentSchema = z.object({
 });
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
-
-  if (!session || session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    // ✅ Only ADMIN can view payments
+    await requireRole(["ADMIN"]);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   try {
@@ -27,7 +32,7 @@ export async function GET() {
       include: {
         invoice: {
           include: {
-            student: { select: { name: true, admissionNumber: true } }, // Changed from rollNumber
+            student: { select: { name: true, admissionNumber: true } },
           },
         },
       },
@@ -42,10 +47,14 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await getServerSession(authOptions);
-
-  if (!session || session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    // ✅ Only ADMIN can create payments
+    await requireRole(["ADMIN"]);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   try {
@@ -62,7 +71,6 @@ export async function POST(request: NextRequest) {
 
     const { invoiceId, amount, method, paymentDate } = parsed.data;
 
-    // Verify invoice exists
     const invoice = await prisma.invoice.findUnique({
       where: { id: invoiceId },
       select: { id: true, amount: true, status: true },
@@ -78,7 +86,7 @@ export async function POST(request: NextRequest) {
         amount,
         method,
         paymentDate: paymentDate ? new Date(paymentDate) : new Date(),
-        status: PaymentStatus.COMPLETED, // Use enum
+        status: PaymentStatus.COMPLETED,
       },
       include: {
         invoice: {
@@ -89,7 +97,6 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Auto-update invoice status if fully paid
     if (amount >= invoice.amount) {
       await prisma.invoice.update({
         where: { id: invoiceId },

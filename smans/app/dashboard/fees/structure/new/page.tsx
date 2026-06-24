@@ -1,3 +1,4 @@
+// app/dashboard/fees/structure/new/page.tsx
 "use client";
 
 import { createFeeItemAction } from "@/app/actions/fees/createFeeItem";
@@ -6,13 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/Select";
-import { Toast, ToastDescription, ToastTitle } from "@/components/ui/Toast";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
+import toast from "react-hot-toast";
 import * as z from "zod";
-
 
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -39,20 +39,11 @@ export default function NewFeeItemPage() {
   const onSubmit = async (values: FormValues) => {
     try {
       await createFeeItemAction(values);
-
-      // Correct toast usage
-      <Toast>
-        <ToastTitle>Success</ToastTitle>
-        <ToastDescription>Fee item created successfully.</ToastDescription>
-      </Toast>;
-
+      toast.success("Fee item created successfully!");
       router.push("/dashboard/fees/structure");
       router.refresh();
     } catch (error: any) {
-      <Toast variant="destructive">
-        <ToastTitle>Error</ToastTitle>
-        <ToastDescription>{error.message || "Failed to create fee item."}</ToastDescription>
-      </Toast>;
+      toast.error(error.message || "Failed to create fee item.");
     }
   };
 

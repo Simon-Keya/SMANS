@@ -1,12 +1,12 @@
+// app/dashboard/fees/invoices/page.tsx
 import { Button } from "@/components/ui/Button";
 import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { InvoiceStatus } from "@prisma/client"; // Import the enum
+import { InvoiceStatus } from "@prisma/client";
 
-// Explicit type for selected invoice
 type SelectedInvoice = {
   id: string;
   student: { name: string | null };
@@ -22,7 +22,8 @@ interface InvoicesPageProps {
 export default async function InvoicesPage({ searchParams }: InvoicesPageProps) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "ADMIN") {
+  // ✅ Only ADMIN and ACCOUNTANT can view invoices
+  if (!session || !["ADMIN", "ACCOUNTANT"].includes(session.user.role)) {
     redirect("/dashboard");
   }
 
@@ -54,7 +55,10 @@ export default async function InvoicesPage({ searchParams }: InvoicesPageProps) 
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
-        <h1 className="text-3xl font-bold text-primary">Invoices</h1>
+        <div>
+          <h1 className="text-3xl font-bold text-primary">Invoices</h1>
+          <p className="text-muted-foreground mt-1">Manage and track all invoices</p>
+        </div>
         <Button asChild>
           <Link href="/dashboard/fees/invoices/new">Generate Invoice</Link>
         </Button>

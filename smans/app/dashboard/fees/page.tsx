@@ -1,3 +1,4 @@
+// app/dashboard/fees/page.tsx
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { authOptions } from "@/lib/auth/auth";
@@ -7,6 +8,7 @@ import { getServerSession } from "next-auth";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { InvoiceStatus, PaymentStatus } from "@prisma/client";
+import { requireRole } from "@/lib/permissions";
 
 export default async function FeesDashboard() {
   const session = await getServerSession(authOptions);
@@ -15,9 +17,34 @@ export default async function FeesDashboard() {
     redirect("/auth/login");
   }
 
-  // Calculate total due from invoices (PENDING, PARTIAL, OVERDUE)
+  const userRole = session.user.role as string;
+
+  // ✅ Check if user has access to fees
+  const hasAccess = ["ADMIN", "ACCOUNTANT", "PARENT"].includes(userRole);
+  if (!hasAccess) {
+    redirect("/dashboard");
+  }
+
+  // Build where clause based on role
+  let invoiceWhere: any = {};
+  let paymentWhere: any = {};
+
+  if (userRole === "PARENT") {
+    // Parents only see their children's fees
+    const children = await prisma.student.findMany({
+      where: { parent: { userId: session.user.id } },
+      select: { id: true },
+    });
+    const studentIds = children.map(c => c.id);
+    invoiceWhere = { studentId: { in: studentIds } };
+    paymentWhere = { invoice: { studentId: { in: studentIds } } };
+  }
+  // ADMIN and ACCOUNTANT see all
+
+  // Calculate total due from invoices
   const totalDue = await prisma.invoice.aggregate({
     where: {
+      ...invoiceWhere,
       status: {
         in: [InvoiceStatus.PENDING, InvoiceStatus.PARTIAL, InvoiceStatus.OVERDUE]
       }
@@ -27,19 +54,28 @@ export default async function FeesDashboard() {
 
   // Calculate total paid from completed payments
   const totalPaid = await prisma.payment.aggregate({
-    where: { status: PaymentStatus.COMPLETED },
+    where: {
+      ...paymentWhere,
+      status: PaymentStatus.COMPLETED,
+    },
     _sum: { amount: true },
   });
 
   // Count overdue invoices
   const overdue = await prisma.invoice.count({
-    where: { status: InvoiceStatus.OVERDUE },
+    where: {
+      ...invoiceWhere,
+      status: InvoiceStatus.OVERDUE,
+    },
   });
 
   // Get recent payments
   const recentPayments = await prisma.payment.findMany({
     take: 5,
-    where: { status: PaymentStatus.COMPLETED },
+    where: {
+      ...paymentWhere,
+      status: PaymentStatus.COMPLETED,
+    },
     include: {
       invoice: {
         include: {
@@ -52,9 +88,28 @@ export default async function FeesDashboard() {
     orderBy: { paymentDate: "desc" },
   });
 
+  // ✅ Only ADMIN and ACCOUNTANT can manage fees
+  const canManage = ["ADMIN", "ACCOUNTANT"].includes(userRole);
+
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-primary">Fees & Payments</h1>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-primary">Fees & Payments</h1>
+          <p className="text-muted-foreground mt-1">
+            {userRole === "ADMIN" && "Manage all school fees and payments"}
+            {userRole === "ACCOUNTANT" && "Manage fees and payments"}
+            {userRole === "PARENT" && "View your children's fees and payments"}
+          </p>
+        </div>
+        {canManage && (
+          <Button asChild>
+            <Link href="/dashboard/fees/structure/new">
+              Add Fee Item
+            </Link>
+          </Button>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="bg-base-100 shadow-lg border border-base-200">

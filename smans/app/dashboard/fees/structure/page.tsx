@@ -1,3 +1,4 @@
+// app/dashboard/fees/structure/page.tsx
 import { Button } from "@/components/ui/Button";
 import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
@@ -6,7 +7,6 @@ import { getServerSession } from "next-auth";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-// Explicit type
 type SelectedFeeItem = {
   id: string;
   name: string;
@@ -17,7 +17,8 @@ type SelectedFeeItem = {
 export default async function FeeStructurePage() {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "ADMIN") {
+  // ✅ Only ADMIN and ACCOUNTANT can view fee structure
+  if (!session || !["ADMIN", "ACCOUNTANT"].includes(session.user.role)) {
     redirect("/dashboard");
   }
 
@@ -29,12 +30,15 @@ export default async function FeeStructurePage() {
       amount: true,
       frequency: true,
     },
-  }) satisfies SelectedFeeItem[];
+  });
 
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-primary">Fee Structure</h1>
+        <div>
+          <h1 className="text-3xl font-bold text-primary">Fee Structure</h1>
+          <p className="text-muted-foreground mt-1">Manage school fee items and pricing</p>
+        </div>
         <Button asChild className="gap-2">
           <Link href="/dashboard/fees/structure/new">
             <Plus className="h-4 w-4" />
@@ -45,7 +49,7 @@ export default async function FeeStructurePage() {
 
       {feeItems.length === 0 ? (
         <div className="text-center py-12 text-base-content/60 bg-base-200 rounded-lg">
-          No fee items defined yet.
+          No fee items defined yet. Click "Add Fee Item" to create one.
         </div>
       ) : (
         <div className="rounded-xl border border-base-300 overflow-x-auto shadow-sm">
@@ -63,7 +67,7 @@ export default async function FeeStructurePage() {
                 <tr key={item.id} className="border-b hover:bg-base-300/50 transition-colors">
                   <td className="p-4 font-medium">{item.name}</td>
                   <td className="p-4">{item.amount.toLocaleString()}</td>
-                  <td className="p-4 capitalize">{item.frequency}</td>
+                  <td className="p-4 capitalize">{item.frequency.toLowerCase()}</td>
                   <td className="p-4 text-right">
                     <Button variant="ghost" size="sm" asChild>
                       <Link href={`/dashboard/fees/structure/${item.id}/edit`}>

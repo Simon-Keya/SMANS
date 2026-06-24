@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { PaymentStatus } from "@prisma/client"; // Import enum
+import { PaymentStatus } from "@prisma/client";
+import { requireRole } from "@/lib/permissions";
 
 const updatePaymentSchema = z.object({
   amount: z.number().min(1, "Amount must be greater than 0").optional(),
@@ -16,10 +17,14 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions);
-
-  if (!session || session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    // ✅ Only ADMIN can view payment details
+    await requireRole(["ADMIN"]);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   try {
@@ -51,10 +56,14 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions);
-
-  if (!session || session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    // ✅ Only ADMIN can update payments
+    await requireRole(["ADMIN"]);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   try {
@@ -85,7 +94,7 @@ export async function PUT(
       data: {
         amount,
         method,
-        status: status as PaymentStatus | undefined, // Cast to enum
+        status: status as PaymentStatus | undefined,
       },
       include: {
         invoice: {
@@ -107,10 +116,14 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions);
-
-  if (!session || session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    // ✅ Only ADMIN can delete payments
+    await requireRole(["ADMIN"]);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   try {

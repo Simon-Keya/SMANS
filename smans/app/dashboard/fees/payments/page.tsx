@@ -1,3 +1,4 @@
+// app/dashboard/fees/payments/page.tsx
 import { Button } from "@/components/ui/Button";
 import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
@@ -6,7 +7,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PaymentStatus } from "@prisma/client";
 
-// Explicit type for selected payment data
 type SelectedPayment = {
   id: string;
   invoice: {
@@ -27,7 +27,8 @@ interface PaymentsPageProps {
 export default async function PaymentsPage({ searchParams }: PaymentsPageProps) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "ADMIN") {
+  // ✅ Only ADMIN and ACCOUNTANT can view payments
+  if (!session || !["ADMIN", "ACCOUNTANT"].includes(session.user.role)) {
     redirect("/dashboard");
   }
 
@@ -63,7 +64,10 @@ export default async function PaymentsPage({ searchParams }: PaymentsPageProps) 
 
   return (
     <div className="space-y-6 p-6">
-      <h1 className="text-3xl font-bold text-primary">Payments & Receipts</h1>
+      <div>
+        <h1 className="text-3xl font-bold text-primary">Payments & Receipts</h1>
+        <p className="text-muted-foreground mt-1">View and manage all payment records</p>
+      </div>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-4 items-end">

@@ -1,3 +1,4 @@
+// app/dashboard/fees/invoices/[id]/page.tsx
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { authOptions } from "@/lib/auth/auth";
@@ -6,7 +7,6 @@ import { getServerSession } from "next-auth";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
-// Type for invoice (including payments)
 type InvoiceWithPayments = {
   id: string;
   student: { id: string; name: string | null };
@@ -30,6 +30,7 @@ type InvoiceWithPayments = {
 export default async function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
 
+  // ✅ Only ADMIN and ACCOUNTANT can view invoice details
   if (!session || !["ADMIN", "ACCOUNTANT"].includes(session.user.role)) {
     redirect("/dashboard");
   }
@@ -45,7 +46,6 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
       amount: true,
       dueDate: true,
       status: true,
-      // description: true, // REMOVED - doesn't exist in schema
       createdAt: true,
       createdBy: { select: { name: true } },
       approvedBy: { select: { name: true } },
@@ -65,16 +65,20 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
 
   if (!invoice) notFound();
 
-  // Explicit typing for reduce and map
   const totalPaid = invoice.payments.reduce((sum: number, p: { amount: number }) => sum + p.amount, 0);
   const balance = invoice.amount - totalPaid;
 
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-primary">
-          Invoice #{invoice.id.slice(0, 8)}
-        </h1>
+        <div>
+          <h1 className="text-3xl font-bold text-primary">
+            Invoice #{invoice.id.slice(0, 8)}
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            {invoice.student.name} • {invoice.feeItem?.name || "Custom"}
+          </p>
+        </div>
         <Button variant="outline" asChild>
           <Link href="/dashboard/fees/invoices">Back to Invoices</Link>
         </Button>
@@ -116,7 +120,6 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                 {invoice.status}
               </span>
             </div>
-            {/* Description section removed - field doesn't exist */}
           </CardContent>
         </Card>
 
@@ -137,6 +140,11 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                 KSh {balance.toLocaleString()}
               </p>
             </div>
+            {balance === 0 && (
+              <div className="mt-4 p-3 bg-success/10 border border-success rounded-lg text-success text-sm text-center">
+                ✓ Invoice fully paid
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
