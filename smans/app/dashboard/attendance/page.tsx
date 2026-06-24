@@ -1,131 +1,87 @@
-// app/dashboard/reports/attendance/page.tsx
-import { Button } from "@/components/ui/Button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { redirect } from "next/navigation";
-import Link from "next/link";
+// app/dashboard/attendance/report/page.tsx
+"use client";
 
-export default async function AttendanceDashboard() {
-  const session = await getServerSession();
-  
-  if (!session) {
-    redirect("/auth/login");
-  }
+import AttendanceSummary from "@/components/attendance/AttendanceSummary";
+import AttendanceTable from "@/components/attendance/AttendanceTable";
+import useSWR from "swr";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
-  // Get today's date (without time)
-  const today = new Date();
-  const startOfDay = new Date(today);
-  startOfDay.setHours(0, 0, 0, 0);
-  
-  const endOfDay = new Date(today);
-  endOfDay.setHours(23, 59, 59, 999);
+type ApiAttendanceRecord = {
+  date: string;
+  present: boolean;
+  student?: {
+    name: string;
+  };
+};
 
-  // Fetch today's attendance records
-  const todaysAttendance = await prisma.attendance.findMany({
-    where: {
-      date: {
-        gte: startOfDay,
-        lte: endOfDay,
-      },
-    },
-    select: {
-      status: true,
-    },
+const fetcher = (url: string) =>
+  fetch(url).then((res) => {
+    if (!res.ok) throw new Error("Failed to fetch attendance");
+    return res.json() as Promise<ApiAttendanceRecord[]>;
   });
 
-  // Calculate statistics
-  let present = 0;
-  let absent = 0;
-  let late = 0;
+export default function AttendanceReportPage() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
 
-  for (const record of todaysAttendance) {
-    if (record.status === "PRESENT") present++;
-    else if (record.status === "ABSENT") absent++;
-    else if (record.status === "LATE") late++;
+  // ✅ All authenticated users can view reports
+  useEffect(() => {
+    if (status === "loading") return;
+    if (!session) {
+      router.push("/auth/login");
+    }
+  }, [session, status, router]);
+
+  const { data, error, isLoading } = useSWR<ApiAttendanceRecord[]>(
+    session ? "/api/attendance" : null,
+    fetcher
+  );
+
+  if (status === "loading" || isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-[50vh]">
+        <p className="text-muted-foreground animate-pulse text-lg">
+          Loading attendance data...
+        </p>
+      </div>
+    );
   }
 
-  const total = todaysAttendance.length;
-  const attendanceRate = total > 0 ? (present / total) * 100 : 0;
+  if (error) {
+    return (
+      <div className="text-center py-12 text-error">
+        <p className="text-lg font-medium">Failed to load attendance records</p>
+        <p className="text-sm mt-2">Please try again later or contact support.</p>
+      </div>
+    );
+  }
+
+  const records = data || [];
+  const totalDays = records.length;
+  const presentDays = records.filter((r) => r.present).length;
+  const percentage = totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : 0;
+
+  const tableRecords = records.map((r) => ({
+    date: r.date,
+    studentName: r.student?.name || "—",
+    status: r.present ? ("present" as const) : ("absent" as const),
+  }));
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-primary">Attendance Dashboard</h1>
+    <div className="space-y-8 p-6">
+      <h1 className="text-3xl font-bold text-primary">Attendance Report</h1>
 
-      {/* Today's Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="bg-base-100 shadow-lg border border-base-200">
-          <CardHeader>
-            <CardTitle className="text-xl text-primary">Present</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-success">{present}</div>
-            <p className="text-sm text-base-content/60">Students present today</p>
-          </CardContent>
-        </Card>
+      <AttendanceSummary
+        totalDays={totalDays}
+        presentDays={presentDays}
+        percentage={percentage}
+      />
 
-        <Card className="bg-base-100 shadow-lg border border-base-200">
-          <CardHeader>
-            <CardTitle className="text-xl text-primary">Absent</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-error">{absent}</div>
-            <p className="text-sm text-base-content/60">Students absent today</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-base-100 shadow-lg border border-base-200">
-          <CardHeader>
-            <CardTitle className="text-xl text-primary">Late</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-warning">{late}</div>
-            <p className="text-sm text-base-content/60">Students late today</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-base-100 shadow-lg border border-base-200">
-          <CardHeader>
-            <CardTitle className="text-xl text-primary">Attendance Rate</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-primary">
-              {attendanceRate.toFixed(1)}%
-            </div>
-            <p className="text-sm text-base-content/60">Overall attendance</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Action Buttons */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="bg-base-100 shadow-lg border border-base-200">
-          <CardHeader>
-            <CardTitle className="text-xl text-primary">Mark Attendance</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-base-content/70 mb-4">
-              Record today's attendance for your classes
-            </p>
-            <Button asChild className="w-full">
-              <Link href="/dashboard/attendance/mark">Mark Today's Attendance</Link>
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-base-100 shadow-lg border border-base-200">
-          <CardHeader>
-            <CardTitle className="text-xl text-primary">View Reports</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-base-content/70 mb-4">
-              Generate detailed attendance reports and analytics
-            </p>
-            <Button asChild variant="outline" className="w-full">
-              <Link href="/dashboard/attendance/report">Attendance Reports</Link>
-            </Button>
-          </CardContent>
-        </Card>
+      <div>
+        <h2 className="text-2xl font-semibold mb-4 text-primary">Recent Records</h2>
+        <AttendanceTable records={tableRecords} />
       </div>
     </div>
   );

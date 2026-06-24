@@ -9,13 +9,13 @@ import { useState } from "react";
 export interface Student {
   id: string;
   name: string;
-  rollNumber: string;
+  admissionNumber: string; // Changed from rollNumber to admissionNumber
 }
 
 export interface AttendanceMarkerProps {
   students: Student[];
   date: string;
-  isSubmitting?: boolean; // ✅ add this
+  isSubmitting?: boolean;
   onSubmit: (attendance: { studentId: string; present: boolean }[]) => void;
 }
 
@@ -68,7 +68,7 @@ export default function AttendanceMarker({
             size="sm"
             onClick={() => handleMarkAll(true)}
             className="flex-1 sm:flex-initial"
-            disabled={isSubmitting} // ✅ disable while submitting
+            disabled={isSubmitting}
           >
             All Present
           </Button>
@@ -77,7 +77,7 @@ export default function AttendanceMarker({
             size="sm"
             onClick={() => handleMarkAll(false)}
             className="flex-1 sm:flex-initial"
-            disabled={isSubmitting} // ✅ disable while submitting
+            disabled={isSubmitting}
           >
             All Absent
           </Button>
@@ -90,14 +90,14 @@ export default function AttendanceMarker({
           <div key={student.id} className="flex items-center justify-between p-4">
             <div>
               <p className="font-medium">{student.name}</p>
-              <p className="text-sm text-muted-foreground">Roll: {student.rollNumber}</p>
+              <p className="text-sm text-muted-foreground">Adm: {student.admissionNumber}</p>
             </div>
             <div className="flex items-center space-x-3">
               <Checkbox
                 id={student.id}
                 checked={attendance[student.id] ?? true}
                 onCheckedChange={(checked) => handleToggle(student.id, checked)}
-                disabled={isSubmitting} // ✅ disable checkbox while submitting
+                disabled={isSubmitting}
               />
               <Label htmlFor={student.id} className="cursor-pointer select-none">
                 {attendance[student.id] === false ? "Absent" : "Present"}

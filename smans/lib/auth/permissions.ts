@@ -118,9 +118,6 @@ export const permissions: Record<Role, Permission[]> = {
    PERMISSION CHECK FUNCTIONS
 ========================= */
 
-/**
- * Check if a given role has the specified permission.
- */
 export function hasPermission(role: Role, permission: Permission): boolean {
   if (role === "ADMIN") return true;
 
@@ -140,31 +137,17 @@ export function hasPermission(role: Role, permission: Permission): boolean {
   return false;
 }
 
-/**
- * Client-side permission check (no async, no session)
- * Use this in client components for conditional rendering
- */
 export function hasClientPermission(role: Role, permission: Permission): boolean {
   return hasPermission(role, permission);
 }
 
-/**
- * Check if a role has any of the given permissions
- */
 export function hasAnyPermission(role: Role, permissionsList: Permission[]): boolean {
   return permissionsList.some(p => hasPermission(role, p));
 }
 
-/**
- * Check if a role has all of the given permissions
- */
 export function hasAllPermissions(role: Role, permissionsList: Permission[]): boolean {
   return permissionsList.every(p => hasPermission(role, p));
 }
-
-/* =========================
-   RESOURCE-SPECIFIC CHECK
-========================= */
 
 export function hasResourcePermission(
   role: Role,
@@ -229,5 +212,15 @@ export async function can(permission: Permission): Promise<boolean> {
   return hasPermission(role, permission);
 }
 
-// Re-export commonly used types for convenience
+// ✅ NEW: Require page access with redirect
+export async function requirePageAccess(allowedRoles: Role[], redirectPath: string = "/dashboard") {
+  try {
+    await requireRole(...allowedRoles);
+  } catch (error) {
+    // For server components, we redirect
+    const { redirect } = await import("next/navigation");
+    redirect(redirectPath);
+  }
+}
+
 export type { Role as AppRole, Permission as AppPermission };

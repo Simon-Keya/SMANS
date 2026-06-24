@@ -1,12 +1,21 @@
 // app/dashboard/grades/enter/page.tsx
 import { prisma } from "@/lib/prisma";
 import GradeEntryClient from "./GradeEntryClient";
+import { requireRole } from "@/lib/permissions";
+import { redirect } from "next/navigation";
 
 export default async function EnterGradesPage() {
-  // Fetch real data - removed 'status' filter since Student model doesn't have it
+  // ✅ Only ADMIN and TEACHER can enter grades
+  // requireRole uses spread operator, so pass as separate arguments
+  try {
+    await requireRole(["ADMIN", "TEACHER"]);;
+  } catch (error) {
+    redirect("/dashboard");
+  }
+
+  // Fetch real data
   const [studentsData, subjectsData, activeExam] = await Promise.all([
     prisma.student.findMany({
-      // Removed status filter - Student model doesn't have this field
       select: {
         id: true,
         name: true,
@@ -22,31 +31,26 @@ export default async function EnterGradesPage() {
       orderBy: { name: "asc" },
     }),
     prisma.exam.findFirst({
-      // Removed isActive filter - Exam model doesn't have this field
       select: { 
         id: true, 
         name: true, 
         term: true,
-        // Removed 'year' - Exam model doesn't have this field
-        date: true, // Use date instead to get year information
+        date: true,
       },
       orderBy: { createdAt: "desc" },
     }),
   ]);
 
   const examId = activeExam?.id || "";
-  
-  // Get year from exam date if available
   const examYear = activeExam?.date ? new Date(activeExam.date).getFullYear() : new Date().getFullYear();
 
-  // Explicit typing to fix "implicitly has 'any' type"
-  const students = studentsData.map((s: { id: string; name: string; admissionNumber: string | null }) => ({
+  const students = studentsData.map((s) => ({
     id: s.id,
     name: s.name,
     admissionNumber: s.admissionNumber || "",
   }));
 
-  const subjects = subjectsData.map((s: { id: string; name: string }) => ({
+  const subjects = subjectsData.map((s) => ({
     id: s.id,
     name: s.name,
   }));

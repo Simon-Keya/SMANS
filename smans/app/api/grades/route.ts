@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { requireRole } from "@/lib/permissions";
 
 const createGradeSchema = z.object({
   studentId: z.string().min(1, "Student ID is required"),
@@ -18,10 +19,14 @@ const createGradeSchema = z.object({
 });
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
-
-  if (!session || !["ADMIN", "TEACHER"].includes(session.user.role as string)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    // ✅ ADMIN and TEACHER can view all grades
+    await requireRole(["ADMIN", "TEACHER"]);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   try {
@@ -43,10 +48,14 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await getServerSession(authOptions);
-
-  if (!session || !["ADMIN", "TEACHER"].includes(session.user.role as string)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  try {
+    // ✅ Only ADMIN and TEACHER can create grades
+    await requireRole(["ADMIN", "TEACHER"]);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   try {
@@ -80,7 +89,6 @@ export async function POST(request: NextRequest) {
 
     const subjectIds = grades.map((g) => g.subjectId);
 
-    // Fixed: Explicit type to remove implicit 'any'
     const validSubjects = await prisma.subject.findMany({
       where: {
         id: { in: subjectIds },

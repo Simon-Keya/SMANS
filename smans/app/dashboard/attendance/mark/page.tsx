@@ -1,13 +1,15 @@
+// app/dashboard/attendance/mark/page.tsx
 "use client";
 
 import AttendanceMarker from "@/components/attendance/AttendanceMarker";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 
 type Student = {
   id: string;
   name: string;
-  rollNumber: string;
+  admissionNumber: string; // Changed from rollNumber
 };
 
 type AttendanceRecord = {
@@ -17,9 +19,26 @@ type AttendanceRecord = {
 
 export default function MarkAttendancePage() {
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [students, setStudents] = useState<Student[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Check if user has permission to mark attendance
+  useEffect(() => {
+    if (status === "loading") return;
+    
+    if (!session) {
+      router.push("/auth/login");
+      return;
+    }
+
+    const userRole = session.user?.role;
+    if (!["ADMIN", "TEACHER"].includes(userRole)) {
+      router.push("/dashboard");
+      return;
+    }
+  }, [session, status, router]);
 
   // Fetch students from API
   useEffect(() => {
@@ -64,6 +83,10 @@ export default function MarkAttendancePage() {
       setIsLoading(false);
     }
   };
+
+  if (status === "loading") {
+    return <p className="text-gray-500">Checking permissions...</p>;
+  }
 
   if (error) {
     return <p className="text-red-500 font-semibold">{error}</p>;
