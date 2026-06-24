@@ -13,9 +13,18 @@ import {
   Settings,
   UserCircle,
   Users,
+  LogOut,
+  FileText,
+  Bell,
+  MessageSquare,
+  CreditCard,
+  Shield,
+  School,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { signOut } from "next-auth/react";
+import { useState } from "react";
 
 type Role = "ADMIN" | "TEACHER" | "STUDENT" | "PARENT" | "ACCOUNTANT";
 
@@ -141,10 +150,16 @@ interface NavItem {
 export default function Sidebar({ role = "STUDENT" }: SidebarProps) {
   const pathname = usePathname();
   const userRole = role.toUpperCase() as Role;
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const checkPermission = (permission?: Permission): boolean => {
     if (!permission) return true;
     return hasPermission(userRole, permission);
+  };
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    await signOut({ callbackUrl: "/auth/login" });
   };
 
   const allNavItems: NavItem[] = [
@@ -184,7 +199,7 @@ export default function Sidebar({ role = "STUDENT" }: SidebarProps) {
     { 
       href: "/dashboard/assessments", 
       label: "Assessments", 
-      icon: BookOpen, 
+      icon: FileText, 
       permission: "exams:read",
       roles: ["ADMIN", "TEACHER"]
     },
@@ -230,7 +245,7 @@ export default function Sidebar({ role = "STUDENT" }: SidebarProps) {
     { 
       href: "/dashboard/fees", 
       label: "Fees & Finance", 
-      icon: DollarSign, 
+      icon: CreditCard, 
       permission: "fees:read",
       roles: ["ADMIN", "ACCOUNTANT", "PARENT"]
     },
@@ -279,14 +294,23 @@ export default function Sidebar({ role = "STUDENT" }: SidebarProps) {
 
   return (
     <div className="hidden md:flex flex-col w-64 bg-base-200 border-r border-neutral h-screen sticky top-0">
+      {/* Header */}
       <div className="p-6 border-b border-neutral">
-        <h2 className="font-bold text-xl text-primary">SMANS</h2>
-        <p className="text-xs text-base-content/60 mt-1">Kenya CBC System</p>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
+            <School className="h-5 w-5 text-primary-content" />
+          </div>
+          <div>
+            <h2 className="font-bold text-xl text-primary">SMANS</h2>
+            <p className="text-xs text-base-content/60">Kenya CBC System</p>
+          </div>
+        </div>
         <div className="mt-2 text-xs text-primary/60 font-medium">
           {userRole}
         </div>
       </div>
 
+      {/* Navigation */}
       <nav className="flex-1 p-4 overflow-y-auto">
         {sortedNavItems.map((item) => {
           const Icon = item.icon;
@@ -308,9 +332,23 @@ export default function Sidebar({ role = "STUDENT" }: SidebarProps) {
         })}
       </nav>
 
-      <div className="p-4 border-t border-neutral text-xs text-base-content/50">
-        <p>© {new Date().getFullYear()} SMANS • CBC Kenya</p>
-        <p className="mt-1">v1.0.0</p>
+      {/* Footer with Logout */}
+      <div className="p-4 border-t border-neutral space-y-2">
+        <button
+          onClick={handleLogout}
+          disabled={isLoggingOut}
+          className={cn(
+            "flex items-center gap-3 rounded-lg px-4 py-3 text-base-content/80 transition-all hover:bg-error/10 hover:text-error w-full",
+            isLoggingOut && "opacity-50 cursor-not-allowed"
+          )}
+        >
+          <LogOut className="h-5 w-5 flex-shrink-0" />
+          <span className="truncate">{isLoggingOut ? "Logging out..." : "Logout"}</span>
+        </button>
+        <div className="text-xs text-base-content/50 text-center pt-2">
+          <p>© {new Date().getFullYear()} SMANS</p>
+          <p className="mt-0.5">v1.0.0</p>
+        </div>
       </div>
     </div>
   );
