@@ -7,15 +7,24 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
-export default async function AssessmentDetailPage({ params }: { params: { id: string } }) {
+interface AssessmentDetailPageProps {
+  params: Promise<{ id: string }>;
+}
+
+export default async function AssessmentDetailPage({ params }: AssessmentDetailPageProps) {
   const user = await getCurrentUser();
 
-  if (!user || !["ADMIN", "TEACHER"].includes(user.role)) {
-    redirect("/dashboard");
+  if (!user) {
+    redirect("/auth/login");
   }
 
+  // ✅ All authenticated users can view assessment details
+  const userRole = user.role as string;
+
+  const { id } = await params;
+
   const assessment = await prisma.assessment.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       learningArea: true,
       class: true,
@@ -23,6 +32,9 @@ export default async function AssessmentDetailPage({ params }: { params: { id: s
   });
 
   if (!assessment) notFound();
+
+  // ✅ Only ADMIN and TEACHER can edit
+  const canEdit = ["ADMIN", "TEACHER"].includes(userRole);
 
   return (
     <div className="space-y-6 p-6">
@@ -71,10 +83,19 @@ export default async function AssessmentDetailPage({ params }: { params: { id: s
             <CardTitle>Actions</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Button asChild className="w-full">
-              <Link href={`/dashboard/assessments/${assessment.id}/edit`}>Edit Assessment</Link>
-            </Button>
-            <Button variant="outline" className="w-full">View Student Results</Button>
+            {canEdit && (
+              <>
+                <Button asChild className="w-full">
+                  <Link href={`/dashboard/assessments/${assessment.id}/edit`}>Edit Assessment</Link>
+                </Button>
+                <Button variant="outline" className="w-full">View Student Results</Button>
+              </>
+            )}
+            {!canEdit && (
+              <p className="text-sm text-muted-foreground text-center">
+                You have view-only access to this assessment.
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>

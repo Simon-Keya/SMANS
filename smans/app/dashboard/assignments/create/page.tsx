@@ -1,4 +1,4 @@
-// app/(dashboard)/assignments/create/page.tsx
+// app/dashboard/assignments/create/page.tsx
 "use client";
 
 import AssignmentForm from "@/components/assignments/AssignmentForm";
@@ -18,13 +18,24 @@ export default function CreateAssignmentPage() {
     }
   }, [isLoading, isTeacher, isAdmin, router]);
 
-  if (isLoading) return <div>Loading...</div>;
+  if (isLoading) {
+    return (
+      <div className="p-6 text-center">
+        <div className="animate-pulse">Loading...</div>
+      </div>
+    );
+  }
 
   if (!(isTeacher || isAdmin)) return null;
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold mb-8">Create New Assignment</h1>
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-primary">Create New Assignment</h1>
+        <p className="text-muted-foreground mt-1">
+          Create a new assignment for your students
+        </p>
+      </div>
       
       <AssignmentForm 
         onSuccess={() => {

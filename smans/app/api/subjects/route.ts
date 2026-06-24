@@ -1,9 +1,10 @@
 // app/api/subjects/route.ts
-import { authOptions } from "@/lib/auth/auth"; // FIXED: correct path
+import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { requireRole } from "@/lib/permissions";
 
 const createSubjectSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").trim(),
@@ -12,16 +13,55 @@ const createSubjectSchema = z.object({
 });
 
 export async function GET() {
+  // ✅ All authenticated users can view subjects
   const session = await getServerSession(authOptions);
-
-  if (!session || session.user.role !== "ADMIN") {
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
+    const userRole = session.user.role as string;
+    
+    // Build where clause based on role
+    let whereClause: any = {};
+
+    if (userRole === "TEACHER") {
+      // Teachers see subjects they teach
+      const teacherClasses = await prisma.class.findMany({
+        where: { teacherId: session.user.id },
+        select: { subjects: { select: { id: true } } },
+      });
+      const subjectIds = teacherClasses.flatMap(c => c.subjects.map(s => s.id));
+      whereClause = { id: { in: subjectIds } };
+    } else if (userRole === "STUDENT") {
+      // Students see subjects for their class
+      const student = await prisma.student.findFirst({
+        where: { userId: session.user.id },
+        select: { class: { select: { subjects: { select: { id: true } } } } },
+      });
+      const subjectIds = student?.class?.subjects.map(s => s.id) || [];
+      whereClause = { id: { in: subjectIds } };
+    } else if (userRole === "PARENT") {
+      // Parents see subjects for their children's classes
+      const children = await prisma.student.findMany({
+        where: { parent: { userId: session.user.id } },
+        select: { class: { select: { subjects: { select: { id: true } } } } },
+      });
+      const subjectIds = children.flatMap(c => c.class?.subjects.map(s => s.id) || []);
+      whereClause = { id: { in: subjectIds } };
+    }
+    // ADMIN sees all subjects (no where clause)
+
     const subjects = await prisma.subject.findMany({
+      where: whereClause,
       include: {
-        classes: { select: { name: true } },
+        classes: { 
+          select: { 
+            name: true,
+            level: true,
+            teacher: { select: { name: true } }
+          } 
+        },
         _count: { select: { classes: true } },
       },
       orderBy: { name: "asc" },
@@ -41,10 +81,14 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await getServerSession(authOptions);
-
-  if (!session || session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    // ✅ Only ADMIN can create subjects
+    await requireRole(["ADMIN"]);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   try {
@@ -59,7 +103,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Optional: check if code already exists (unique constraint)
+    // Check if code already exists (unique constraint)
     const existing = await prisma.subject.findUnique({
       where: { code: parsed.data.code },
     });

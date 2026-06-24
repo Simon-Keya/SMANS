@@ -3,8 +3,17 @@ import AssessmentForm from "@/components/exams/AssessmentForm";
 import { Button } from "@/components/ui/Button";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
+import { getCurrentUser } from "@/lib/auth/session";
+import { redirect } from "next/navigation";
 
 export default async function NewAssessmentPage() {
+  const user = await getCurrentUser();
+
+  // ✅ Only ADMIN and TEACHER can create assessments
+  if (!user || !["ADMIN", "TEACHER"].includes(user.role)) {
+    redirect("/dashboard");
+  }
+
   // Fetch learning areas for the form dropdown
   const learningAreas = await prisma.learningArea.findMany({
     select: {

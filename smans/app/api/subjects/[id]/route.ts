@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { requireRole } from "@/lib/permissions";
 
 const updateSubjectSchema = z.object({
   name: z.string().min(2).trim().optional(),
@@ -15,9 +16,9 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // ✅ All authenticated users can view subject details
   const session = await getServerSession(authOptions);
-
-  if (!session || session.user.role !== "ADMIN") {
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -27,7 +28,13 @@ export async function GET(
     const subject = await prisma.subject.findUnique({
       where: { id },
       include: {
-        classes: { select: { name: true } },
+        classes: { 
+          select: { 
+            name: true,
+            level: true,
+            teacher: { select: { name: true } }
+          } 
+        },
         _count: { select: { classes: true } },
       },
     });
@@ -53,10 +60,14 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions);
-
-  if (!session || session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    // ✅ Only ADMIN can update subjects
+    await requireRole(["ADMIN"]);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   try {
@@ -92,7 +103,13 @@ export async function PUT(
       where: { id },
       data: parsed.data,
       include: {
-        classes: { select: { name: true } },
+        classes: { 
+          select: { 
+            name: true,
+            level: true,
+            teacher: { select: { name: true } }
+          } 
+        },
         _count: { select: { classes: true } },
       },
     });
@@ -114,10 +131,14 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions);
-
-  if (!session || session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    // ✅ Only ADMIN can delete subjects
+    await requireRole(["ADMIN"]);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   try {

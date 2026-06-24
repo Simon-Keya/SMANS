@@ -1,17 +1,63 @@
+// app/dashboard/subjects/[id]/page.tsx
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth";
 import { ArrowLeft, Edit } from "lucide-react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 interface SubjectDetailPageProps {
   params: Promise<{ id: string }>;
 }
 
 export default async function SubjectDetailPage({ params }: SubjectDetailPageProps) {
+  const session = await getServerSession(authOptions);
+
+  if (!session) {
+    redirect("/auth/login");
+  }
+
+  const userRole = session.user.role as string;
   const { id } = await params;
   
+  // Build where clause based on role
+  let whereClause: any = { id };
+
+  if (userRole === "TEACHER") {
+    // Check if teacher teaches this subject
+    const teacherClasses = await prisma.class.findMany({
+      where: { teacherId: session.user.id },
+      select: { subjects: { select: { id: true } } },
+    });
+    const subjectIds = teacherClasses.flatMap(c => c.subjects.map(s => s.id));
+    if (!subjectIds.includes(id)) {
+      return redirect("/dashboard/subjects");
+    }
+  } else if (userRole === "STUDENT") {
+    // Check if student's class has this subject
+    const student = await prisma.student.findFirst({
+      where: { userId: session.user.id },
+      select: { class: { select: { subjects: { select: { id: true } } } } },
+    });
+    const subjectIds = student?.class?.subjects.map(s => s.id) || [];
+    if (!subjectIds.includes(id)) {
+      return redirect("/dashboard/subjects");
+    }
+  } else if (userRole === "PARENT") {
+    // Check if parent's children's classes have this subject
+    const children = await prisma.student.findMany({
+      where: { parent: { userId: session.user.id } },
+      select: { class: { select: { subjects: { select: { id: true } } } } },
+    });
+    const subjectIds = children.flatMap(c => c.class?.subjects.map(s => s.id) || []);
+    if (!subjectIds.includes(id)) {
+      return redirect("/dashboard/subjects");
+    }
+  }
+  // ADMIN can view all subjects
+
   const subject = await prisma.subject.findUnique({
     where: { id },
     select: {
@@ -45,6 +91,9 @@ export default async function SubjectDetailPage({ params }: SubjectDetailPagePro
     .map(cls => cls.teacher?.name)
     .filter((name, index, self) => name && self.indexOf(name) === index);
 
+  // ✅ Only ADMIN can edit
+  const canEdit = userRole === "ADMIN";
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -56,12 +105,14 @@ export default async function SubjectDetailPage({ params }: SubjectDetailPagePro
           </Button>
           <h1 className="text-3xl font-bold text-primary">{subject.name}</h1>
         </div>
-        <Button asChild variant="outline" className="gap-2">
-          <Link href={`/dashboard/subjects/${subject.id}/edit`}>
-            <Edit className="h-4 w-4" />
-            Edit
-          </Link>
-        </Button>
+        {canEdit && (
+          <Button asChild variant="outline" className="gap-2">
+            <Link href={`/dashboard/subjects/${subject.id}/edit`}>
+              <Edit className="h-4 w-4" />
+              Edit
+            </Link>
+          </Button>
+        )}
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">

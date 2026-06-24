@@ -13,6 +13,7 @@ interface EditAssessmentPageProps {
 export default async function EditAssessmentPage({ params }: EditAssessmentPageProps) {
   const user = await getCurrentUser();
 
+  // ✅ Only ADMIN and TEACHER can edit assessments
   if (!user || !["ADMIN", "TEACHER"].includes(user.role)) {
     redirect("/dashboard");
   }

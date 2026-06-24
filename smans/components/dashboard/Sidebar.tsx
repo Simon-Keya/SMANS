@@ -16,10 +16,11 @@ import {
   LogOut,
   FileText,
   Bell,
-  MessageSquare,
   CreditCard,
-  Shield,
   School,
+  ClipboardList,
+  Award,
+  Clock,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -162,6 +163,7 @@ export default function Sidebar({ role = "STUDENT" }: SidebarProps) {
     await signOut({ callbackUrl: "/auth/login" });
   };
 
+  // Define navigation items with role-based visibility
   const allNavItems: NavItem[] = [
     { href: "/dashboard", label: "Dashboard", icon: Home },
 
@@ -183,17 +185,18 @@ export default function Sidebar({ role = "STUDENT" }: SidebarProps) {
 
     { 
       href: "/dashboard/classes", 
-      label: "My Classes", 
-      icon: BookOpen, 
-      permission: "classes:read",
-      roles: ["TEACHER"]
-    },
-    { 
-      href: "/dashboard/classes", 
       label: "Classes", 
-      icon: BookOpen, 
+      icon: School, 
       permission: "classes:read",
-      roles: ["ADMIN"]
+      roles: ["ADMIN", "TEACHER"]
+    },
+
+    { 
+      href: "/dashboard/assignments", 
+      label: "Assignments", 
+      icon: ClipboardList, 
+      permission: "exams:read",
+      roles: ["ADMIN", "TEACHER", "STUDENT"]
     },
 
     { 
@@ -209,12 +212,12 @@ export default function Sidebar({ role = "STUDENT" }: SidebarProps) {
       label: "Attendance", 
       icon: CalendarCheck, 
       permission: "attendance:read",
-      roles: ["ADMIN", "STUDENT", "PARENT"]
+      roles: ["ADMIN", "STUDENT", "PARENT", "TEACHER"]
     },
     { 
       href: "/dashboard/attendance/mark", 
       label: "Mark Attendance", 
-      icon: CalendarCheck, 
+      icon: Clock, 
       permission: "attendance:mark",
       roles: ["TEACHER"]
     },
@@ -224,12 +227,12 @@ export default function Sidebar({ role = "STUDENT" }: SidebarProps) {
       label: "Grades", 
       icon: BarChart3, 
       permission: "grades:read",
-      roles: ["ADMIN", "STUDENT", "PARENT"]
+      roles: ["ADMIN", "STUDENT", "PARENT", "TEACHER"]
     },
     { 
       href: "/dashboard/grades/enter", 
       label: "Enter Grades", 
-      icon: BarChart3, 
+      icon: Award, 
       permission: "grades:enter",
       roles: ["TEACHER"]
     },
@@ -239,7 +242,7 @@ export default function Sidebar({ role = "STUDENT" }: SidebarProps) {
       label: "Timetable", 
       icon: CalendarDays, 
       permission: "exams:read",
-      roles: ["ADMIN", "TEACHER", "STUDENT"]
+      roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"]
     },
 
     { 
@@ -259,6 +262,14 @@ export default function Sidebar({ role = "STUDENT" }: SidebarProps) {
     },
 
     { 
+      href: "/dashboard/notifications", 
+      label: "Notifications", 
+      icon: Bell, 
+      permission: "notifications:read",
+      roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT", "ACCOUNTANT"]
+    },
+
+    { 
       href: "/dashboard/settings", 
       label: "Settings", 
       icon: Settings, 
@@ -274,6 +285,7 @@ export default function Sidebar({ role = "STUDENT" }: SidebarProps) {
     },
   ];
 
+  // Filter navigation items based on role and permissions
   const filteredNavItems = allNavItems.filter((item) => {
     if (item.roles && !item.roles.includes(userRole)) return false;
     if (item.permission) {
@@ -282,10 +294,12 @@ export default function Sidebar({ role = "STUDENT" }: SidebarProps) {
     return true;
   });
 
+  // Remove duplicate hrefs (keep first occurrence)
   const uniqueNavItems = filteredNavItems.filter(
     (item, index, self) => self.findIndex((i) => i.href === item.href) === index
   );
 
+  // Sort items: Dashboard first, then alphabetically
   const sortedNavItems = uniqueNavItems.sort((a, b) => {
     if (a.href === "/dashboard") return -1;
     if (b.href === "/dashboard") return 1;

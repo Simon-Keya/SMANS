@@ -13,18 +13,51 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const userRole = session.user.role as string;
+    const userId = session.user.id;
     const { searchParams } = new URL(request.url);
     const classId = searchParams.get("classId");
     const subjectId = searchParams.get("subjectId");
 
+    // Build where clause based on role
+    let whereClause: any = {};
+
+    if (classId) whereClause.classId = classId;
+    if (subjectId) whereClause.subjectId = subjectId;
+
+    if (userRole === "TEACHER") {
+      // Teachers see assignments for their classes
+      const teacherClasses = await prisma.class.findMany({
+        where: { teacherId: userId },
+        select: { id: true },
+      });
+      const classIds = teacherClasses.map(c => c.id);
+      whereClause.classId = { in: classIds };
+    } else if (userRole === "STUDENT") {
+      // Students see assignments for their class
+      const student = await prisma.student.findFirst({
+        where: { userId: userId },
+        select: { classId: true },
+      });
+      if (student) {
+        whereClause.classId = student.classId;
+      }
+    } else if (userRole === "PARENT") {
+      // Parents see assignments for their children's classes
+      const children = await prisma.student.findMany({
+        where: { parent: { userId: userId } },
+        select: { classId: true },
+      });
+      const classIds = children.map(c => c.classId);
+      whereClause.classId = { in: classIds };
+    }
+    // ADMIN sees all (no additional where clause)
+
     const assignments = await prisma.assignment.findMany({
-      where: {
-        ...(classId && { classId }),
-        ...(subjectId && { subjectId }),
-      },
+      where: whereClause,
       include: {
         subject: { select: { name: true, code: true } },
-        class: { select: { name: true } },
+        class: { select: { name: true, level: true } },
         createdByUser: { select: { name: true } },
       },
       orderBy: { dueDate: "asc" },
@@ -42,7 +75,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    await requireRole(["TEACHER", "ADMIN"]);
+    // ✅ Only ADMIN and TEACHER can create assignments
+    await requireRole(["ADMIN", "TEACHER"]);
 
     const body = await request.json();
     const session = await getServerSession(authOptions);
@@ -58,13 +92,29 @@ export async function POST(request: NextRequest) {
 
     if (!title || !dueDate || !classId || !subjectId) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { error: "Missing required fields: title, dueDate, classId, subjectId" },
         { status: 400 }
       );
     }
 
     if (!teacherId) {
       return NextResponse.json({ error: "Unauthorized - no user ID" }, { status: 401 });
+    }
+
+    // Verify class exists
+    const classExists = await prisma.class.findUnique({
+      where: { id: classId },
+    });
+    if (!classExists) {
+      return NextResponse.json({ error: "Class not found" }, { status: 404 });
+    }
+
+    // Verify subject exists
+    const subjectExists = await prisma.subject.findUnique({
+      where: { id: subjectId },
+    });
+    if (!subjectExists) {
+      return NextResponse.json({ error: "Subject not found" }, { status: 404 });
     }
 
     const assignment = await prisma.assignment.create({

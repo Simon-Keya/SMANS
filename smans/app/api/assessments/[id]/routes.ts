@@ -3,42 +3,52 @@ import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
+import { requireRole } from "@/lib/permissions";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // ✅ All authenticated users can view assessment details
   const session = await getServerSession(authOptions);
-
-  if (!session || !["ADMIN", "TEACHER"].includes(session.user.role)) {
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = await params;
-  
-  const assessment = await prisma.assessment.findUnique({
-    where: { id },
-    include: {
-      learningArea: true,
-      class: true,
-    },
-  });
+  try {
+    const { id } = await params;
+    
+    const assessment = await prisma.assessment.findUnique({
+      where: { id },
+      include: {
+        learningArea: true,
+        class: true,
+      },
+    });
 
-  if (!assessment) {
-    return NextResponse.json({ error: "Assessment not found" }, { status: 404 });
+    if (!assessment) {
+      return NextResponse.json({ error: "Assessment not found" }, { status: 404 });
+    }
+
+    return NextResponse.json(assessment);
+  } catch (error) {
+    console.error("[GET_ASSESSMENT]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-
-  return NextResponse.json(assessment);
 }
 
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions);
-
-  if (!session || !["ADMIN", "TEACHER"].includes(session.user.role)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    // ✅ Only ADMIN and TEACHER can update assessments
+    await requireRole(["ADMIN", "TEACHER"]);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   try {
@@ -65,10 +75,14 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions);
-
-  if (!session || !["ADMIN", "TEACHER"].includes(session.user.role)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    // ✅ Only ADMIN and TEACHER can delete assessments
+    await requireRole(["ADMIN", "TEACHER"]);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   try {

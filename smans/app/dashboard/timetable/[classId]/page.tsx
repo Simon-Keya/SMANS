@@ -1,5 +1,9 @@
+// app/dashboard/timetable/[classId]/page.tsx
 import TimetableGrid from "@/components/timetable/TimetableGrid";
+import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth";
+import { redirect } from "next/navigation";
 
 interface Period {
   day: string;
@@ -16,8 +20,42 @@ interface ClassTimetablePageProps {
 }
 
 export default async function ClassTimetablePage({ params }: ClassTimetablePageProps) {
+  const session = await getServerSession(authOptions);
+
+  if (!session) {
+    redirect("/auth/login");
+  }
+
+  const userRole = session.user.role as string;
+  const userId = session.user.id;
   const { classId } = await params;
-  
+
+  // Verify user has access to this class
+  let hasAccess = false;
+
+  if (userRole === "ADMIN") {
+    hasAccess = true;
+  } else if (userRole === "TEACHER") {
+    const classData = await prisma.class.findFirst({
+      where: { id: classId, teacherId: userId },
+    });
+    hasAccess = !!classData;
+  } else if (userRole === "STUDENT") {
+    const student = await prisma.student.findFirst({
+      where: { userId: userId, classId },
+    });
+    hasAccess = !!student;
+  } else if (userRole === "PARENT") {
+    const child = await prisma.student.findFirst({
+      where: { classId, parent: { userId: userId } },
+    });
+    hasAccess = !!child;
+  }
+
+  if (!hasAccess) {
+    redirect("/dashboard/timetable");
+  }
+
   // Fetch class name for display
   const classData = await prisma.class.findUnique({
     where: { id: classId },
@@ -65,11 +103,6 @@ export default async function ClassTimetablePage({ params }: ClassTimetablePageP
     time: `${period.startTime}-${period.endTime}`,
     learningArea: period.subject.name,
     room: period.room || undefined,
-    // Add teacher if you have teacher relation in your schema
-    // teacher: period.teacher?.name,
-    // Add strand and subStrand if you have these fields in your schema
-    // strand: period.strand || undefined,
-    // subStrand: period.subStrand || undefined,
   }));
 
   // If no data, show empty state

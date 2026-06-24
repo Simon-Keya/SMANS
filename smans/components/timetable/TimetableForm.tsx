@@ -12,7 +12,8 @@ import * as z from "zod";
 const timetableSchema = z.object({
   day: z.string().min(1, "Day is required"),
   time: z.string().min(1, "Time slot is required"),
-  learningAreaId: z.string().min(1, "Learning Area is required"),   // Changed from subject
+  learningAreaId: z.string().min(1, "Learning Area is required"),
+  classId: z.string().min(1, "Class is required"), // ✅ Added classId
   strand: z.string().optional(),
   subStrand: z.string().optional(),
   teacherId: z.string().optional(),
@@ -26,8 +27,9 @@ interface TimetableFormProps {
   defaultValues?: Partial<TimetableFormData>;
   onSubmit: (data: TimetableFormData) => Promise<void>;
   isLoading?: boolean;
-  learningAreas: Array<{ id: string; name: string }>;   // Pass from parent
-  teachers: Array<{ id: string; name: string }>;        // Pass from parent
+  learningAreas: Array<{ id: string; name: string }>;
+  teachers: Array<{ id: string; name: string }>;
+  classes: Array<{ id: string; name: string; level: string }>; // ✅ Added classes
 }
 
 const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
@@ -41,7 +43,8 @@ export default function TimetableForm({
   onSubmit, 
   isLoading = false,
   learningAreas,
-  teachers 
+  teachers,
+  classes, // ✅ Added classes prop
 }: TimetableFormProps) {
   const {
     register,
@@ -55,6 +58,7 @@ export default function TimetableForm({
       day: "",
       time: "",
       learningAreaId: "",
+      classId: "", // ✅ Added default
       strand: "",
       subStrand: "",
       teacherId: "",
@@ -102,8 +106,8 @@ export default function TimetableForm({
           {errors.time && <p className="text-sm text-destructive">{errors.time.message}</p>}
         </div>
 
-        {/* Learning Area (CBC term) */}
-        <div className="space-y-2 md:col-span-2">
+        {/* Learning Area */}
+        <div className="space-y-2">
           <Label htmlFor="learningAreaId">Learning Area</Label>
           <Select onValueChange={(value) => setValue("learningAreaId", value)} value={watch("learningAreaId")}>
             <SelectTrigger>
@@ -118,6 +122,24 @@ export default function TimetableForm({
             </SelectContent>
           </Select>
           {errors.learningAreaId && <p className="text-sm text-destructive">{errors.learningAreaId.message}</p>}
+        </div>
+
+        {/* Class */}
+        <div className="space-y-2">
+          <Label htmlFor="classId">Class</Label>
+          <Select onValueChange={(value) => setValue("classId", value)} value={watch("classId")}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select class" />
+            </SelectTrigger>
+            <SelectContent>
+              {classes.map((cls) => (
+                <SelectItem key={cls.id} value={cls.id}>
+                  {cls.name} {cls.level ? `(${cls.level})` : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {errors.classId && <p className="text-sm text-destructive">{errors.classId.message}</p>}
         </div>
 
         {/* Strand & Sub-strand */}
