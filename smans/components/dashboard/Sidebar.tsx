@@ -21,14 +21,27 @@ import {
   ClipboardList,
   Award,
   Clock,
+  PlusCircle,
+  List,
+  Eye,
+  PenSquare,
+  Receipt,
+  PieChart,
+  UserPlus,
+  BookMarked,
+  FileCheck,
+  Calendar,
+  AlertCircle,
+  MessageSquare,
+  TrendingUp,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { useState } from "react";
 
+// Define types locally as fallback (these match the ones in lib/permissions.ts)
 type Role = "ADMIN" | "TEACHER" | "STUDENT" | "PARENT" | "ACCOUNTANT";
-
 type Permission = 
   | "*"
   | "users:*"
@@ -64,10 +77,12 @@ type Permission =
   | "notifications:read"
   | "fees:read"
   | "fees:pay"
+  | "fees:write"
   | "profile:read"
   | "profile:write";
 
-const rolePermissions: Record<Role, Permission[]> = {
+// Permission map (matches the one in lib/permissions.ts)
+const permissions: Record<Role, Permission[]> = {
   ADMIN: ["*"],
   TEACHER: [
     "students:read",
@@ -109,6 +124,7 @@ const rolePermissions: Record<Role, Permission[]> = {
   ACCOUNTANT: [
     "fees:read",
     "fees:pay",
+    "fees:write",
     "reports:read",
     "reports:generate",
     "profile:read",
@@ -117,22 +133,23 @@ const rolePermissions: Record<Role, Permission[]> = {
   ],
 };
 
+// Permission check function (matches the one in lib/permissions.ts)
 function hasPermission(role: Role, permission: Permission): boolean {
   if (role === "ADMIN") return true;
-  
-  const perms = rolePermissions[role];
+
+  const perms = permissions[role];
   if (!perms) return false;
-  
+
   if (perms.includes(permission)) return true;
-  
+
   const parts = permission.split(":");
   if (parts.length === 2) {
     const resource = parts[0];
     if (perms.includes(`${resource}:*` as Permission)) return true;
   }
-  
+
   if (perms.includes("*")) return true;
-  
+
   return false;
 }
 
@@ -146,12 +163,14 @@ interface NavItem {
   icon: any;
   roles?: Role[];
   permission?: Permission;
+  children?: NavItem[];
 }
 
 export default function Sidebar({ role = "STUDENT" }: SidebarProps) {
   const pathname = usePathname();
   const userRole = role.toUpperCase() as Role;
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<string[]>([]);
 
   const checkPermission = (permission?: Permission): boolean => {
     if (!permission) return true;
@@ -163,120 +182,313 @@ export default function Sidebar({ role = "STUDENT" }: SidebarProps) {
     await signOut({ callbackUrl: "/auth/login" });
   };
 
-  // Define navigation items with role-based visibility
-  const allNavItems: NavItem[] = [
-    { href: "/dashboard", label: "Dashboard", icon: Home },
+  const toggleSection = (label: string) => {
+    setExpandedSections(prev =>
+      prev.includes(label)
+        ? prev.filter(item => item !== label)
+        : [...prev, label]
+    );
+  };
 
-    { 
-      href: "/dashboard/students", 
-      label: "Students", 
-      icon: Users, 
-      permission: "students:read",
-      roles: ["ADMIN", "TEACHER", "ACCOUNTANT"]
-    },
+  const isSectionExpanded = (label: string) => expandedSections.includes(label);
+  const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
+  const navItems: NavItem[] = [
     { 
-      href: "/dashboard/teachers", 
-      label: "Teachers", 
-      icon: GraduationCap, 
-      permission: "teachers:read",
-      roles: ["ADMIN"]
+      href: "/dashboard", 
+      label: "Dashboard", 
+      icon: Home,
     },
-
-    { 
-      href: "/dashboard/classes", 
-      label: "Classes", 
-      icon: School, 
-      permission: "classes:read",
-      roles: ["ADMIN", "TEACHER"]
+    {
+      href: "#",
+      label: "Students",
+      icon: Users,
+      roles: ["ADMIN", "TEACHER", "ACCOUNTANT"],
+      children: [
+        { 
+          href: "/dashboard/students", 
+          label: "All Students", 
+          icon: List,
+          permission: "students:read",
+        },
+        { 
+          href: "/dashboard/students/new", 
+          label: "Add Student", 
+          icon: UserPlus,
+          permission: "students:write",
+          roles: ["ADMIN"],
+        },
+      ],
     },
-
-    { 
-      href: "/dashboard/assignments", 
-      label: "Assignments", 
-      icon: ClipboardList, 
-      permission: "exams:read",
-      roles: ["ADMIN", "TEACHER", "STUDENT"]
+    {
+      href: "#",
+      label: "Teachers",
+      icon: GraduationCap,
+      roles: ["ADMIN"],
+      children: [
+        { 
+          href: "/dashboard/teachers", 
+          label: "All Teachers", 
+          icon: List,
+          permission: "teachers:read",
+        },
+        { 
+          href: "/dashboard/teachers/new", 
+          label: "Add Teacher", 
+          icon: UserPlus,
+          permission: "teachers:write",
+        },
+      ],
     },
-
-    { 
-      href: "/dashboard/assessments", 
-      label: "Assessments", 
-      icon: FileText, 
-      permission: "exams:read",
-      roles: ["ADMIN", "TEACHER"]
+    {
+      href: "#",
+      label: "Academics",
+      icon: BookOpen,
+      roles: ["ADMIN", "TEACHER"],
+      children: [
+        { 
+          href: "/dashboard/classes", 
+          label: "Classes", 
+          icon: School,
+          permission: "classes:read",
+        },
+        { 
+          href: "/dashboard/subjects", 
+          label: "Subjects", 
+          icon: BookMarked,
+          permission: "classes:read",
+          roles: ["ADMIN"],
+        },
+        { 
+          href: "/dashboard/timetable", 
+          label: "Timetable", 
+          icon: Calendar,
+          permission: "classes:read",
+        },
+      ],
     },
-
-    { 
-      href: "/dashboard/attendance", 
-      label: "Attendance", 
-      icon: CalendarCheck, 
-      permission: "attendance:read",
-      roles: ["ADMIN", "STUDENT", "PARENT", "TEACHER"]
+    {
+      href: "#",
+      label: "Assignments",
+      icon: ClipboardList,
+      roles: ["ADMIN", "TEACHER", "STUDENT"],
+      children: [
+        { 
+          href: "/dashboard/assignments", 
+          label: "All Assignments", 
+          icon: List,
+          permission: "exams:read",
+        },
+        { 
+          href: "/dashboard/assignments/create", 
+          label: "Create Assignment", 
+          icon: PlusCircle,
+          permission: "exams:create",
+          roles: ["ADMIN", "TEACHER"],
+        },
+      ],
     },
-    { 
-      href: "/dashboard/attendance/mark", 
-      label: "Mark Attendance", 
-      icon: Clock, 
-      permission: "attendance:mark",
-      roles: ["TEACHER"]
+    {
+      href: "#",
+      label: "Assessments",
+      icon: FileText,
+      roles: ["ADMIN", "TEACHER"],
+      children: [
+        { 
+          href: "/dashboard/assessments", 
+          label: "All Assessments", 
+          icon: List,
+          permission: "exams:read",
+        },
+        { 
+          href: "/dashboard/assessments/create", 
+          label: "Create Assessment", 
+          icon: PlusCircle,
+          permission: "exams:create",
+        },
+      ],
     },
-
-    { 
-      href: "/dashboard/grades", 
-      label: "Grades", 
-      icon: BarChart3, 
-      permission: "grades:read",
-      roles: ["ADMIN", "STUDENT", "PARENT", "TEACHER"]
+    {
+      href: "#",
+      label: "Exams",
+      icon: BarChart3,
+      roles: ["ADMIN", "TEACHER", "STUDENT"],
+      children: [
+        { 
+          href: "/dashboard/exams", 
+          label: "All Exams", 
+          icon: List,
+          permission: "exams:read",
+        },
+        { 
+          href: "/dashboard/exams/create", 
+          label: "Create Exam", 
+          icon: PlusCircle,
+          permission: "exams:create",
+          roles: ["ADMIN", "TEACHER"],
+        },
+      ],
     },
-    { 
-      href: "/dashboard/grades/enter", 
-      label: "Enter Grades", 
-      icon: Award, 
-      permission: "grades:enter",
-      roles: ["TEACHER"]
+    {
+      href: "#",
+      label: "Attendance",
+      icon: CalendarCheck,
+      roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"],
+      children: [
+        { 
+          href: "/dashboard/attendance", 
+          label: "View Attendance", 
+          icon: Eye,
+          permission: "attendance:read",
+        },
+        { 
+          href: "/dashboard/attendance/mark", 
+          label: "Mark Attendance", 
+          icon: PenSquare,
+          permission: "attendance:mark",
+          roles: ["TEACHER"],
+        },
+      ],
     },
-
-    { 
-      href: "/dashboard/timetable", 
-      label: "Timetable", 
-      icon: CalendarDays, 
-      permission: "exams:read",
-      roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"]
+    {
+      href: "#",
+      label: "Grades",
+      icon: Award,
+      roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"],
+      children: [
+        { 
+          href: "/dashboard/grades", 
+          label: "View Grades", 
+          icon: Eye,
+          permission: "grades:read",
+        },
+        { 
+          href: "/dashboard/grades/enter", 
+          label: "Enter Grades", 
+          icon: PenSquare,
+          permission: "grades:enter",
+          roles: ["TEACHER"],
+        },
+        { 
+          href: "/dashboard/grades/publish", 
+          label: "Publish Grades", 
+          icon: FileCheck,
+          permission: "grades:publish",
+          roles: ["TEACHER"],
+        },
+      ],
     },
-
-    { 
-      href: "/dashboard/fees", 
-      label: "Fees & Finance", 
-      icon: CreditCard, 
-      permission: "fees:read",
-      roles: ["ADMIN", "ACCOUNTANT", "PARENT"]
+    {
+      href: "#",
+      label: "Fees & Finance",
+      icon: DollarSign,
+      roles: ["ADMIN", "ACCOUNTANT", "PARENT"],
+      children: [
+        { 
+          href: "/dashboard/fees", 
+          label: "Fee Management", 
+          icon: CreditCard,
+          permission: "fees:read",
+        },
+        { 
+          href: "/dashboard/fees/structure", 
+          label: "Fee Structure", 
+          icon: List,
+          permission: "fees:read",
+          roles: ["ADMIN", "ACCOUNTANT"],
+        },
+        { 
+          href: "/dashboard/fees/structure/new", 
+          label: "Add Fee Item", 
+          icon: PlusCircle,
+          permission: "fees:write",
+          roles: ["ADMIN", "ACCOUNTANT"],
+        },
+        { 
+          href: "/dashboard/invoices", 
+          label: "Invoices", 
+          icon: Receipt,
+          permission: "fees:read",
+          roles: ["ADMIN", "ACCOUNTANT"],
+        },
+        { 
+          href: "/dashboard/invoices/new", 
+          label: "Create Invoice", 
+          icon: FileCheck,
+          permission: "fees:write",
+          roles: ["ADMIN", "ACCOUNTANT"],
+        },
+        { 
+          href: "/dashboard/payments", 
+          label: "Payments", 
+          icon: CreditCard,
+          permission: "fees:read",
+          roles: ["ADMIN", "ACCOUNTANT"],
+        },
+        { 
+          href: "/dashboard/reports/financial", 
+          label: "Financial Reports", 
+          icon: TrendingUp,
+          permission: "reports:read",
+          roles: ["ADMIN", "ACCOUNTANT"],
+        },
+      ],
     },
-
-    { 
-      href: "/dashboard/children", 
-      label: "My Children", 
-      icon: Users, 
-      permission: "students:read",
-      roles: ["PARENT"]
+    {
+      href: "#",
+      label: "Children",
+      icon: Users,
+      roles: ["PARENT"],
+      children: [
+        { 
+          href: "/dashboard/children", 
+          label: "My Children", 
+          icon: Users,
+          permission: "students:read",
+        },
+      ],
     },
-
     { 
       href: "/dashboard/notifications", 
       label: "Notifications", 
       icon: Bell, 
       permission: "notifications:read",
-      roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT", "ACCOUNTANT"]
     },
-
+    {
+      href: "#",
+      label: "Reports",
+      icon: PieChart,
+      roles: ["ADMIN", "TEACHER", "ACCOUNTANT"],
+      children: [
+        { 
+          href: "/dashboard/reports", 
+          label: "All Reports", 
+          icon: List,
+          permission: "reports:read",
+        },
+        { 
+          href: "/dashboard/reports/academic", 
+          label: "Academic Reports", 
+          icon: Award,
+          permission: "reports:read",
+          roles: ["ADMIN", "TEACHER"],
+        },
+        { 
+          href: "/dashboard/reports/financial", 
+          label: "Financial Reports", 
+          icon: TrendingUp,
+          permission: "reports:read",
+          roles: ["ADMIN", "ACCOUNTANT"],
+        },
+      ],
+    },
     { 
       href: "/dashboard/settings", 
       label: "Settings", 
       icon: Settings, 
       permission: "settings:*",
-      roles: ["ADMIN"]
+      roles: ["ADMIN"],
     },
-
     { 
       href: "/dashboard/profile", 
       label: "Profile", 
@@ -285,30 +497,87 @@ export default function Sidebar({ role = "STUDENT" }: SidebarProps) {
     },
   ];
 
-  // Filter navigation items based on role and permissions
-  const filteredNavItems = allNavItems.filter((item) => {
-    if (item.roles && !item.roles.includes(userRole)) return false;
-    if (item.permission) {
-      return checkPermission(item.permission);
+  const filterNavItems = (items: NavItem[]): NavItem[] => {
+    const filtered: NavItem[] = [];
+    
+    for (const item of items) {
+      if (item.roles && !item.roles.includes(userRole)) continue;
+      if (item.permission && !checkPermission(item.permission)) continue;
+      
+      if (item.children) {
+        const filteredChildren = filterNavItems(item.children);
+        if (filteredChildren.length === 0) continue;
+        
+        filtered.push({
+          ...item,
+          children: filteredChildren,
+        });
+      } else {
+        filtered.push(item);
+      }
     }
-    return true;
-  });
+    
+    return filtered;
+  };
 
-  // Remove duplicate hrefs (keep first occurrence)
-  const uniqueNavItems = filteredNavItems.filter(
-    (item, index, self) => self.findIndex((i) => i.href === item.href) === index
-  );
+  const filteredNavItems = filterNavItems(navItems);
 
-  // Sort items: Dashboard first, then alphabetically
-  const sortedNavItems = uniqueNavItems.sort((a, b) => {
-    if (a.href === "/dashboard") return -1;
-    if (b.href === "/dashboard") return 1;
-    return a.label.localeCompare(b.label);
-  });
+  const renderNavItem = (item: NavItem, depth: number = 0) => {
+    const hasChildren = item.children && item.children.length > 0;
+    const isItemActive = isActive(item.href);
+    const isExpanded = isSectionExpanded(item.label);
+
+    if (hasChildren) {
+      return (
+        <div key={item.label} className="mb-1">
+          <button
+            onClick={() => toggleSection(item.label)}
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-4 py-3 w-full text-base-content/80 transition-all hover:bg-primary/10 hover:text-primary",
+              isItemActive && "bg-primary/20 text-primary font-medium"
+            )}
+          >
+            <item.icon className="h-5 w-5 flex-shrink-0" />
+            <span className="flex-1 text-left truncate">{item.label}</span>
+            <svg
+              className={cn(
+                "h-4 w-4 transition-transform",
+                isExpanded && "transform rotate-180"
+              )}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          {isExpanded && (
+            <div className="ml-4 pl-2 border-l-2 border-base-300">
+              {item.children?.map(child => renderNavItem(child, depth + 1))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        className={cn(
+          "flex items-center gap-3 rounded-lg px-4 py-3 text-base-content/80 transition-all hover:bg-primary/10 hover:text-primary mb-1",
+          isItemActive && "bg-primary/20 text-primary font-medium shadow-sm",
+          depth > 0 && "ml-2"
+        )}
+      >
+        <item.icon className="h-5 w-5 flex-shrink-0" />
+        <span className="truncate">{item.label}</span>
+      </Link>
+    );
+  };
 
   return (
     <div className="hidden md:flex flex-col w-64 bg-base-200 border-r border-neutral h-screen sticky top-0">
-      {/* Header */}
       <div className="p-6 border-b border-neutral">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
@@ -319,34 +588,20 @@ export default function Sidebar({ role = "STUDENT" }: SidebarProps) {
             <p className="text-xs text-base-content/60">Kenya CBC System</p>
           </div>
         </div>
-        <div className="mt-2 text-xs text-primary/60 font-medium">
-          {userRole}
+        <div className="mt-2 flex items-center justify-between">
+          <span className="text-xs text-primary/60 font-medium">
+            {userRole}
+          </span>
+          <span className="text-xs bg-success/10 text-success px-2 py-0.5 rounded-full">
+            Online
+          </span>
         </div>
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 p-4 overflow-y-auto">
-        {sortedNavItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
-
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-4 py-3 text-base-content/80 transition-all hover:bg-primary/10 hover:text-primary mb-1",
-                isActive && "bg-primary/20 text-primary font-medium shadow-sm"
-              )}
-            >
-              <Icon className="h-5 w-5 flex-shrink-0" />
-              <span className="truncate">{item.label}</span>
-            </Link>
-          );
-        })}
+        {filteredNavItems.map(item => renderNavItem(item))}
       </nav>
 
-      {/* Footer with Logout */}
       <div className="p-4 border-t border-neutral space-y-2">
         <button
           onClick={handleLogout}
