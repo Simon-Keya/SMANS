@@ -1,115 +1,187 @@
-import { authOptions } from "@/lib/auth/auth";
-import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
-import { InvoiceStatus } from "@prisma/client"; // Import the enum
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth/auth";
+import { requireRole, type AppRole } from "@/lib/permissions";
+import { prisma } from "@/lib/prisma";
 
-const createInvoiceSchema = z.object({
-  studentId: z.string().min(1),
-  feeItemId: z.string().optional(),
-  amount: z.number().positive(),
-  dueDate: z.coerce.date(),
-  // description removed - not in schema
-});
-
-// GET: List all invoices (admin + accountant)
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-
-  if (!session || !["ADMIN", "ACCOUNTANT"].includes(session.user.role)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
-    const { searchParams } = new URL(req.url);
-    const statusParam = searchParams.get("status");
-    const startDate = searchParams.get("startDate") ? new Date(searchParams.get("startDate")!) : undefined;
-    const endDate = searchParams.get("endDate") ? new Date(searchParams.get("endDate")!) : undefined;
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
 
-    // Convert status string to enum if valid
-    let statusFilter: InvoiceStatus | undefined;
-    if (statusParam && Object.values(InvoiceStatus).includes(statusParam as InvoiceStatus)) {
-      statusFilter = statusParam as InvoiceStatus;
+    await requireRole(["ADMIN", "ACCOUNTANT"] as AppRole[]);
+
+    const searchParams = req.nextUrl.searchParams;
+    const studentId = searchParams.get("studentId");
+    const status = searchParams.get("status");
+    const fromDate = searchParams.get("fromDate");
+    const toDate = searchParams.get("toDate");
+
+    const where: any = {};
+    
+    if (studentId) where.studentId = studentId;
+    if (status) where.status = status;
+    if (fromDate || toDate) {
+      where.createdAt = {};
+      if (fromDate) where.createdAt.gte = new Date(fromDate);
+      if (toDate) where.createdAt.lte = new Date(toDate);
     }
 
     const invoices = await prisma.invoice.findMany({
-      where: {
-        status: statusFilter,
-        dueDate: startDate || endDate ? { gte: startDate, lte: endDate } : undefined,
+      where,
+      include: {
+        student: {
+          include: {
+            user: true,
+          },
+        },
+        fees: true, // ✅ Make sure this matches your schema (could be "feeItems" or "fee")
       },
-      select: {
-        id: true,
-        student: { select: { name: true } },
-        amount: true,
-        dueDate: true,
-        status: true,
-        createdAt: true,
+      orderBy: {
+        createdAt: "desc",
       },
-      orderBy: { dueDate: "desc" },
-      take: 50, // limit for performance
     });
 
     return NextResponse.json(invoices);
   } catch (error) {
-    console.error("GET /api/fees/invoices error:", error);
-    return NextResponse.json({ error: "Failed to fetch invoices" }, { status: 500 });
+    console.error("Error fetching invoices:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch invoices" },
+      { status: 500 }
+    );
   }
 }
 
-// POST: Create new invoice (admin + accountant)
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-
-  if (!session || !["ADMIN", "ACCOUNTANT"].includes(session.user.role)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
-    const body = await req.json();
-    const validated = createInvoiceSchema.safeParse(body);
-
-    if (!validated.success) {
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user) {
       return NextResponse.json(
-        { error: validated.error.issues[0]?.message || "Invalid input" },
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    await requireRole(["ADMIN", "ACCOUNTANT"] as AppRole[]);
+
+    const body = await req.json();
+    const { studentId, amount, dueDate, description, feeIds } = body;
+
+    if (!studentId || !amount || !dueDate) {
+      return NextResponse.json(
+        { error: "Missing required fields: studentId, amount, dueDate" },
         { status: 400 }
       );
     }
 
-    const data = validated.data;
-
-    const invoice = await prisma.invoice.create({
-      data: {
-        studentId: data.studentId,
-        feeItemId: data.feeItemId || null,
-        amount: data.amount,
-        dueDate: data.dueDate,
-        // description removed - not in schema
-        status: InvoiceStatus.PENDING, // Use enum instead of string
-        createdById: session.user.id,
-        approvedById: session.user.role === "ACCOUNTANT" ? session.user.id : null,
-      },
-    });
-
-    // Create audit log to track invoice creation
-    await prisma.auditLog.create({
-      data: {
-        userId: session.user.id,
-        action: "CREATE_INVOICE",
-        entity: "Invoice",
-        entityId: invoice.id,
-        metadata: {
-          studentId: data.studentId,
-          feeItemId: data.feeItemId,
-          amount: data.amount,
-          dueDate: data.dueDate,
+    const invoice = await prisma.$transaction(async (tx) => {
+      const newInvoice = await tx.invoice.create({
+        data: {
+          studentId,
+          amount,
+          dueDate: new Date(dueDate),
+          description,
+          status: "PENDING",
+          createdById: session.user.id,
         },
+      });
+
+      // ✅ FIX: Use the correct model name from your schema
+      if (feeIds && feeIds.length > 0) {
+        await tx.feeItem.updateMany({  // ← Change this to match your schema
+          where: {
+            id: { in: feeIds },
+            studentId,
+          },
+          data: {
+            invoiceId: newInvoice.id,
+            status: "INVOICED",
+          },
+        });
+      }
+
+      return newInvoice;
+    });
+
+    return NextResponse.json(invoice, { status: 201 });
+  } catch (error) {
+    console.error("Error creating invoice:", error);
+    return NextResponse.json(
+      { error: "Failed to create invoice" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const body = await req.json();
+    const { id, status, amountPaid, paymentDate, studentId } = body;
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "Invoice ID required" },
+        { status: 400 }
+      );
+    }
+
+    const userRole = session.user.role as string;
+    const hasPermission = 
+      userRole === "ADMIN" || 
+      userRole === "ACCOUNTANT";
+
+    if (!hasPermission) {
+      if (userRole === "STUDENT" && studentId && session.user.id === studentId) {
+        const invoice = await prisma.invoice.findUnique({
+          where: { id },
+          select: { studentId: true },
+        });
+
+        if (!invoice || invoice.studentId !== session.user.id) {
+          return NextResponse.json(
+            { error: "Forbidden" },
+            { status: 403 }
+          );
+        }
+      } else {
+        return NextResponse.json(
+          { error: "Forbidden" },
+          { status: 403 }
+        );
+      }
+    }
+
+    const invoice = await prisma.invoice.update({
+      where: { id },
+      data: {
+        status,
+        amountPaid,
+        paymentDate: paymentDate ? new Date(paymentDate) : null,
       },
     });
 
-    return NextResponse.json({ success: true, invoice }, { status: 201 });
+    return NextResponse.json(invoice);
   } catch (error) {
-    console.error("POST /api/fees/invoices error:", error);
-    return NextResponse.json({ error: "Failed to create invoice" }, { status: 500 });
+    console.error("Error updating invoice:", error);
+    return NextResponse.json(
+      { error: "Failed to update invoice" },
+      { status: 500 }
+    );
   }
 }

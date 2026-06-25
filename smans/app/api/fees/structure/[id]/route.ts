@@ -1,8 +1,10 @@
+// app/api/fees/structure/[id]/route.ts
 import { authOptions } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { requireRole, type AppRole } from "@/lib/permissions";
 
 const updateFeeItemSchema = z.object({
   name: z.string().min(1).optional(),
@@ -16,10 +18,23 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions);
+  try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
 
-  if (!session || !["ADMIN", "ACCOUNTANT"].includes(session.user.role)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // ✅ FIX: Pass roles as an array with type assertion (same as invoice route)
+    await requireRole(["ADMIN", "ACCOUNTANT"] as AppRole[]);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   try {
@@ -52,10 +67,23 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions);
+  try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
 
-  if (!session || !["ADMIN", "ACCOUNTANT"].includes(session.user.role)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // ✅ FIX: Pass roles as an array with type assertion (same as invoice route)
+    await requireRole(["ADMIN", "ACCOUNTANT"] as AppRole[]);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   try {
