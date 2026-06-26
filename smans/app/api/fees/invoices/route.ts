@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
             user: true,
           },
         },
-        feeItem: true, // ✅ Fixed: Changed from 'fees' to 'feeItem'
+        feeItem: true,
         payments: {
           select: {
             id: true,
@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
     await requireRole(["ADMIN", "ACCOUNTANT"] as AppRole[]);
 
     const body = await req.json();
-    const { studentId, amount, dueDate, description, feeItemId } = body;
+    const { studentId, amount, dueDate, feeItemId } = body;
 
     // Validate required fields
     if (!studentId || !amount || !dueDate) {
@@ -130,10 +130,9 @@ export async function POST(req: NextRequest) {
         studentId,
         amount,
         dueDate: new Date(dueDate),
-        description,
         status: "PENDING",
         createdById: session.user.id,
-        feeItemId: feeItemId || null, // Link to fee item if provided
+        feeItemId: feeItemId || null,
       },
       include: {
         student: {
