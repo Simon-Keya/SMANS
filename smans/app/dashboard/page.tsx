@@ -77,6 +77,19 @@ export default async function DashboardHome() {
           },
         });
 
+        // Get recent parents for the quick view
+        const recentParents = await prisma.parent.findMany({
+          take: 5,
+          orderBy: { createdAt: "desc" },
+          include: {
+            _count: {
+              select: {
+                students: true,
+              },
+            },
+          },
+        });
+
         stats = {
           totalStudents: students,
           totalTeachers: teachers,
@@ -95,6 +108,7 @@ export default async function DashboardHome() {
             : 0,
           totalNotifications: totalNotifications,
           unreadNotifications: unreadNotifications,
+          recentParents: recentParents,
         };
         break;
       }
@@ -438,9 +452,13 @@ function AdminDashboard({ stats }: { stats: any }) {
           <div className="space-y-2">
             <a href="/dashboard/students/new" className="btn btn-sm btn-outline w-full">Add New Student</a>
             <a href="/dashboard/teachers/new" className="btn btn-sm btn-outline w-full">Add New Teacher</a>
+            <a href="/dashboard/parents/new" className="btn btn-sm btn-outline w-full">Add New Parent</a>
             <a href="/dashboard/classes/new" className="btn btn-sm btn-outline w-full">Create Class</a>
             <a href="/dashboard/subjects/new" className="btn btn-sm btn-outline w-full">Create Subject</a>
             <a href="/dashboard/fees/structure/new" className="btn btn-sm btn-outline w-full">Create Fee Item</a>
+            <a href="/dashboard/exams/create" className="btn btn-sm btn-outline w-full">Create Exam</a>
+            <a href="/dashboard/assignments/create" className="btn btn-sm btn-outline w-full">Create Assignment</a>
+            <a href="/dashboard/assessments/create" className="btn btn-sm btn-outline w-full">Create Assessment</a>
           </div>
         </div>
         <div className="bg-base-200 rounded-2xl p-6 border border-base-300">
@@ -452,25 +470,129 @@ function AdminDashboard({ stats }: { stats: any }) {
             <p className="text-base-content/60">💰 {stats.pendingInvoices || 0} pending invoices</p>
             <p className="text-base-content/60">📋 {stats.totalFeeItems || 0} fee items configured</p>
             <p className="text-base-content/60">👨‍🎓 {stats.totalStudents || 0} students enrolled</p>
+            <p className="text-base-content/60">👨‍🏫 {stats.totalTeachers || 0} teachers employed</p>
+            <p className="text-base-content/60">👨‍👩‍👧‍👦 {stats.totalParents || 0} parents registered</p>
+            <p className="text-base-content/60">📐 {stats.totalSubjects || 0} subjects offered</p>
+            <p className="text-base-content/60">🏫 {stats.totalClasses || 0} classes active</p>
           </div>
         </div>
       </div>
 
-      {/* Quick Links */}
+      {/* Recent Parents Section */}
+      <div className="bg-base-200 rounded-2xl p-6 border border-base-300 mb-10">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold">Recent Parents</h3>
+          <a href="/dashboard/parents" className="btn btn-sm btn-primary">View All Parents</a>
+        </div>
+        {stats.recentParents && stats.recentParents.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="table table-sm">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                  <th>Children</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats.recentParents.map((parent: any) => (
+                  <tr key={parent.id}>
+                    <td className="font-medium">{parent.name}</td>
+                    <td>{parent.email || 'N/A'}</td>
+                    <td>{parent.phone || 'N/A'}</td>
+                    <td>
+                      <span className="badge badge-primary badge-sm">
+                        {parent._count.students}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="flex gap-1">
+                        <a 
+                          href={`/dashboard/parents/${parent.id}`} 
+                          className="btn btn-xs btn-ghost"
+                        >
+                          View
+                        </a>
+                        <a 
+                          href={`/dashboard/parents/${parent.id}/edit`} 
+                          className="btn btn-xs btn-ghost"
+                        >
+                          Edit
+                        </a>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-base-content/60">No parents registered yet.</p>
+        )}
+      </div>
+
+      {/* Quick Links - Enhanced with ALL sections */}
       <div className="bg-base-200 rounded-2xl p-8 border border-base-300">
         <h2 className="text-2xl font-semibold mb-6">Quick Links</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        
+        {/* Row 1: Core Management */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+          <h3 className="col-span-full text-sm font-semibold text-primary/60 uppercase tracking-wider mb-2">
+            Core Management
+          </h3>
           <a href="/dashboard/students" className="btn btn-outline">Manage Students</a>
           <a href="/dashboard/teachers" className="btn btn-outline">Manage Teachers</a>
           <a href="/dashboard/parents" className="btn btn-outline">Manage Parents</a>
-          <a href="/dashboard/classes" className="btn btn-outline">Classes</a>
+          <a href="/dashboard/classes" className="btn btn-outline">Manage Classes</a>
+        </div>
+
+        {/* Row 2: Academic Management */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+          <h3 className="col-span-full text-sm font-semibold text-primary/60 uppercase tracking-wider mb-2">
+            Academic Management
+          </h3>
           <a href="/dashboard/subjects" className="btn btn-outline">Subjects</a>
           <a href="/dashboard/assignments" className="btn btn-outline">Assignments</a>
           <a href="/dashboard/assessments" className="btn btn-outline">Assessments</a>
           <a href="/dashboard/exams" className="btn btn-outline">Exams</a>
-          <a href="/dashboard/fees" className="btn btn-outline">Fees</a>
-          <a href="/dashboard/reports" className="btn btn-outline">Reports</a>
+        </div>
+
+        {/* Row 3: Grades & Attendance */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+          <h3 className="col-span-full text-sm font-semibold text-primary/60 uppercase tracking-wider mb-2">
+            Grades & Attendance
+          </h3>
+          <a href="/dashboard/grades" className="btn btn-outline">View Grades</a>
+          <a href="/dashboard/grades/enter" className="btn btn-outline">Enter Grades</a>
+          <a href="/dashboard/attendance" className="btn btn-outline">View Attendance</a>
+          <a href="/dashboard/attendance/mark" className="btn btn-outline">Mark Attendance</a>
+        </div>
+
+        {/* Row 4: Fees & Finance */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+          <h3 className="col-span-full text-sm font-semibold text-primary/60 uppercase tracking-wider mb-2">
+            Fees & Finance
+          </h3>
+          <a href="/dashboard/fees" className="btn btn-outline">Fee Management</a>
+          <a href="/dashboard/fees/structure" className="btn btn-outline">Fee Structure</a>
+          <a href="/dashboard/invoices" className="btn btn-outline">Invoices</a>
+          <a href="/dashboard/payments" className="btn btn-outline">Payments</a>
+        </div>
+
+        {/* Row 5: Reports & Settings */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <h3 className="col-span-full text-sm font-semibold text-primary/60 uppercase tracking-wider mb-2">
+            Reports & Settings
+          </h3>
+          <a href="/dashboard/reports" className="btn btn-outline">All Reports</a>
+          <a href="/dashboard/reports/academic" className="btn btn-outline">Academic Reports</a>
+          <a href="/dashboard/reports/financial" className="btn btn-outline">Financial Reports</a>
           <a href="/dashboard/notifications" className="btn btn-outline">Notifications</a>
+          <a href="/dashboard/settings" className="btn btn-outline">System Settings</a>
+          <a href="/dashboard/timetable" className="btn btn-outline">Timetable</a>
+          <a href="/dashboard/profile" className="btn btn-outline">My Profile</a>
         </div>
       </div>
     </>
@@ -527,6 +649,7 @@ function TeacherDashboard({ stats }: { stats: any }) {
             <a href="/dashboard/grades/enter" className="btn btn-sm btn-outline w-full">Enter Grades</a>
             <a href="/dashboard/assignments/create" className="btn btn-sm btn-outline w-full">Create Assignment</a>
             <a href="/dashboard/assessments/create" className="btn btn-sm btn-outline w-full">Create Assessment</a>
+            <a href="/dashboard/exams/create" className="btn btn-sm btn-outline w-full">Create Exam</a>
           </div>
         </div>
       </div>
@@ -539,6 +662,10 @@ function TeacherDashboard({ stats }: { stats: any }) {
           <a href="/dashboard/classes" className="btn btn-outline">My Classes</a>
           <a href="/dashboard/timetable" className="btn btn-outline">My Timetable</a>
           <a href="/dashboard/attendance" className="btn btn-outline">Attendance</a>
+          <a href="/dashboard/grades" className="btn btn-outline">Grades</a>
+          <a href="/dashboard/assignments" className="btn btn-outline">Assignments</a>
+          <a href="/dashboard/assessments" className="btn btn-outline">Assessments</a>
+          <a href="/dashboard/profile" className="btn btn-outline">My Profile</a>
         </div>
       </div>
     </>
@@ -632,6 +759,8 @@ function StudentDashboard({ stats }: { stats: any }) {
           <a href="/dashboard/timetable" className="btn btn-outline">My Timetable</a>
           <a href="/dashboard/fees" className="btn btn-outline">My Fees</a>
           <a href="/dashboard/assignments" className="btn btn-outline">My Assignments</a>
+          <a href="/dashboard/exams" className="btn btn-outline">My Exams</a>
+          <a href="/dashboard/profile" className="btn btn-outline">My Profile</a>
         </div>
       </div>
     </>
@@ -710,6 +839,8 @@ function ParentDashboard({ stats }: { stats: any }) {
           <a href="/dashboard/fees" className="btn btn-outline">Fees</a>
           <a href="/dashboard/grades" className="btn btn-outline">Grades</a>
           <a href="/dashboard/notifications" className="btn btn-outline">Notifications</a>
+          <a href="/dashboard/timetable" className="btn btn-outline">Timetable</a>
+          <a href="/dashboard/profile" className="btn btn-outline">My Profile</a>
         </div>
       </div>
     </>
@@ -783,6 +914,7 @@ function AccountantDashboard({ stats }: { stats: any }) {
             <a href="/dashboard/invoices" className="btn btn-sm btn-outline w-full">View All Invoices</a>
             <a href="/dashboard/payments" className="btn btn-sm btn-outline w-full">Record Payment</a>
             <a href="/dashboard/fees/structure" className="btn btn-sm btn-outline w-full">Manage Fee Items</a>
+            <a href="/dashboard/fees/structure/new" className="btn btn-sm btn-outline w-full">Add Fee Item</a>
             <a href="/dashboard/reports/financial" className="btn btn-sm btn-outline w-full">Financial Reports</a>
           </div>
         </div>
@@ -793,10 +925,11 @@ function AccountantDashboard({ stats }: { stats: any }) {
         <h2 className="text-2xl font-semibold mb-6">Quick Links</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <a href="/dashboard/fees" className="btn btn-outline">Fee Management</a>
+          <a href="/dashboard/fees/structure" className="btn btn-outline">Fee Structure</a>
           <a href="/dashboard/invoices" className="btn btn-outline">Invoices</a>
           <a href="/dashboard/payments" className="btn btn-outline">Payments</a>
-          <a href="/dashboard/fees/structure" className="btn btn-outline">Fee Items</a>
           <a href="/dashboard/reports/financial" className="btn btn-outline">Financial Reports</a>
+          <a href="/dashboard/profile" className="btn btn-outline">My Profile</a>
         </div>
       </div>
     </>
