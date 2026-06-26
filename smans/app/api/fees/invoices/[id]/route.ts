@@ -1,3 +1,4 @@
+// app/api/fees/invoices/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth";
@@ -6,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -21,8 +22,10 @@ export async function GET(
     // ✅ FIX: Pass roles as an array
     await requireRole(["ADMIN", "ACCOUNTANT"] as AppRole[]);
 
+    const { id } = await params;
+
     const invoice = await prisma.invoice.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         student: {
           include: {
@@ -52,7 +55,7 @@ export async function GET(
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -67,11 +70,12 @@ export async function PUT(
     // ✅ FIX: Pass roles as an array
     await requireRole(["ADMIN", "ACCOUNTANT"] as AppRole[]);
 
+    const { id } = await params;
     const body = await req.json();
     const { status, amountPaid, paymentDate } = body;
 
     const invoice = await prisma.invoice.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         status,
         amountPaid,
@@ -91,7 +95,7 @@ export async function PUT(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -106,8 +110,10 @@ export async function DELETE(
     // ✅ FIX: Pass roles as an array
     await requireRole(["ADMIN"] as AppRole[]);
 
+    const { id } = await params;
+
     await prisma.invoice.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json(
