@@ -1,236 +1,44 @@
 // app/dashboard/parents/[id]/edit/page.tsx
-"use client";
-
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth/session";
+import { prisma } from "@/lib/prisma";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import {
-  ArrowLeft,
-  Save,
-  User,
-  Mail,
-  Phone,
-  Briefcase,
-  Users,
-  AlertCircle,
-  CheckCircle,
-  XCircle,
-  Loader2,
-} from "lucide-react";
+import { ArrowLeft, Save, User, Mail, Phone, Briefcase, Users } from "lucide-react";
 
-interface ParentData {
-  id: string;
-  name: string;
-  email: string | null;
-  phone: string | null;
-  occupation: string | null;
-  relationship: string | null;
-  userId: string | null;
-  students: any[];
-  user: any | null;
-  studentCount: number;
+interface EditParentPageProps {
+  params: Promise<{ id: string }>;
 }
 
-export default function EditParentPage({ params }: { params: Promise<{ id: string }> }) {
-  const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-  const [parent, setParent] = useState<ParentData | null>(null);
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    occupation: "",
-    relationship: "",
-  });
+export default async function EditParentPage({ params }: EditParentPageProps) {
+  const user = await getCurrentUser();
+
+  if (!user || user.role !== "ADMIN") {
+    redirect("/dashboard");
+  }
+
+  const { id } = await params;
 
   // Fetch parent data
-  useEffect(() => {
-    const fetchParent = async () => {
-      try {
-        const { id } = await params;
-        
-        // Make sure we have an ID
-        if (!id) {
-          setError("Invalid parent ID");
-          setLoading(false);
-          return;
-        }
-
-        const response = await fetch(`/api/parents/${id}`);
-        
-        // Check if response is JSON
-        const contentType = response.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-          // If not JSON, something went wrong (like a redirect to login)
-          const text = await response.text();
-          console.error("Non-JSON response:", text.substring(0, 200));
-          
-          if (response.status === 401 || response.status === 403) {
-            setError("You are not authorized to view this page. Please log in again.");
-            // Redirect to login after a moment
-            setTimeout(() => {
-              router.push("/auth/login");
-            }, 3000);
-          } else {
-            setError("Server error. Please try again later.");
-          }
-          setLoading(false);
-          return;
-        }
-
-        const result = await response.json();
-
-        if (!response.ok) {
-          throw new Error(result.error || "Failed to fetch parent");
-        }
-
-        if (!result.data) {
-          throw new Error("Parent not found");
-        }
-
-        setParent(result.data);
-        setFormData({
-          name: result.data.name || "",
-          email: result.data.email || "",
-          phone: result.data.phone || "",
-          occupation: result.data.occupation || "",
-          relationship: result.data.relationship || "",
-        });
-      } catch (err) {
-        console.error("Fetch error:", err);
-        setError(err instanceof Error ? err.message : "Failed to load parent data");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchParent();
-  }, [params, router]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    setError(null);
-    setSuccess(false);
-
-    try {
-      const { id } = await params;
-      
-      // Validate form data
-      if (!formData.name.trim()) {
-        throw new Error("Name is required");
-      }
-      if (!formData.phone.trim()) {
-        throw new Error("Phone number is required");
-      }
-
-      const response = await fetch(`/api/parents/${id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
+  const parent = await prisma.parent.findUnique({
+    where: { id },
+    include: {
+      user: {
+        select: {
+          id: true,
+          email: true,
+          isActive: true,
         },
-        body: JSON.stringify({
-          name: formData.name.trim(),
-          email: formData.email.trim() || null,
-          phone: formData.phone.trim(),
-          occupation: formData.occupation.trim() || null,
-          relationship: formData.relationship || null,
-        }),
-      });
-
-      // Check if response is JSON
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        const text = await response.text();
-        console.error("Non-JSON response:", text.substring(0, 200));
-        
-        if (response.status === 401 || response.status === 403) {
-          throw new Error("You are not authorized to perform this action. Please log in again.");
-        } else {
-          throw new Error("Server error. Please try again later.");
-        }
-      }
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to update parent");
-      }
-
-      setSuccess(true);
-      // Redirect to parent detail after a moment
-      setTimeout(() => {
-        router.push(`/dashboard/parents/${id}`);
-      }, 1500);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update parent");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen p-6 md:p-8 bg-base-100 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-base-content/60">Loading parent data...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error && !parent) {
-    return (
-      <div className="min-h-screen p-6 md:p-8 bg-base-100">
-        <div className="max-w-3xl mx-auto">
-          <div className="alert alert-error shadow-lg">
-            <AlertCircle className="h-6 w-6" />
-            <div>
-              <h3 className="font-bold">Error</h3>
-              <p className="text-sm">{error}</p>
-            </div>
-          </div>
-          <div className="mt-4 flex gap-4">
-            <Link href="/dashboard/parents" className="btn btn-primary">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Parents
-            </Link>
-            <button
-              onClick={() => window.location.reload()}
-              className="btn btn-ghost"
-            >
-              Try Again
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+      },
+      _count: {
+        select: {
+          students: true,
+        },
+      },
+    },
+  });
 
   if (!parent) {
-    return (
-      <div className="min-h-screen p-6 md:p-8 bg-base-100">
-        <div className="max-w-3xl mx-auto">
-          <div className="alert alert-error shadow-lg">
-            <AlertCircle className="h-6 w-6" />
-            <span>Parent not found</span>
-          </div>
-          <Link href="/dashboard/parents" className="btn btn-primary mt-4">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Parents
-          </Link>
-        </div>
-      </div>
-    );
+    notFound();
   }
 
   const initials = parent.name
@@ -247,7 +55,7 @@ export default function EditParentPage({ params }: { params: Promise<{ id: strin
         <div className="mb-8">
           <div className="flex flex-wrap items-center gap-4">
             <Link
-              href={`/dashboard/parents/${parent.id}`}
+              href={`/dashboard/parents/${id}`}
               className="btn btn-ghost btn-sm gap-2 hover:bg-primary/10 transition-all duration-200"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -275,50 +83,20 @@ export default function EditParentPage({ params }: { params: Promise<{ id: strin
             <div className="flex items-center gap-3">
               <div className="badge badge-lg badge-outline gap-2">
                 <Users className="h-4 w-4" />
-                {parent.studentCount} Children
+                {parent._count.students} Children
               </div>
               {parent.user ? (
                 <div className="badge badge-lg badge-success gap-2">
-                  <CheckCircle className="h-4 w-4" />
                   Active Account
                 </div>
               ) : (
                 <div className="badge badge-lg badge-warning gap-2">
-                  <AlertCircle className="h-4 w-4" />
                   No Account
                 </div>
               )}
             </div>
           </div>
         </div>
-
-        {/* Success Message */}
-        {success && (
-          <div className="alert alert-success mb-6 shadow-lg">
-            <CheckCircle className="h-6 w-6" />
-            <span>Parent information updated successfully!</span>
-            <button
-              className="btn btn-sm btn-ghost ml-auto"
-              onClick={() => setSuccess(false)}
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
-
-        {/* Error Message */}
-        {error && (
-          <div className="alert alert-error mb-6 shadow-lg">
-            <AlertCircle className="h-6 w-6" />
-            <span>{error}</span>
-            <button
-              className="btn btn-sm btn-ghost ml-auto"
-              onClick={() => setError(null)}
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Sidebar - Parent Info Card */}
@@ -361,7 +139,7 @@ export default function EditParentPage({ params }: { params: Promise<{ id: strin
 
               <div className="text-center">
                 <p className="text-xs text-base-content/60 uppercase tracking-wider">Total Children</p>
-                <p className="text-3xl font-bold text-primary">{parent.studentCount}</p>
+                <p className="text-3xl font-bold text-primary">{parent._count.students}</p>
               </div>
             </div>
           </div>
@@ -374,7 +152,7 @@ export default function EditParentPage({ params }: { params: Promise<{ id: strin
                 <h2 className="text-xl font-semibold">Parent Information</h2>
               </div>
 
-              <form onSubmit={handleSubmit}>
+              <form action={`/api/parents/${id}`} method="PUT">
                 <div className="space-y-6">
                   {/* Full Name */}
                   <div className="form-control">
@@ -387,8 +165,7 @@ export default function EditParentPage({ params }: { params: Promise<{ id: strin
                     <input
                       type="text"
                       name="name"
-                      value={formData.name}
-                      onChange={handleChange}
+                      defaultValue={parent.name}
                       className="input input-bordered w-full focus:input-primary transition-all duration-200"
                       placeholder="Enter parent's full name"
                       required
@@ -406,8 +183,7 @@ export default function EditParentPage({ params }: { params: Promise<{ id: strin
                     <input
                       type="email"
                       name="email"
-                      value={formData.email}
-                      onChange={handleChange}
+                      defaultValue={parent.email || ""}
                       className="input input-bordered w-full focus:input-primary transition-all duration-200"
                       placeholder="parent@example.com"
                     />
@@ -429,8 +205,7 @@ export default function EditParentPage({ params }: { params: Promise<{ id: strin
                     <input
                       type="tel"
                       name="phone"
-                      value={formData.phone}
-                      onChange={handleChange}
+                      defaultValue={parent.phone || ""}
                       className="input input-bordered w-full focus:input-primary transition-all duration-200"
                       placeholder="+254 700 000 000"
                       required
@@ -449,8 +224,7 @@ export default function EditParentPage({ params }: { params: Promise<{ id: strin
                       <input
                         type="text"
                         name="occupation"
-                        value={formData.occupation}
-                        onChange={handleChange}
+                        defaultValue={parent.occupation || ""}
                         className="input input-bordered w-full focus:input-primary transition-all duration-200"
                         placeholder="e.g., Teacher, Doctor"
                       />
@@ -466,8 +240,7 @@ export default function EditParentPage({ params }: { params: Promise<{ id: strin
                       </label>
                       <select
                         name="relationship"
-                        value={formData.relationship}
-                        onChange={handleChange}
+                        defaultValue={parent.relationship || ""}
                         className="select select-bordered w-full focus:select-primary transition-all duration-200"
                       >
                         <option value="">Select relationship</option>
@@ -485,26 +258,15 @@ export default function EditParentPage({ params }: { params: Promise<{ id: strin
                   <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-base-300">
                     <button
                       type="submit"
-                      disabled={saving}
-                      className="btn btn-primary flex-1 gap-2 hover:scale-[1.02] transition-transform duration-200 disabled:opacity-50"
+                      className="btn btn-primary flex-1 gap-2 hover:scale-[1.02] transition-transform duration-200"
                     >
-                      {saving ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          <Save className="h-4 w-4" />
-                          Save Changes
-                        </>
-                      )}
+                      <Save className="h-4 w-4" />
+                      Save Changes
                     </button>
                     <Link
-                      href={`/dashboard/parents/${parent.id}`}
+                      href={`/dashboard/parents/${id}`}
                       className="btn btn-ghost flex-1 hover:bg-error/10 hover:text-error transition-all duration-200"
                     >
-                      <XCircle className="h-4 w-4" />
                       Cancel
                     </Link>
                   </div>
@@ -519,53 +281,47 @@ export default function EditParentPage({ params }: { params: Promise<{ id: strin
               </h3>
               <div className="flex flex-wrap gap-3">
                 <Link
-                  href={`/dashboard/parents/${parent.id}`}
+                  href={`/dashboard/parents/${id}`}
                   className="btn btn-sm btn-outline gap-2"
                 >
                   <User className="h-4 w-4" />
                   View Profile
                 </Link>
                 <Link
-                  href={`/dashboard/students/new?parentId=${parent.id}`}
+                  href={`/dashboard/students/new?parentId=${id}`}
                   className="btn btn-sm btn-outline gap-2"
                 >
                   <Users className="h-4 w-4" />
                   Add Child
                 </Link>
                 {!parent.user && (
-                  <button
-                    className="btn btn-sm btn-success gap-2"
-                    onClick={() => {
-                      // Handle create account
-                    }}
-                  >
-                    <User className="h-4 w-4" />
-                    Create Account
-                  </button>
+                  <form action={`/api/parents/${id}/create-account`} method="POST">
+                    <button
+                      type="submit"
+                      className="btn btn-sm btn-success gap-2"
+                    >
+                      <User className="h-4 w-4" />
+                      Create Account
+                    </button>
+                  </form>
                 )}
-                <button
-                  className="btn btn-sm btn-error btn-outline gap-2 ml-auto"
-                  onClick={async () => {
-                    if (confirm(`Are you sure you want to delete ${parent.name}? This action cannot be undone.`)) {
-                      try {
-                        const response = await fetch(`/api/parents/${parent.id}`, {
-                          method: "DELETE",
-                        });
-                        if (response.ok) {
-                          router.push("/dashboard/parents");
-                        } else {
-                          const result = await response.json();
-                          alert(result.error || "Failed to delete parent");
-                        }
-                      } catch (error) {
-                        alert("An error occurred while deleting the parent");
-                      }
+                <form
+                  action={`/api/parents/${id}`}
+                  method="DELETE"
+                  onSubmit={(e) => {
+                    if (!confirm(`Are you sure you want to delete ${parent.name}? This action cannot be undone.`)) {
+                      e.preventDefault();
                     }
                   }}
+                  className="ml-auto"
                 >
-                  <XCircle className="h-4 w-4" />
-                  Delete Parent
-                </button>
+                  <button
+                    type="submit"
+                    className="btn btn-sm btn-error btn-outline gap-2"
+                  >
+                    Delete Parent
+                  </button>
+                </form>
               </div>
             </div>
           </div>
