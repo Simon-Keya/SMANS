@@ -1,3 +1,4 @@
+// app/api/fees/structure/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth";
@@ -5,18 +6,15 @@ import { requireRole, type AppRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
-const updateFeeItemSchema = z.object({
-  name: z.string().min(1).optional(),
-  amount: z.number().positive().optional(),
-  frequency: z.enum(["ONCE", "MONTHLY", "TERM", "YEARLY"]).optional(),
+const createFeeItemSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  amount: z.number().positive("Amount must be positive"),
+  frequency: z.enum(["ONCE", "MONTHLY", "TERM", "YEARLY"]),
   description: z.string().optional().nullable(),
 });
 
-// GET: Fetch single fee item
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+// GET: List all fee items
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
@@ -37,45 +35,65 @@ export async function GET(
   }
 
   try {
-    const { id } = await params;
-    
-    const feeItem = await prisma.feeItem.findUnique({
-      where: { id },
+    const searchParams = request.nextUrl.searchParams;
+    const frequency = searchParams.get("frequency");
+    const search = searchParams.get("search");
+    const limit = parseInt(searchParams.get("limit") || "100");
+    const page = parseInt(searchParams.get("page") || "1");
+    const skip = (page - 1) * limit;
+
+    // Build where clause
+    const where: any = {};
+    if (frequency) {
+      where.frequency = frequency;
+    }
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    // Get total count for pagination
+    const totalCount = await prisma.feeItem.count({ where });
+
+    // Get fee items with pagination
+    const feeItems = await prisma.feeItem.findMany({
+      where,
+      orderBy: {
+        createdAt: 'desc',
+      },
+      skip,
+      take: limit,
       include: {
-        invoices: {
+        _count: {
           select: {
-            id: true,
-            status: true,
-            amount: true,
-            dueDate: true,
-            student: {
-              select: {
-                id: true,
-                name: true,
-                admissionNumber: true,
-              },
-            },
+            invoices: true,
           },
         },
       },
     });
 
-    if (!feeItem) {
-      return NextResponse.json({ error: "Fee item not found" }, { status: 404 });
-    }
-
-    return NextResponse.json(feeItem);
+    return NextResponse.json({
+      data: feeItems,
+      pagination: {
+        total: totalCount,
+        page,
+        limit,
+        pages: Math.ceil(totalCount / limit),
+      },
+    });
   } catch (error) {
-    console.error("GET /api/fees/structure/[id] error:", error);
-    return NextResponse.json({ error: "Failed to fetch fee item" }, { status: 500 });
+    console.error("GET /api/fees/structure error:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch fee items" },
+      { status: 500 }
+    );
   }
 }
 
-// PATCH: Update fee item
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+// POST: Create a new fee item
+export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
@@ -86,7 +104,7 @@ export async function PATCH(
       );
     }
 
-    // ✅ Only ADMIN can update fee items
+    // ✅ Only ADMIN can create fee items
     await requireRole(["ADMIN"] as AppRole[]);
   } catch (error: any) {
     return NextResponse.json(
@@ -96,50 +114,69 @@ export async function PATCH(
   }
 
   try {
-    const { id } = await params;
-    const body = await req.json();
-    const validated = updateFeeItemSchema.safeParse(body);
+    const body = await request.json();
+    const validated = createFeeItemSchema.safeParse(body);
 
     if (!validated.success) {
       return NextResponse.json(
-        { error: validated.error.issues[0]?.message || "Invalid input" },
+        { 
+          error: "Validation failed",
+          details: validated.error.issues.map(issue => ({
+            field: issue.path.join('.'),
+            message: issue.message,
+          })),
+        },
         { status: 400 }
       );
     }
 
-    // Check if fee item exists
-    const existing = await prisma.feeItem.findUnique({
-      where: { id },
-    });
+    const { name, amount, frequency, description } = validated.data;
 
-    if (!existing) {
-      return NextResponse.json({ error: "Fee item not found" }, { status: 404 });
-    }
-
-    const data = validated.data;
-
-    const feeItem = await prisma.feeItem.update({
-      where: { id },
-      data: {
-        name: data.name ? data.name.trim() : undefined,
-        amount: data.amount,
-        frequency: data.frequency,
-        description: data.description !== undefined ? data.description : undefined,
+    // Check if fee item with same name exists
+    const existing = await prisma.feeItem.findFirst({
+      where: {
+        name: {
+          equals: name.trim(),
+          mode: 'insensitive',
+        },
       },
     });
 
-    return NextResponse.json({ success: true, feeItem });
+    if (existing) {
+      return NextResponse.json(
+        { error: "A fee item with this name already exists" },
+        { status: 409 }
+      );
+    }
+
+    const feeItem = await prisma.feeItem.create({
+      data: {
+        name: name.trim(),
+        amount,
+        frequency,
+        description: description || null,
+      },
+    });
+
+    return NextResponse.json(
+      { 
+        success: true, 
+        message: "Fee item created successfully",
+        data: feeItem 
+      },
+      { status: 201 }
+    );
   } catch (error) {
-    console.error("PATCH /api/fees/structure/[id] error:", error);
-    return NextResponse.json({ error: "Failed to update fee item" }, { status: 500 });
+    console.error("POST /api/fees/structure error:", error);
+    return NextResponse.json(
+      { error: "Failed to create fee item" },
+      { status: 500 }
+    );
   }
 }
 
-// DELETE: Delete fee item
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+// PUT: Bulk update or replace fee items (optional - for batch operations)
+export async function PUT(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
@@ -150,7 +187,7 @@ export async function DELETE(
       );
     }
 
-    // ✅ Only ADMIN can delete fee items
+    // ✅ Only ADMIN can perform bulk updates
     await requireRole(["ADMIN"] as AppRole[]);
   } catch (error: any) {
     return NextResponse.json(
@@ -160,42 +197,95 @@ export async function DELETE(
   }
 
   try {
-    const { id } = await params;
+    const body = await request.json();
+    const { action, ids, data } = body;
 
-    // Check if fee item exists
-    const existing = await prisma.feeItem.findUnique({
-      where: { id },
-      include: {
-        invoices: {
-          select: {
-            id: true,
-          },
-        },
-      },
-    });
-
-    if (!existing) {
-      return NextResponse.json({ error: "Fee item not found" }, { status: 404 });
-    }
-
-    // Check if fee item is linked to any invoices
-    if (existing.invoices.length > 0) {
+    // Validate request
+    if (!action || !ids || !Array.isArray(ids) || ids.length === 0) {
       return NextResponse.json(
-        { error: "Cannot delete fee item as it is linked to existing invoices" },
+        { error: "Invalid request. Required: action, ids (array)" },
         { status: 400 }
       );
     }
 
-    await prisma.feeItem.delete({
-      where: { id },
-    });
+    let result;
+    switch (action) {
+      case "delete":
+        // Check if any fee items are linked to invoices
+        const feeItemsWithInvoices = await prisma.feeItem.findMany({
+          where: {
+            id: { in: ids },
+            invoices: {
+              some: {},
+            },
+          },
+          select: {
+            id: true,
+            name: true,
+            _count: {
+              select: {
+                invoices: true,
+              },
+            },
+          },
+        });
 
-    return NextResponse.json(
-      { success: true, message: "Fee item deleted successfully" },
-      { status: 200 }
-    );
+        if (feeItemsWithInvoices.length > 0) {
+          return NextResponse.json(
+            {
+              error: "Cannot delete fee items that are linked to invoices",
+              feeItems: feeItemsWithInvoices.map(item => ({
+                id: item.id,
+                name: item.name,
+                invoiceCount: item._count.invoices,
+              })),
+            },
+            { status: 400 }
+          );
+        }
+
+        result = await prisma.feeItem.deleteMany({
+          where: {
+            id: { in: ids },
+          },
+        });
+        return NextResponse.json({
+          success: true,
+          message: `Deleted ${result.count} fee items`,
+          count: result.count,
+        });
+
+      case "update":
+        if (!data || typeof data !== 'object') {
+          return NextResponse.json(
+            { error: "Data object required for update action" },
+            { status: 400 }
+          );
+        }
+
+        result = await prisma.feeItem.updateMany({
+          where: {
+            id: { in: ids },
+          },
+          data,
+        });
+        return NextResponse.json({
+          success: true,
+          message: `Updated ${result.count} fee items`,
+          count: result.count,
+        });
+
+      default:
+        return NextResponse.json(
+          { error: `Unknown action: ${action}. Allowed: delete, update` },
+          { status: 400 }
+        );
+    }
   } catch (error) {
-    console.error("DELETE /api/fees/structure/[id] error:", error);
-    return NextResponse.json({ error: "Failed to delete fee item" }, { status: 500 });
+    console.error("PUT /api/fees/structure error:", error);
+    return NextResponse.json(
+      { error: "Failed to perform bulk operation" },
+      { status: 500 }
+    );
   }
 }
