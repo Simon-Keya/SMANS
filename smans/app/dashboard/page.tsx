@@ -462,6 +462,7 @@ function AdminDashboard({ stats }: { stats: any }) {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <a href="/dashboard/students" className="btn btn-outline">Manage Students</a>
           <a href="/dashboard/teachers" className="btn btn-outline">Manage Teachers</a>
+          <a href="/dashboard/parents" className="btn btn-outline">Manage Parents</a>
           <a href="/dashboard/classes" className="btn btn-outline">Classes</a>
           <a href="/dashboard/subjects" className="btn btn-outline">Subjects</a>
           <a href="/dashboard/assignments" className="btn btn-outline">Assignments</a>
