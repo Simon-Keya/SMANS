@@ -56,6 +56,7 @@ export default async function ParentDetailPage({ params }: ParentPageProps) {
       );
     }
 
+    // Fetch parent with simplified includes - only include relations that definitely exist
     const parent = await prisma.parent.findUnique({
       where: { id },
       include: {
@@ -65,6 +66,7 @@ export default async function ParentDetailPage({ params }: ParentPageProps) {
             email: true,
             role: true,
             createdAt: true,
+            isActive: true,
           },
         },
         students: {
@@ -76,6 +78,7 @@ export default async function ParentDetailPage({ params }: ParentPageProps) {
                 level: true,
               },
             },
+            // Only include grades if the relation exists
             grades: {
               take: 3,
               orderBy: { createdAt: "desc" },
@@ -96,20 +99,6 @@ export default async function ParentDetailPage({ params }: ParentPageProps) {
                 },
               },
             },
-            invoices: {
-              where: {
-                status: {
-                  in: ["PENDING", "PARTIAL", "OVERDUE"],
-                },
-              },
-              take: 5,
-              select: {
-                id: true,
-                amount: true,
-                dueDate: true,
-                status: true,
-              },
-            },
           },
         },
       },
@@ -119,12 +108,18 @@ export default async function ParentDetailPage({ params }: ParentPageProps) {
       notFound();
     }
 
+    // Get student count
+    const studentCount = parent.students?.length || 0;
+
+    // Get initials
     const initials = parent.name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
+      ? parent.name
+          .split(" ")
+          .map((n) => n[0])
+          .join("")
+          .toUpperCase()
+          .slice(0, 2)
+      : "??";
 
     return (
       <div className="min-h-screen p-6 md:p-8 bg-gradient-to-br from-base-100 via-base-200/50 to-base-100">
@@ -218,7 +213,7 @@ export default async function ParentDetailPage({ params }: ParentPageProps) {
                 <div className="text-center">
                   <p className="text-sm text-base-content/60">Total Children</p>
                   <p className="text-3xl font-bold text-primary">
-                    {parent.students.length}
+                    {studentCount}
                   </p>
                 </div>
               </div>
@@ -230,65 +225,66 @@ export default async function ParentDetailPage({ params }: ParentPageProps) {
               <div className="bg-base-200 rounded-2xl p-6 border border-base-300 shadow-lg">
                 <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                   <Users className="h-5 w-5 text-primary" />
-                  Children ({parent.students.length})
+                  Children ({studentCount})
                 </h3>
 
-                {parent.students.length > 0 ? (
+                {parent.students && parent.students.length > 0 ? (
                   <div className="space-y-4">
-                    {parent.students.map((student) => (
-                      <div
-                        key={student.id}
-                        className="bg-base-100 rounded-xl p-4 border border-base-200 hover:shadow-md transition-shadow"
-                      >
-                        <div className="flex flex-wrap justify-between items-start gap-4">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <GraduationCap className="h-4 w-4 text-primary" />
-                              <h4 className="font-semibold">{student.name}</h4>
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 mt-1">
-                              <p className="text-sm text-base-content/60">
-                                Admission: {student.admissionNumber}
-                              </p>
-                              <p className="text-sm text-base-content/60">
-                                Class: {student.class?.name || "Not assigned"}
-                                {student.class?.level && ` (${student.class.level})`}
-                              </p>
-                            </div>
-                            {student.invoices && student.invoices.length > 0 && (
-                              <p className="text-sm text-error mt-1">
-                                Pending Invoices: {student.invoices.length}
-                              </p>
-                            )}
-                          </div>
-                          <Link
-                            href={`/dashboard/students/${student.id}`}
-                            className="btn btn-sm btn-ghost gap-1"
-                          >
-                            View
-                            <ChevronRight className="h-4 w-4" />
-                          </Link>
-                        </div>
+                    {parent.students.map((student) => {
+                      // Safely get grades with fallback
+                      const studentGrades = student.grades || [];
+                      const hasGrades = studentGrades.length > 0;
 
-                        {/* Recent Grades - Fixed to use subject.name */}
-                        {student.grades && student.grades.length > 0 && (
-                          <div className="mt-3 pt-3 border-t border-base-200">
-                            <p className="text-xs text-base-content/60 mb-2">Recent Grades</p>
-                            <div className="flex flex-wrap gap-2">
-                              {student.grades.map((grade) => (
-                                <span
-                                  key={grade.id}
-                                  className="badge badge-outline gap-1"
-                                >
-                                  {grade.subject?.name || "Unknown Subject"}: {grade.marks}/{grade.maxMarks}
-                                  {grade.exam && ` (${grade.exam.name})`}
-                                </span>
-                              ))}
+                      return (
+                        <div
+                          key={student.id}
+                          className="bg-base-100 rounded-xl p-4 border border-base-200 hover:shadow-md transition-shadow"
+                        >
+                          <div className="flex flex-wrap justify-between items-start gap-4">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <GraduationCap className="h-4 w-4 text-primary" />
+                                <h4 className="font-semibold">{student.name}</h4>
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 mt-1">
+                                <p className="text-sm text-base-content/60">
+                                  Admission: {student.admissionNumber || "N/A"}
+                                </p>
+                                <p className="text-sm text-base-content/60">
+                                  Class: {student.class?.name || "Not assigned"}
+                                  {student.class?.level && ` (${student.class.level})`}
+                                </p>
+                              </div>
                             </div>
+                            <Link
+                              href={`/dashboard/students/${student.id}`}
+                              className="btn btn-sm btn-ghost gap-1"
+                            >
+                              View
+                              <ChevronRight className="h-4 w-4" />
+                            </Link>
                           </div>
-                        )}
-                      </div>
-                    ))}
+
+                          {/* Recent Grades - Only show if there are grades */}
+                          {hasGrades && (
+                            <div className="mt-3 pt-3 border-t border-base-200">
+                              <p className="text-xs text-base-content/60 mb-2">Recent Grades</p>
+                              <div className="flex flex-wrap gap-2">
+                                {studentGrades.slice(0, 3).map((grade: any) => (
+                                  <span
+                                    key={grade.id}
+                                    className="badge badge-outline gap-1"
+                                  >
+                                    {grade.subject?.name || "Unknown Subject"}: {grade.marks}/{grade.maxMarks}
+                                    {grade.exam?.name && ` (${grade.exam.name})`}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="text-center py-8">

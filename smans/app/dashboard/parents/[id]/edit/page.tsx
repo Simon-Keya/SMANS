@@ -51,11 +51,44 @@ export default function EditParentPage({ params }: { params: Promise<{ id: strin
     const fetchParent = async () => {
       try {
         const { id } = await params;
+        
+        // Make sure we have an ID
+        if (!id) {
+          setError("Invalid parent ID");
+          setLoading(false);
+          return;
+        }
+
         const response = await fetch(`/api/parents/${id}`);
+        
+        // Check if response is JSON
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          // If not JSON, something went wrong (like a redirect to login)
+          const text = await response.text();
+          console.error("Non-JSON response:", text.substring(0, 200));
+          
+          if (response.status === 401 || response.status === 403) {
+            setError("You are not authorized to view this page. Please log in again.");
+            // Redirect to login after a moment
+            setTimeout(() => {
+              router.push("/auth/login");
+            }, 3000);
+          } else {
+            setError("Server error. Please try again later.");
+          }
+          setLoading(false);
+          return;
+        }
+
         const result = await response.json();
 
         if (!response.ok) {
           throw new Error(result.error || "Failed to fetch parent");
+        }
+
+        if (!result.data) {
+          throw new Error("Parent not found");
         }
 
         setParent(result.data);
@@ -67,6 +100,7 @@ export default function EditParentPage({ params }: { params: Promise<{ id: strin
           relationship: result.data.relationship || "",
         });
       } catch (err) {
+        console.error("Fetch error:", err);
         setError(err instanceof Error ? err.message : "Failed to load parent data");
       } finally {
         setLoading(false);
@@ -74,7 +108,7 @@ export default function EditParentPage({ params }: { params: Promise<{ id: strin
     };
 
     fetchParent();
-  }, [params]);
+  }, [params, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,13 +118,41 @@ export default function EditParentPage({ params }: { params: Promise<{ id: strin
 
     try {
       const { id } = await params;
+      
+      // Validate form data
+      if (!formData.name.trim()) {
+        throw new Error("Name is required");
+      }
+      if (!formData.phone.trim()) {
+        throw new Error("Phone number is required");
+      }
+
       const response = await fetch(`/api/parents/${id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          name: formData.name.trim(),
+          email: formData.email.trim() || null,
+          phone: formData.phone.trim(),
+          occupation: formData.occupation.trim() || null,
+          relationship: formData.relationship || null,
+        }),
       });
+
+      // Check if response is JSON
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await response.text();
+        console.error("Non-JSON response:", text.substring(0, 200));
+        
+        if (response.status === 401 || response.status === 403) {
+          throw new Error("You are not authorized to perform this action. Please log in again.");
+        } else {
+          throw new Error("Server error. Please try again later.");
+        }
+      }
 
       const result = await response.json();
 
@@ -130,14 +192,25 @@ export default function EditParentPage({ params }: { params: Promise<{ id: strin
     return (
       <div className="min-h-screen p-6 md:p-8 bg-base-100">
         <div className="max-w-3xl mx-auto">
-          <div className="alert alert-error">
+          <div className="alert alert-error shadow-lg">
             <AlertCircle className="h-6 w-6" />
-            <span>{error}</span>
+            <div>
+              <h3 className="font-bold">Error</h3>
+              <p className="text-sm">{error}</p>
+            </div>
           </div>
-          <Link href="/dashboard/parents" className="btn btn-primary mt-4">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Parents
-          </Link>
+          <div className="mt-4 flex gap-4">
+            <Link href="/dashboard/parents" className="btn btn-primary">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Parents
+            </Link>
+            <button
+              onClick={() => window.location.reload()}
+              className="btn btn-ghost"
+            >
+              Try Again
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -147,7 +220,7 @@ export default function EditParentPage({ params }: { params: Promise<{ id: strin
     return (
       <div className="min-h-screen p-6 md:p-8 bg-base-100">
         <div className="max-w-3xl mx-auto">
-          <div className="alert alert-error">
+          <div className="alert alert-error shadow-lg">
             <AlertCircle className="h-6 w-6" />
             <span>Parent not found</span>
           </div>
@@ -472,9 +545,21 @@ export default function EditParentPage({ params }: { params: Promise<{ id: strin
                 )}
                 <button
                   className="btn btn-sm btn-error btn-outline gap-2 ml-auto"
-                  onClick={() => {
+                  onClick={async () => {
                     if (confirm(`Are you sure you want to delete ${parent.name}? This action cannot be undone.`)) {
-                      // Handle delete
+                      try {
+                        const response = await fetch(`/api/parents/${parent.id}`, {
+                          method: "DELETE",
+                        });
+                        if (response.ok) {
+                          router.push("/dashboard/parents");
+                        } else {
+                          const result = await response.json();
+                          alert(result.error || "Failed to delete parent");
+                        }
+                      } catch (error) {
+                        alert("An error occurred while deleting the parent");
+                      }
                     }
                   }}
                 >
