@@ -4,28 +4,26 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import bcrypt from "bcryptjs";
 
 const updateParentSchema = z.object({
-  name: z.string().min(2).trim().optional(),
-  email: z.string().email().trim().toLowerCase().optional(),
-  phone: z.string().min(9).trim().optional(),
+  name: z.string().min(2, "Name must be at least 2 characters").optional(),
+  email: z.string().email("Invalid email").optional().nullable(),
+  phone: z.string().min(9, "Phone number must be at least 9 characters").optional().nullable(),
   occupation: z.string().optional().nullable(),
   relationship: z.string().optional().nullable(),
-  password: z.string().min(8).optional(),
 });
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions);
-
-  if (!session || session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
+    const session = await getServerSession(authOptions);
+
+    if (!session || session.user.role !== "ADMIN") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { id } = await params;
     
     const parent = await prisma.parent.findUnique({
@@ -79,13 +77,13 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions);
-
-  if (!session || session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
+    const session = await getServerSession(authOptions);
+
+    if (!session || session.user.role !== "ADMIN") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { id } = await params;
     const body = await request.json();
     const parsed = updateParentSchema.safeParse(body);
@@ -97,7 +95,7 @@ export async function PUT(
       );
     }
 
-    const { email, phone, password, ...rest } = parsed.data;
+    const { name, email, phone, occupation, relationship } = parsed.data;
 
     // Check if parent exists
     const existingParent = await prisma.parent.findUnique({
@@ -109,63 +107,69 @@ export async function PUT(
       return NextResponse.json({ error: "Parent not found" }, { status: 404 });
     }
 
-    // Prevent email conflict
-    if (email && email !== existingParent.email) {
-      const existingUser = await prisma.user.findUnique({ where: { email } });
-      const existingParentEmail = await prisma.parent.findFirst({
-        where: { 
-          email, 
-          id: { not: id } 
-        },
-      });
+    // Check email conflict
+    if (email !== undefined && email !== existingParent.email) {
+      if (email) {
+        const existingUser = await prisma.user.findUnique({ 
+          where: { email } 
+        });
+        const existingParentEmail = await prisma.parent.findFirst({
+          where: { 
+            email, 
+            id: { not: id } 
+          },
+        });
 
-      if (existingUser || existingParentEmail) {
-        return NextResponse.json({ error: "Email already in use" }, { status: 409 });
+        if (existingUser || existingParentEmail) {
+          return NextResponse.json({ error: "Email already in use" }, { status: 409 });
+        }
       }
     }
 
-    // Prevent phone conflict
-    if (phone && phone !== existingParent.phone) {
-      const existingPhone = await prisma.parent.findFirst({
-        where: { 
-          phone, 
-          id: { not: id } 
-        },
-      });
+    // Check phone conflict
+    if (phone !== undefined && phone !== existingParent.phone) {
+      if (phone) {
+        const existingPhone = await prisma.parent.findFirst({
+          where: { 
+            phone, 
+            id: { not: id } 
+          },
+        });
 
-      if (existingPhone) {
-        return NextResponse.json({ error: "Phone number already in use" }, { status: 409 });
+        if (existingPhone) {
+          return NextResponse.json({ error: "Phone number already in use" }, { status: 409 });
+        }
       }
     }
 
     // Update in transaction
     const updated = await prisma.$transaction(async (tx) => {
-      // Update User if exists
-      if (existingParent.userId && (email || phone || password)) {
+      // Update User if exists and email/phone/name changed
+      if (existingParent.userId) {
         const userUpdateData: any = {};
-        if (email) userUpdateData.email = email;
-        if (phone) userUpdateData.phone = phone;
-        if (rest.name) userUpdateData.name = rest.name;
-        if (password) {
-          userUpdateData.password = await bcrypt.hash(password, 12);
-        }
+        if (email !== undefined) userUpdateData.email = email;
+        if (phone !== undefined) userUpdateData.phone = phone;
+        if (name) userUpdateData.name = name;
 
-        await tx.user.update({
-          where: { id: existingParent.userId },
-          data: userUpdateData,
-        });
+        if (Object.keys(userUpdateData).length > 0) {
+          await tx.user.update({
+            where: { id: existingParent.userId },
+            data: userUpdateData,
+          });
+        }
       }
 
       // Update Parent
+      const updateData: any = {};
+      if (name) updateData.name = name;
+      if (email !== undefined) updateData.email = email || null;
+      if (phone !== undefined) updateData.phone = phone || null;
+      if (occupation !== undefined) updateData.occupation = occupation || null;
+      if (relationship !== undefined) updateData.relationship = relationship || null;
+
       return tx.parent.update({
         where: { id },
-        data: {
-          name: rest.name,
-          email: email || null,
-          phone: phone || null,
-          occupation: rest.occupation,
-          relationship: rest.relationship,
-        },
+        data: updateData,
         include: {
           students: { 
             select: { 
@@ -184,26 +188,33 @@ export async function PUT(
               isActive: true,
             } 
           },
+          _count: {
+            select: { students: true },
+          },
         },
       });
     });
 
     // Audit log
-    if (prisma.auditLog) {
-      await prisma.auditLog.create({
-        data: {
-          userId: session.user.id,
-          action: "UPDATE_PARENT",
-          entity: "Parent",
-          entityId: id,
-          metadata: {
-            updatedFields: Object.keys(parsed.data),
-          },
+    await prisma.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: "UPDATE_PARENT",
+        entity: "Parent",
+        entityId: id,
+        metadata: {
+          updatedFields: Object.keys(parsed.data),
         },
-      });
-    }
+      },
+    });
 
-    return NextResponse.json({ success: true, data: updated });
+    return NextResponse.json({ 
+      success: true, 
+      data: {
+        ...updated,
+        studentCount: updated._count.students,
+      }
+    });
   } catch (error) {
     console.error("[UPDATE_PARENT]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -214,13 +225,13 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions);
-
-  if (!session || session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
+    const session = await getServerSession(authOptions);
+
+    if (!session || session.user.role !== "ADMIN") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { id } = await params;
     
     const parent = await prisma.parent.findUnique({
@@ -228,7 +239,6 @@ export async function DELETE(
       include: { 
         students: true,
         user: { select: { id: true } },
-        _count: { select: { students: true } },
       },
     });
 
@@ -262,21 +272,19 @@ export async function DELETE(
     });
 
     // Audit log
-    if (prisma.auditLog) {
-      await prisma.auditLog.create({
-        data: {
-          userId: session.user.id,
-          action: "DELETE_PARENT",
-          entity: "Parent",
-          entityId: id,
-          metadata: {
-            name: parent.name,
-            email: parent.email,
-            phone: parent.phone,
-          },
+    await prisma.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: "DELETE_PARENT",
+        entity: "Parent",
+        entityId: id,
+        metadata: {
+          name: parent.name,
+          email: parent.email,
+          phone: parent.phone,
         },
-      });
-    }
+      },
+    });
 
     return NextResponse.json({ 
       success: true, 

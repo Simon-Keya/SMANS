@@ -1,7 +1,8 @@
 // app/dashboard/parents/[id]/edit/page.tsx
-import { getCurrentUser } from "@/lib/auth/session";
-import { prisma } from "@/lib/prisma";
-import { redirect, notFound } from "next/navigation";
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -17,47 +18,146 @@ import {
   Loader2,
 } from "lucide-react";
 
-interface EditParentPageProps {
-  params: Promise<{
-    id: string;
-  }>;
+interface ParentData {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  occupation: string | null;
+  relationship: string | null;
+  userId: string | null;
+  students: any[];
+  user: any | null;
+  studentCount: number;
 }
 
-export default async function EditParentPage({ params }: EditParentPageProps) {
-  const user = await getCurrentUser();
-
-  if (!user) {
-    redirect("/auth/login");
-  }
-
-  // Only ADMIN can edit parents
-  if (user.role !== "ADMIN") {
-    redirect("/dashboard");
-  }
-
-  const { id } = await params;
-
-  const parent = await prisma.parent.findUnique({
-    where: { id },
-    include: {
-      user: {
-        select: {
-          id: true,
-          email: true,
-          role: true,
-          createdAt: true,
-        },
-      },
-      _count: {
-        select: {
-          students: true,
-        },
-      },
-    },
+export default function EditParentPage({ params }: { params: Promise<{ id: string }> }) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [parent, setParent] = useState<ParentData | null>(null);
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    occupation: "",
+    relationship: "",
   });
 
+  // Fetch parent data
+  useEffect(() => {
+    const fetchParent = async () => {
+      try {
+        const { id } = await params;
+        const response = await fetch(`/api/parents/${id}`);
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || "Failed to fetch parent");
+        }
+
+        setParent(result.data);
+        setFormData({
+          name: result.data.name || "",
+          email: result.data.email || "",
+          phone: result.data.phone || "",
+          occupation: result.data.occupation || "",
+          relationship: result.data.relationship || "",
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load parent data");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchParent();
+  }, [params]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    setSuccess(false);
+
+    try {
+      const { id } = await params;
+      const response = await fetch(`/api/parents/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to update parent");
+      }
+
+      setSuccess(true);
+      // Redirect to parent detail after a moment
+      setTimeout(() => {
+        router.push(`/dashboard/parents/${id}`);
+      }, 1500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update parent");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen p-6 md:p-8 bg-base-100 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-base-content/60">Loading parent data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !parent) {
+    return (
+      <div className="min-h-screen p-6 md:p-8 bg-base-100">
+        <div className="max-w-3xl mx-auto">
+          <div className="alert alert-error">
+            <AlertCircle className="h-6 w-6" />
+            <span>{error}</span>
+          </div>
+          <Link href="/dashboard/parents" className="btn btn-primary mt-4">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Parents
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   if (!parent) {
-    notFound();
+    return (
+      <div className="min-h-screen p-6 md:p-8 bg-base-100">
+        <div className="max-w-3xl mx-auto">
+          <div className="alert alert-error">
+            <AlertCircle className="h-6 w-6" />
+            <span>Parent not found</span>
+          </div>
+          <Link href="/dashboard/parents" className="btn btn-primary mt-4">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Parents
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   const initials = parent.name
@@ -74,7 +174,7 @@ export default async function EditParentPage({ params }: EditParentPageProps) {
         <div className="mb-8">
           <div className="flex flex-wrap items-center gap-4">
             <Link
-              href={`/dashboard/parents/${id}`}
+              href={`/dashboard/parents/${parent.id}`}
               className="btn btn-ghost btn-sm gap-2 hover:bg-primary/10 transition-all duration-200"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -102,7 +202,7 @@ export default async function EditParentPage({ params }: EditParentPageProps) {
             <div className="flex items-center gap-3">
               <div className="badge badge-lg badge-outline gap-2">
                 <Users className="h-4 w-4" />
-                {parent._count.students} Children
+                {parent.studentCount} Children
               </div>
               {parent.user ? (
                 <div className="badge badge-lg badge-success gap-2">
@@ -118,6 +218,34 @@ export default async function EditParentPage({ params }: EditParentPageProps) {
             </div>
           </div>
         </div>
+
+        {/* Success Message */}
+        {success && (
+          <div className="alert alert-success mb-6 shadow-lg">
+            <CheckCircle className="h-6 w-6" />
+            <span>Parent information updated successfully!</span>
+            <button
+              className="btn btn-sm btn-ghost ml-auto"
+              onClick={() => setSuccess(false)}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {/* Error Message */}
+        {error && (
+          <div className="alert alert-error mb-6 shadow-lg">
+            <AlertCircle className="h-6 w-6" />
+            <span>{error}</span>
+            <button
+              className="btn btn-sm btn-ghost ml-auto"
+              onClick={() => setError(null)}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Sidebar - Parent Info Card */}
@@ -154,19 +282,13 @@ export default async function EditParentPage({ params }: EditParentPageProps) {
                     <span>{parent.occupation}</span>
                   </div>
                 )}
-                {parent.user?.createdAt && (
-                  <div className="flex items-center gap-3 p-2 rounded-lg bg-base-100/50">
-                    <Users className="h-4 w-4 text-primary flex-shrink-0" />
-                    <span>Member since {new Date(parent.user.createdAt).toLocaleDateString()}</span>
-                  </div>
-                )}
               </div>
 
               <div className="divider my-4" />
 
               <div className="text-center">
                 <p className="text-xs text-base-content/60 uppercase tracking-wider">Total Children</p>
-                <p className="text-3xl font-bold text-primary">{parent._count.students}</p>
+                <p className="text-3xl font-bold text-primary">{parent.studentCount}</p>
               </div>
             </div>
           </div>
@@ -179,7 +301,7 @@ export default async function EditParentPage({ params }: EditParentPageProps) {
                 <h2 className="text-xl font-semibold">Parent Information</h2>
               </div>
 
-              <form action={`/api/parents/${id}`} method="PATCH">
+              <form onSubmit={handleSubmit}>
                 <div className="space-y-6">
                   {/* Full Name */}
                   <div className="form-control">
@@ -192,16 +314,12 @@ export default async function EditParentPage({ params }: EditParentPageProps) {
                     <input
                       type="text"
                       name="name"
-                      defaultValue={parent.name}
+                      value={formData.name}
+                      onChange={handleChange}
                       className="input input-bordered w-full focus:input-primary transition-all duration-200"
                       placeholder="Enter parent's full name"
                       required
                     />
-                    <label className="label">
-                      <span className="label-text-alt text-base-content/40">
-                        This name will be displayed throughout the system
-                      </span>
-                    </label>
                   </div>
 
                   {/* Email */}
@@ -215,7 +333,8 @@ export default async function EditParentPage({ params }: EditParentPageProps) {
                     <input
                       type="email"
                       name="email"
-                      defaultValue={parent.email || ""}
+                      value={formData.email}
+                      onChange={handleChange}
                       className="input input-bordered w-full focus:input-primary transition-all duration-200"
                       placeholder="parent@example.com"
                     />
@@ -231,21 +350,18 @@ export default async function EditParentPage({ params }: EditParentPageProps) {
                     <label className="label">
                       <span className="label-text font-medium flex items-center gap-2">
                         <Phone className="h-4 w-4 text-primary" />
-                        Phone Number
+                        Phone Number <span className="text-error">*</span>
                       </span>
                     </label>
                     <input
                       type="tel"
                       name="phone"
-                      defaultValue={parent.phone || ""}
+                      value={formData.phone}
+                      onChange={handleChange}
                       className="input input-bordered w-full focus:input-primary transition-all duration-200"
                       placeholder="+254 700 000 000"
+                      required
                     />
-                    <label className="label">
-                      <span className="label-text-alt text-base-content/40">
-                        Primary contact number
-                      </span>
-                    </label>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -260,9 +376,10 @@ export default async function EditParentPage({ params }: EditParentPageProps) {
                       <input
                         type="text"
                         name="occupation"
-                        defaultValue={parent.occupation || ""}
+                        value={formData.occupation}
+                        onChange={handleChange}
                         className="input input-bordered w-full focus:input-primary transition-all duration-200"
-                        placeholder="e.g., Teacher, Doctor, Business Owner"
+                        placeholder="e.g., Teacher, Doctor"
                       />
                     </div>
 
@@ -276,7 +393,8 @@ export default async function EditParentPage({ params }: EditParentPageProps) {
                       </label>
                       <select
                         name="relationship"
-                        defaultValue={parent.relationship || ""}
+                        value={formData.relationship}
+                        onChange={handleChange}
                         className="select select-bordered w-full focus:select-primary transition-all duration-200"
                       >
                         <option value="">Select relationship</option>
@@ -294,13 +412,23 @@ export default async function EditParentPage({ params }: EditParentPageProps) {
                   <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-base-300">
                     <button
                       type="submit"
-                      className="btn btn-primary flex-1 gap-2 hover:scale-[1.02] transition-transform duration-200"
+                      disabled={saving}
+                      className="btn btn-primary flex-1 gap-2 hover:scale-[1.02] transition-transform duration-200 disabled:opacity-50"
                     >
-                      <Save className="h-4 w-4" />
-                      Save Changes
+                      {saving ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-4 w-4" />
+                          Save Changes
+                        </>
+                      )}
                     </button>
                     <Link
-                      href={`/dashboard/parents/${id}`}
+                      href={`/dashboard/parents/${parent.id}`}
                       className="btn btn-ghost flex-1 hover:bg-error/10 hover:text-error transition-all duration-200"
                     >
                       <XCircle className="h-4 w-4" />
@@ -318,14 +446,14 @@ export default async function EditParentPage({ params }: EditParentPageProps) {
               </h3>
               <div className="flex flex-wrap gap-3">
                 <Link
-                  href={`/dashboard/parents/${id}`}
+                  href={`/dashboard/parents/${parent.id}`}
                   className="btn btn-sm btn-outline gap-2"
                 >
                   <User className="h-4 w-4" />
                   View Profile
                 </Link>
                 <Link
-                  href={`/dashboard/students/new?parentId=${id}`}
+                  href={`/dashboard/students/new?parentId=${parent.id}`}
                   className="btn btn-sm btn-outline gap-2"
                 >
                   <Users className="h-4 w-4" />
