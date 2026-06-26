@@ -1,3 +1,4 @@
+// app/api/fees/invoices/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth";
@@ -41,7 +42,23 @@ export async function GET(req: NextRequest) {
             user: true,
           },
         },
-        fees: true, // ✅ Make sure this matches your schema (could be "feeItems" or "fee")
+        feeItem: true, // ✅ Fixed: Changed from 'fees' to 'feeItem'
+        payments: {
+          select: {
+            id: true,
+            amount: true,
+            status: true,
+            paymentDate: true,
+            method: true,
+          },
+        },
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
       },
       orderBy: {
         createdAt: "desc",
@@ -72,8 +89,9 @@ export async function POST(req: NextRequest) {
     await requireRole(["ADMIN", "ACCOUNTANT"] as AppRole[]);
 
     const body = await req.json();
-    const { studentId, amount, dueDate, description, feeIds } = body;
+    const { studentId, amount, dueDate, description, feeItemId } = body;
 
+    // Validate required fields
     if (!studentId || !amount || !dueDate) {
       return NextResponse.json(
         { error: "Missing required fields: studentId, amount, dueDate" },
@@ -81,36 +99,67 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const invoice = await prisma.$transaction(async (tx) => {
-      const newInvoice = await tx.invoice.create({
-        data: {
-          studentId,
-          amount,
-          dueDate: new Date(dueDate),
-          description,
-          status: "PENDING",
-          createdById: session.user.id,
-        },
-      });
-
-      // ✅ FIX: Use the correct model name from your schema
-      if (feeIds && feeIds.length > 0) {
-        await tx.feeItem.updateMany({  // ← Change this to match your schema
-          where: {
-            id: { in: feeIds },
-            studentId,
-          },
-          data: {
-            invoiceId: newInvoice.id,
-            status: "INVOICED",
-          },
-        });
-      }
-
-      return newInvoice;
+    // Validate student exists
+    const student = await prisma.student.findUnique({
+      where: { id: studentId },
     });
 
-    return NextResponse.json(invoice, { status: 201 });
+    if (!student) {
+      return NextResponse.json(
+        { error: "Student not found" },
+        { status: 404 }
+      );
+    }
+
+    // If feeItemId is provided, validate it exists
+    if (feeItemId) {
+      const feeItem = await prisma.feeItem.findUnique({
+        where: { id: feeItemId },
+      });
+
+      if (!feeItem) {
+        return NextResponse.json(
+          { error: "Fee item not found" },
+          { status: 404 }
+        );
+      }
+    }
+
+    const invoice = await prisma.invoice.create({
+      data: {
+        studentId,
+        amount,
+        dueDate: new Date(dueDate),
+        description,
+        status: "PENDING",
+        createdById: session.user.id,
+        feeItemId: feeItemId || null, // Link to fee item if provided
+      },
+      include: {
+        student: {
+          include: {
+            user: true,
+          },
+        },
+        feeItem: true,
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    return NextResponse.json(
+      { 
+        success: true, 
+        message: "Invoice created successfully",
+        data: invoice 
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error("Error creating invoice:", error);
     return NextResponse.json(
@@ -141,42 +190,109 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
+    // Check if invoice exists
+    const existingInvoice = await prisma.invoice.findUnique({
+      where: { id },
+      select: { 
+        studentId: true,
+        status: true,
+      },
+    });
+
+    if (!existingInvoice) {
+      return NextResponse.json(
+        { error: "Invoice not found" },
+        { status: 404 }
+      );
+    }
+
     const userRole = session.user.role as string;
     const hasPermission = 
       userRole === "ADMIN" || 
       userRole === "ACCOUNTANT";
 
+    // Check permissions
     if (!hasPermission) {
-      if (userRole === "STUDENT" && studentId && session.user.id === studentId) {
-        const invoice = await prisma.invoice.findUnique({
-          where: { id },
-          select: { studentId: true },
+      // Students can only update their own invoices (e.g., make payment)
+      if (userRole === "STUDENT") {
+        // Get the student ID from the session user
+        const student = await prisma.student.findUnique({
+          where: { userId: session.user.id },
+          select: { id: true },
         });
 
-        if (!invoice || invoice.studentId !== session.user.id) {
+        if (!student || student.id !== existingInvoice.studentId) {
           return NextResponse.json(
-            { error: "Forbidden" },
+            { error: "Forbidden - You can only update your own invoices" },
+            { status: 403 }
+          );
+        }
+        
+        // Students can only update payment-related fields
+        if (status && status !== "PAID" && status !== "PARTIAL") {
+          return NextResponse.json(
+            { error: "Students can only update payment status to PAID or PARTIAL" },
             { status: 403 }
           );
         }
       } else {
         return NextResponse.json(
-          { error: "Forbidden" },
+          { error: "Forbidden - Insufficient permissions" },
           { status: 403 }
         );
       }
     }
 
+    // Prepare update data
+    const updateData: any = {};
+    if (status) updateData.status = status;
+    if (amountPaid !== undefined) updateData.amountPaid = amountPaid;
+    if (paymentDate) updateData.paymentDate = new Date(paymentDate);
+    
+    // Auto-set payment date if status is PAID and no payment date provided
+    if (status === "PAID" && !paymentDate) {
+      updateData.paymentDate = new Date();
+    }
+
+    // If status is PENDING, clear payment date
+    if (status === "PENDING") {
+      updateData.paymentDate = null;
+    }
+
     const invoice = await prisma.invoice.update({
       where: { id },
-      data: {
-        status,
-        amountPaid,
-        paymentDate: paymentDate ? new Date(paymentDate) : null,
+      data: updateData,
+      include: {
+        student: {
+          include: {
+            user: true,
+          },
+        },
+        feeItem: true,
+        payments: {
+          select: {
+            id: true,
+            amount: true,
+            status: true,
+            paymentDate: true,
+            method: true,
+          },
+        },
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
       },
     });
 
-    return NextResponse.json(invoice);
+    return NextResponse.json({
+      success: true,
+      message: "Invoice updated successfully",
+      data: invoice,
+    });
   } catch (error) {
     console.error("Error updating invoice:", error);
     return NextResponse.json(
