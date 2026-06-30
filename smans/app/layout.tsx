@@ -12,6 +12,9 @@ const inter = Inter({
   display: "swap",
 });
 
+export const dynamic = 'force-dynamic';
+
+
 export const metadata: Metadata = {
   title: "SMANS - School Management System",
   description: "A modern school management system",
