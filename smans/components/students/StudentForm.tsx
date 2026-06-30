@@ -14,7 +14,7 @@ import {
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
@@ -48,7 +48,7 @@ export default function StudentForm({
   onSuccess,
 }: StudentFormProps) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const {
@@ -71,98 +71,98 @@ export default function StudentForm({
     },
   });
 
-  const handleFormSubmit = async (data: StudentFormData) => {
+  const onSubmit = async (data: StudentFormData) => {
+    setIsSubmitting(true);
     setError(null);
-    console.log("🔍 Form submitted with data:", data);
-    console.log("🔍 isEdit:", isEdit);
-    console.log("🔍 studentId:", studentId);
 
-    startTransition(async () => {
-      try {
-        if (isEdit && studentId) {
-          // ✅ UPDATE - Use fetch to API
-          const updateData = {
-            name: data.name.trim(),
-            admissionNumber: data.admissionNumber.trim(),
-            email: data.email?.trim() || null,
-            phone: data.phone?.trim() || null,
-            classId: data.classId === "unassigned" ? null : data.classId || null,
-            parentId: data.parentId === "no-parent" ? null : data.parentId || null,
-          };
+    try {
+      if (isEdit && studentId) {
+        // UPDATE - Send PUT request
+        const updateData = {
+          name: data.name.trim(),
+          admissionNumber: data.admissionNumber.trim(),
+          email: data.email?.trim() || null,
+          phone: data.phone?.trim() || null,
+          classId: data.classId === "unassigned" ? null : data.classId || null,
+          parentId: data.parentId === "no-parent" ? null : data.parentId || null,
+        };
 
-          console.log("📤 Sending PUT request to /api/students/" + studentId);
-          console.log("📤 Data:", updateData);
+        console.log("📤 Sending PUT request to /api/students/" + studentId);
+        console.log("📤 Data:", updateData);
 
-          const response = await fetch(`/api/students/${studentId}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(updateData),
-          });
+        const response = await fetch(`/api/students/${studentId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updateData),
+        });
 
-          console.log("📥 Response status:", response.status);
+        console.log("📥 Response status:", response.status);
 
-          const result = await response.json();
-          console.log("📥 Response data:", result);
+        const result = await response.json();
+        console.log("📥 Response data:", result);
 
-          if (!response.ok) {
-            throw new Error(result.error || "Failed to update student");
-          }
-
-          alert("Student updated successfully!");
-          
-          if (onSuccess) {
-            onSuccess();
-          } else {
-            router.push("/dashboard/students");
-            router.refresh();
-          }
-        } else {
-          // ✅ CREATE - Use fetch to API
-          const createData = {
-            name: data.name.trim(),
-            admissionNumber: data.admissionNumber.trim(),
-            email: data.email?.trim() || null,
-            phone: data.phone?.trim() || null,
-            classId: data.classId && data.classId !== "unassigned" ? data.classId : null,
-            parentId: data.parentId && data.parentId !== "no-parent" ? data.parentId : null,
-            password: data.password || "default123",
-          };
-
-          console.log("📤 Sending POST request to /api/students");
-          console.log("📤 Data:", createData);
-
-          const response = await fetch("/api/students", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(createData),
-          });
-
-          console.log("📥 Response status:", response.status);
-
-          const result = await response.json();
-
-          if (!response.ok) {
-            throw new Error(result.error || "Failed to create student");
-          }
-
-          alert("Student created successfully!");
-          
-          if (onSuccess) {
-            onSuccess();
-          } else {
-            router.push("/dashboard/students");
-            router.refresh();
-          }
+        if (!response.ok) {
+          throw new Error(result.error || "Failed to update student");
         }
-      } catch (err: any) {
-        console.error("❌ Form submission error:", err);
-        setError(err.message || "Something went wrong. Please try again.");
+
+        // Success - show message and redirect
+        alert("✅ Student updated successfully!");
+        
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          router.push("/dashboard/students");
+          router.refresh();
+        }
+      } else {
+        // CREATE - Send POST request
+        const createData = {
+          name: data.name.trim(),
+          admissionNumber: data.admissionNumber.trim(),
+          email: data.email?.trim() || null,
+          phone: data.phone?.trim() || null,
+          classId: data.classId && data.classId !== "unassigned" ? data.classId : null,
+          parentId: data.parentId && data.parentId !== "no-parent" ? data.parentId : null,
+          password: data.password || "password123",
+        };
+
+        console.log("📤 Sending POST request to /api/students");
+        console.log("📤 Data:", createData);
+
+        const response = await fetch("/api/students", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(createData),
+        });
+
+        console.log("📥 Response status:", response.status);
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || "Failed to create student");
+        }
+
+        // Success - show message and redirect
+        alert("✅ Student created successfully!");
+        
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          router.push("/dashboard/students");
+          router.refresh();
+        }
       }
-    });
+    } catch (err: any) {
+      console.error("❌ Form submission error:", err);
+      setError(err.message || "Something went wrong. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       {error && (
         <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
           {error}
@@ -173,14 +173,14 @@ export default function StudentForm({
         {/* Name */}
         <div className="space-y-2">
           <Label htmlFor="name">Full Name *</Label>
-          <Input id="name" {...register("name")} disabled={isPending} />
+          <Input id="name" {...register("name")} disabled={isSubmitting} />
           {errors.name && <p className="text-sm text-red-500">{errors.name.message}</p>}
         </div>
 
         {/* Admission Number */}
         <div className="space-y-2">
           <Label htmlFor="admissionNumber">Admission Number *</Label>
-          <Input id="admissionNumber" {...register("admissionNumber")} disabled={isPending} />
+          <Input id="admissionNumber" {...register("admissionNumber")} disabled={isSubmitting} />
           {errors.admissionNumber && <p className="text-sm text-red-500">{errors.admissionNumber.message}</p>}
         </div>
 
@@ -192,7 +192,7 @@ export default function StudentForm({
           <Select 
             onValueChange={(value) => setValue("classId", value)} 
             value={watch("classId") || "unassigned"}
-            disabled={isPending}
+            disabled={isSubmitting}
           >
             <SelectTrigger>
               <SelectValue placeholder="Select a class" />
@@ -214,7 +214,7 @@ export default function StudentForm({
           <Select 
             onValueChange={(value) => setValue("parentId", value)} 
             value={watch("parentId") || "no-parent"}
-            disabled={isPending}
+            disabled={isSubmitting}
           >
             <SelectTrigger>
               <SelectValue placeholder="Select Parent" />
@@ -233,21 +233,21 @@ export default function StudentForm({
         {/* Email */}
         <div className="space-y-2">
           <Label htmlFor="email">Email (Optional)</Label>
-          <Input id="email" type="email" {...register("email")} disabled={isPending} />
+          <Input id="email" type="email" {...register("email")} disabled={isSubmitting} />
           {errors.email && <p className="text-sm text-red-500">{errors.email.message}</p>}
         </div>
 
         {/* Phone */}
         <div className="space-y-2">
           <Label htmlFor="phone">Phone (Optional)</Label>
-          <Input id="phone" type="tel" {...register("phone")} disabled={isPending} />
+          <Input id="phone" type="tel" {...register("phone")} disabled={isSubmitting} />
         </div>
 
         {/* Password - only for create */}
         {!isEdit && (
           <div className="space-y-2">
             <Label htmlFor="password">Initial Password *</Label>
-            <Input id="password" type="password" {...register("password")} disabled={isPending} />
+            <Input id="password" type="password" {...register("password")} disabled={isSubmitting} />
             {errors.password && <p className="text-sm text-red-500">{errors.password.message}</p>}
           </div>
         )}
@@ -256,11 +256,10 @@ export default function StudentForm({
       <div className="flex justify-end pt-4">
         <Button 
           type="submit" 
-          disabled={isPending} 
+          disabled={isSubmitting} 
           className="w-full md:w-auto min-w-[140px]"
-          onClick={() => console.log("🖱️ Update button clicked")}
         >
-          {isPending ? (
+          {isSubmitting ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               {isEdit ? "Updating..." : "Creating..."}
