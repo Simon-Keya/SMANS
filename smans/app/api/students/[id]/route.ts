@@ -8,110 +8,124 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  const { id } = await params;
-  const userRole = session.user.role as string | undefined;
+    const { id } = await params;
+    const userRole = session.user.role as string | undefined;
 
-  const student = await prisma.student.findUnique({
-    where: { id },
-    include: {
-      class: { 
-        select: { 
-          id: true,
-          name: true, 
-          level: true 
-        } 
-      },
-      parent: { 
-        select: { 
-          id: true,
-          name: true, 
-          phone: true, 
-          userId: true,
-          email: true,
-          occupation: true,
-          relationship: true,
-        } 
-      },
-      user: { 
-        select: { 
-          id: true,
-          email: true,
-          name: true,
-          phone: true,
-          isActive: true,
-        } 
-      },
-      grades: {
-        take: 5,
-        orderBy: { createdAt: "desc" },
-        include: {
-          subject: { select: { name: true, code: true } },
-          exam: { select: { name: true, term: true, year: true } },
+    const student = await prisma.student.findUnique({
+      where: { id },
+      include: {
+        class: { 
+          select: { 
+            id: true,
+            name: true, 
+            level: true 
+          } 
+        },
+        parent: { 
+          select: { 
+            id: true,
+            name: true, 
+            phone: true, 
+            userId: true,
+            email: true,
+            occupation: true,
+            relationship: true,
+          } 
+        },
+        user: { 
+          select: { 
+            id: true,
+            email: true,
+            name: true,
+            phone: true,
+            isActive: true,
+          } 
+        },
+        grades: {
+          take: 5,
+          orderBy: { createdAt: "desc" },
+          include: {
+            subject: { select: { name: true, code: true } },
+            exam: { select: { name: true, term: true, year: true } },
+          },
+        },
+        attendance: {
+          take: 10,
+          orderBy: { date: "desc" },
+        },
+        invoices: {
+          where: { status: { not: "PAID" } },
+          orderBy: { dueDate: "asc" },
+          take: 3,
+        },
+        _count: {
+          select: {
+            grades: true,
+            attendance: true,
+            invoices: true,
+          },
         },
       },
-      attendance: {
-        take: 10,
-        orderBy: { date: "desc" },
-      },
-      invoices: {
-        where: { status: { not: "PAID" } },
-        orderBy: { dueDate: "asc" },
-        take: 3,
-      },
-      _count: {
-        select: {
-          grades: true,
-          attendance: true,
-          invoices: true,
-        },
-      },
-    },
-  });
+    });
 
-  if (!student) {
-    return NextResponse.json({ error: "Student not found" }, { status: 404 });
+    if (!student) {
+      return NextResponse.json({ error: "Student not found" }, { status: 404 });
+    }
+
+    // Access control
+    const canAccess =
+      userRole === "ADMIN" ||
+      userRole === "TEACHER" ||
+      student.parent?.userId === session.user.id ||
+      student.userId === session.user.id;
+
+    if (!canAccess) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // Include a flag for unassigned students
+    const responseData = {
+      ...student,
+      isUnassigned: !student.classId,
+    };
+
+    return NextResponse.json({ success: true, data: responseData });
+  } catch (error) {
+    console.error("[GET_STUDENT] Error:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch student" },
+      { status: 500 }
+    );
   }
-
-  // Access control
-  const canAccess =
-    userRole === "ADMIN" ||
-    userRole === "TEACHER" ||
-    student.parent?.userId === session.user.id ||
-    student.userId === session.user.id;
-
-  if (!canAccess) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  // Include a flag for unassigned students
-  const responseData = {
-    ...student,
-    isUnassigned: !student.classId,
-  };
-
-  return NextResponse.json({ success: true, data: responseData });
 }
 
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions);
-
-  if (!session || session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Unauthorized: Only admins can update students" }, { status: 401 });
-  }
-
   try {
+    const session = await getServerSession(authOptions);
+
+    if (!session || session.user.role !== "ADMIN") {
+      return NextResponse.json(
+        { error: "Unauthorized: Only admins can update students" },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
     const data = await request.json();
 
-    // Basic validation - classId is optional
+    console.log("🔍 [PUT] Updating student:", id);
+    console.log("🔍 [PUT] Data received:", data);
+
+    // Basic validation
     if (!data.name || !data.admissionNumber) {
       return NextResponse.json(
         { error: "Missing required fields: name, admissionNumber" },
@@ -122,11 +136,16 @@ export async function PUT(
     // Check if student exists
     const existingStudent = await prisma.student.findUnique({
       where: { id },
+      include: {
+        user: true,
+      },
     });
 
     if (!existingStudent) {
       return NextResponse.json({ error: "Student not found" }, { status: 404 });
     }
+
+    console.log("🔍 [PUT] Existing student found:", existingStudent.id);
 
     // Check admission number uniqueness (if changed)
     if (data.admissionNumber !== existingStudent.admissionNumber) {
@@ -135,7 +154,10 @@ export async function PUT(
       });
 
       if (duplicate) {
-        return NextResponse.json({ error: "Admission number already exists" }, { status: 409 });
+        return NextResponse.json(
+          { error: "Admission number already exists" },
+          { status: 409 }
+        );
       }
     }
 
@@ -149,7 +171,10 @@ export async function PUT(
       });
 
       if (existingUser) {
-        return NextResponse.json({ error: "Email already in use by another user" }, { status: 409 });
+        return NextResponse.json(
+          { error: "Email already in use by another user" },
+          { status: 409 }
+        );
       }
     }
 
@@ -167,38 +192,44 @@ export async function PUT(
         });
       }
 
-      // Build the update data with proper Prisma nested relations
+      // Build the update data
       const updateData: any = {
         name: data.name.trim(),
         admissionNumber: data.admissionNumber.trim(),
         email: data.email?.trim() || null,
         phone: data.phone?.trim() || null,
-        dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
-        gender: data.gender || null,
-        address: data.address?.trim() || null,
       };
 
-      // Handle class relation using connect/disconnect
+      // Only include optional fields if they exist
+      if (data.dateOfBirth) {
+        updateData.dateOfBirth = new Date(data.dateOfBirth);
+      }
+      if (data.gender) {
+        updateData.gender = data.gender;
+      }
+      if (data.address) {
+        updateData.address = data.address.trim();
+      }
+
+      // Handle class relation
       if (data.classId !== undefined) {
-        if (data.classId) {
-          // Connect to existing class
+        if (data.classId && data.classId !== "unassigned") {
           updateData.class = { connect: { id: data.classId } };
         } else {
-          // Disconnect from current class
           updateData.class = { disconnect: true };
         }
       }
 
-      // Handle parent relation using connect/disconnect
+      // Handle parent relation
       if (data.parentId !== undefined) {
-        if (data.parentId) {
-          // Connect to existing parent
+        if (data.parentId && data.parentId !== "no-parent") {
           updateData.parent = { connect: { id: data.parentId } };
         } else {
-          // Disconnect from current parent
           updateData.parent = { disconnect: true };
         }
       }
+
+      console.log("🔍 [PUT] Update data:", updateData);
 
       // Update Student
       const student = await tx.student.update({
@@ -214,8 +245,10 @@ export async function PUT(
       return student;
     });
 
+    console.log("✅ [PUT] Student updated successfully:", updatedStudent.id);
+
     // Audit log
-    if (prisma.auditLog) {
+    try {
       await prisma.auditLog.create({
         data: {
           userId: session.user.id,
@@ -229,21 +262,41 @@ export async function PUT(
           },
         },
       });
+    } catch (auditError) {
+      console.error("[PUT] Audit log error:", auditError);
+      // Don't fail the request if audit log fails
     }
 
-    return NextResponse.json({ success: true, data: updatedStudent });
+    return NextResponse.json({
+      success: true,
+      message: "Student updated successfully",
+      data: updatedStudent,
+    });
   } catch (error: any) {
-    console.error("[UPDATE_STUDENT]", error);
+    console.error("[UPDATE_STUDENT] Error:", error);
 
+    // Handle specific Prisma errors
     if (error.code === "P2002") {
-      return NextResponse.json({ error: "Admission number or email already in use" }, { status: 409 });
+      return NextResponse.json(
+        { error: "Admission number or email already in use" },
+        { status: 409 }
+      );
     }
 
     if (error.code === "P2025") {
-      return NextResponse.json({ error: "Student not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Student not found" },
+        { status: 404 }
+      );
     }
 
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { 
+        error: "Internal server error",
+        details: process.env.NODE_ENV === "development" ? error.message : undefined
+      },
+      { status: 500 }
+    );
   }
 }
 
@@ -251,13 +304,16 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions);
-
-  if (!session || session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Unauthorized: Only admins can delete students" }, { status: 401 });
-  }
-
   try {
+    const session = await getServerSession(authOptions);
+
+    if (!session || session.user.role !== "ADMIN") {
+      return NextResponse.json(
+        { error: "Unauthorized: Only admins can delete students" },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
     
     const student = await prisma.student.findUnique({
@@ -265,9 +321,6 @@ export async function DELETE(
       include: {
         parent: { select: { userId: true } },
         user: { select: { id: true } },
-        grades: { select: { id: true }, take: 1 },
-        attendance: { select: { id: true }, take: 1 },
-        invoices: { select: { id: true }, take: 1 },
       },
     });
 
@@ -276,9 +329,11 @@ export async function DELETE(
     }
 
     // Safety checks - count related records
-    const hasGrades = await prisma.grade.count({ where: { studentId: id } });
-    const hasAttendance = await prisma.attendance.count({ where: { studentId: id } });
-    const hasInvoices = await prisma.invoice.count({ where: { studentId: id } });
+    const [hasGrades, hasAttendance, hasInvoices] = await Promise.all([
+      prisma.grade.count({ where: { studentId: id } }),
+      prisma.attendance.count({ where: { studentId: id } }),
+      prisma.invoice.count({ where: { studentId: id } }),
+    ]);
 
     if (hasGrades > 0) {
       return NextResponse.json(
@@ -332,7 +387,7 @@ export async function DELETE(
     });
 
     // Audit log
-    if (prisma.auditLog) {
+    try {
       await prisma.auditLog.create({
         data: {
           userId: session.user.id,
@@ -346,6 +401,9 @@ export async function DELETE(
           },
         },
       });
+    } catch (auditError) {
+      console.error("[DELETE] Audit log error:", auditError);
+      // Don't fail the request if audit log fails
     }
 
     return NextResponse.json({
@@ -353,7 +411,13 @@ export async function DELETE(
       message: `Student ${student.admissionNumber} deleted successfully`,
     });
   } catch (error: any) {
-    console.error("[DELETE_STUDENT]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    console.error("[DELETE_STUDENT] Error:", error);
+    return NextResponse.json(
+      { 
+        error: "Internal server error",
+        details: process.env.NODE_ENV === "development" ? error.message : undefined
+      },
+      { status: 500 }
+    );
   }
 }

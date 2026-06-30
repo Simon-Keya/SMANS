@@ -77,7 +77,7 @@ export default function StudentForm({
 
     try {
       if (isEdit && studentId) {
-        // UPDATE - Send PUT request
+        // ✅ UPDATE - Send PUT request
         const updateData = {
           name: data.name.trim(),
           admissionNumber: data.admissionNumber.trim(),
@@ -105,7 +105,7 @@ export default function StudentForm({
           throw new Error(result.error || "Failed to update student");
         }
 
-        // Success - show message and redirect
+        // ✅ Success - show message and redirect
         alert("✅ Student updated successfully!");
         
         if (onSuccess) {
@@ -115,7 +115,7 @@ export default function StudentForm({
           router.refresh();
         }
       } else {
-        // CREATE - Send POST request
+        // ✅ CREATE - Send POST request
         const createData = {
           name: data.name.trim(),
           admissionNumber: data.admissionNumber.trim(),
@@ -143,7 +143,7 @@ export default function StudentForm({
           throw new Error(result.error || "Failed to create student");
         }
 
-        // Success - show message and redirect
+        // ✅ Success - show message and redirect
         alert("✅ Student created successfully!");
         
         if (onSuccess) {
