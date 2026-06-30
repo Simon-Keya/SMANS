@@ -1,3 +1,4 @@
+// components/parents/ParentTable.tsx
 "use client";
 
 import {
@@ -25,10 +26,11 @@ import { Edit, Eye, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
+// ✅ Updated interface to match the data structure
 interface Parent {
   id: string;
   name: string | null;
-  email: string;
+  email: string;  // ✅ Always a string
   phone?: string | null;
   childrenCount?: number;
   createdAt: Date;
@@ -81,7 +83,7 @@ export default function ParentTable({ parents, onDelete }: ParentTableProps) {
                 <TableCell className="font-medium">
                   {parent.name ?? "Unnamed Parent"}
                 </TableCell>
-                <TableCell>{parent.email}</TableCell>
+                <TableCell>{parent.email || "No email"}</TableCell>
                 <TableCell>{parent.phone ?? "-"}</TableCell>
                 <TableCell>
                   <Badge variant="secondary">

@@ -1,3 +1,4 @@
+// app/dashboard/parents/page.tsx
 import ParentTable from "@/components/parents/ParentTable";
 import { Button } from "@/components/ui/Button";
 import { authOptions } from "@/lib/auth/auth";
@@ -14,40 +15,41 @@ export default async function ParentsPage() {
     redirect("/dashboard");
   }
 
-  const parents = await prisma.user.findMany({
-    where: { role: "PARENT" }, // Changed from "parent" to "PARENT" (uppercase)
+  // ✅ Fetch from Parent model directly
+  const parents = await prisma.parent.findMany({
     select: {
       id: true,
       name: true,
       email: true,
-      role: true,
+      phone: true,
+      occupation: true,
+      relationship: true,
       createdAt: true,
-      // Include parent relation to get additional parent-specific data
-      parent: {
+      userId: true,  // ✅ Include userId to check if account exists
+      user: {
         select: {
-          phone: true,
-          occupation: true,
-          relationship: true,
-          _count: {
-            select: { students: true }
-          }
-        }
-      }
+          id: true,
+          email: true,
+          isActive: true,
+        },
+      },
+      _count: {
+        select: {
+          students: true,
+        },
+      },
     },
     orderBy: { name: "asc" },
   });
 
-  // Transform data to include parent-specific fields at the root level if needed
+  // Transform data for the table component - matching Parent interface
   const parentsWithDetails = parents.map(parent => ({
     id: parent.id,
     name: parent.name,
-    email: parent.email,
-    role: parent.role,
+    email: parent.email || parent.user?.email || "",  // ✅ Ensure email is always a string
+    phone: parent.phone,
+    childrenCount: parent._count.students || 0,
     createdAt: parent.createdAt,
-    phone: parent.parent?.phone,
-    occupation: parent.parent?.occupation,
-    relationship: parent.parent?.relationship,
-    studentCount: parent.parent?._count.students || 0,
   }));
 
   return (
