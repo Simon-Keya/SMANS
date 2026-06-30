@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
+import { Button } from "@/components/ui/Button";
 import { ArrowLeft, Save, User, Mail, Phone, Briefcase, Users } from "lucide-react";
 
 interface EditParentPageProps {
@@ -18,24 +19,34 @@ export default async function EditParentPage({ params }: EditParentPageProps) {
 
   const { id } = await params;
 
-  // Fetch parent data
-  const parent = await prisma.parent.findUnique({
-    where: { id },
-    include: {
-      user: {
-        select: {
-          id: true,
-          email: true,
-          isActive: true,
+  // Fetch parent data - consistent with student edit page pattern
+  const [parent, classes, parents] = await Promise.all([
+    prisma.parent.findUnique({
+      where: { id },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            isActive: true,
+          },
+        },
+        _count: {
+          select: {
+            students: true,
+          },
         },
       },
-      _count: {
-        select: {
-          students: true,
-        },
-      },
-    },
-  });
+    }),
+    prisma.class.findMany({
+      select: { id: true, name: true, level: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.parent.findMany({
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   if (!parent) {
     notFound();
@@ -51,49 +62,51 @@ export default async function EditParentPage({ params }: EditParentPageProps) {
   return (
     <div className="min-h-screen p-6 md:p-8 bg-gradient-to-br from-base-100 via-base-200/50 to-base-100">
       <div className="max-w-4xl mx-auto">
-        {/* Header with Breadcrumb */}
-        <div className="mb-8">
-          <div className="flex flex-wrap items-center gap-4">
-            <Link
-              href={`/dashboard/parents/${id}`}
-              className="btn btn-ghost btn-sm gap-2 hover:bg-primary/10 transition-all duration-200"
-            >
-              <ArrowLeft className="h-4 w-4" />
+        {/* Header - Consistent with student edit page */}
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-primary flex items-center gap-3">
+              <User className="h-8 w-8" />
+              Edit Parent
+            </h1>
+            <p className="text-base-content/60 mt-1">
+              Update {parent.name}'s information
+            </p>
+          </div>
+          <Button asChild variant="outline">
+            <Link href={`/dashboard/parents/${id}`}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Parent
             </Link>
-            <div className="flex-1" />
-            <div className="flex items-center gap-2 text-sm text-base-content/60">
-              <span className="hidden sm:inline">Parent ID:</span>
-              <code className="bg-base-300/50 px-2 py-1 rounded text-xs font-mono">
-                {parent.id.slice(0, 8)}...
-              </code>
-            </div>
-          </div>
+          </Button>
+        </div>
 
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-primary flex items-center gap-3">
-                <User className="h-8 w-8" />
-                Edit Parent
-              </h1>
-              <p className="text-base-content/60 mt-1">
-                Update parent/guardian information and details
-              </p>
+        {/* Info Banner - Similar to student page */}
+        <div className="mb-6 p-4 bg-base-200/50 rounded-xl border border-base-300">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-md">
+                <span className="text-lg font-bold text-primary-content">
+                  {initials}
+                </span>
+              </div>
+              <div>
+                <p className="font-semibold">{parent.name}</p>
+                <p className="text-sm text-base-content/60">
+                  {parent._count.students} children • {parent.relationship || "Parent"}
+                </p>
+              </div>
             </div>
             <div className="flex items-center gap-3">
-              <div className="badge badge-lg badge-outline gap-2">
-                <Users className="h-4 w-4" />
+              {parent.user ? (
+                <div className="badge badge-success gap-1">Active Account</div>
+              ) : (
+                <div className="badge badge-warning gap-1">No Account</div>
+              )}
+              <div className="badge badge-outline gap-1">
+                <Users className="h-3 w-3" />
                 {parent._count.students} Children
               </div>
-              {parent.user ? (
-                <div className="badge badge-lg badge-success gap-2">
-                  Active Account
-                </div>
-              ) : (
-                <div className="badge badge-lg badge-warning gap-2">
-                  No Account
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -144,7 +157,7 @@ export default async function EditParentPage({ params }: EditParentPageProps) {
             </div>
           </div>
 
-          {/* Main Form */}
+          {/* Main Form - Consistent with student edit page structure */}
           <div className="lg:col-span-2">
             <div className="bg-base-200 rounded-2xl p-6 md:p-8 border border-base-300 shadow-xl">
               <div className="flex items-center gap-2 mb-6">
@@ -254,75 +267,20 @@ export default async function EditParentPage({ params }: EditParentPageProps) {
                     </div>
                   </div>
 
-                  {/* Form Actions */}
-                  <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-base-300">
-                    <button
-                      type="submit"
-                      className="btn btn-primary flex-1 gap-2 hover:scale-[1.02] transition-transform duration-200"
-                    >
+                  {/* Form Actions - Consistent with student page */}
+                  <div className="flex gap-4 pt-6 border-t border-base-300">
+                    <Button type="submit" className="flex-1 gap-2">
                       <Save className="h-4 w-4" />
                       Save Changes
-                    </button>
-                    <Link
-                      href={`/dashboard/parents/${id}`}
-                      className="btn btn-ghost flex-1 hover:bg-error/10 hover:text-error transition-all duration-200"
-                    >
-                      Cancel
-                    </Link>
+                    </Button>
+                    <Button asChild variant="outline" className="flex-1">
+                      <Link href={`/dashboard/parents/${id}`}>
+                        Cancel
+                      </Link>
+                    </Button>
                   </div>
                 </div>
               </form>
-            </div>
-
-            {/* Additional Actions */}
-            <div className="mt-6 bg-base-200 rounded-2xl p-6 border border-base-300">
-              <h3 className="text-sm font-semibold text-base-content/60 uppercase tracking-wider mb-4">
-                Additional Actions
-              </h3>
-              <div className="flex flex-wrap gap-3">
-                <Link
-                  href={`/dashboard/parents/${id}`}
-                  className="btn btn-sm btn-outline gap-2"
-                >
-                  <User className="h-4 w-4" />
-                  View Profile
-                </Link>
-                <Link
-                  href={`/dashboard/students/new?parentId=${id}`}
-                  className="btn btn-sm btn-outline gap-2"
-                >
-                  <Users className="h-4 w-4" />
-                  Add Child
-                </Link>
-                {!parent.user && (
-                  <form action={`/api/parents/${id}/create-account`} method="POST">
-                    <button
-                      type="submit"
-                      className="btn btn-sm btn-success gap-2"
-                    >
-                      <User className="h-4 w-4" />
-                      Create Account
-                    </button>
-                  </form>
-                )}
-                <form
-                  action={`/api/parents/${id}`}
-                  method="DELETE"
-                  onSubmit={(e) => {
-                    if (!confirm(`Are you sure you want to delete ${parent.name}? This action cannot be undone.`)) {
-                      e.preventDefault();
-                    }
-                  }}
-                  className="ml-auto"
-                >
-                  <button
-                    type="submit"
-                    className="btn btn-sm btn-error btn-outline gap-2"
-                  >
-                    Delete Parent
-                  </button>
-                </form>
-              </div>
             </div>
           </div>
         </div>

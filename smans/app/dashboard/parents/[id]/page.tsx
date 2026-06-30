@@ -1,7 +1,7 @@
 // app/dashboard/parents/[id]/page.tsx
 import { getCurrentUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
-import { redirect, notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import {
@@ -37,7 +37,7 @@ export default async function ParentDetailPage({ params }: ParentPageProps) {
 
   const { id } = await params;
 
-  // Fetch parent with all related data
+  // Fetch parent with all related data - consistent with student page pattern
   const parent = await prisma.parent.findUnique({
     where: { id },
     include: {
@@ -88,8 +88,18 @@ export default async function ParentDetailPage({ params }: ParentPageProps) {
     notFound();
   }
 
-  // Get student count
-  const studentCount = parent.students?.length || 0;
+  // Transform to match the normalized data structure
+  const normalizedParent = {
+    id: parent.id,
+    name: parent.name,
+    email: parent.email,
+    phone: parent.phone,
+    occupation: parent.occupation,
+    relationship: parent.relationship,
+    students: parent.students || [],
+    studentCount: parent.students?.length || 0,
+    user: parent.user,
+  };
 
   // Get initials
   const initials = parent.name
@@ -104,26 +114,9 @@ export default async function ParentDetailPage({ params }: ParentPageProps) {
   return (
     <div className="min-h-screen p-6 md:p-8 bg-gradient-to-br from-base-100 via-base-200/50 to-base-100">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex flex-wrap items-center gap-4">
-            <Link
-              href="/dashboard/parents"
-              className="btn btn-ghost btn-sm gap-2 hover:bg-primary/10 transition-all duration-200"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back to Parents
-            </Link>
-            <div className="flex-1" />
-            <Button asChild>
-              <Link href={`/dashboard/parents/${id}/edit`} className="gap-2">
-                <Edit className="h-4 w-4" />
-                Edit Parent
-              </Link>
-            </Button>
-          </div>
-
-          <div className="mt-6">
+        {/* Header - Consistent with student page */}
+        <div className="flex justify-between items-center mb-8">
+          <div>
             <h1 className="text-3xl font-bold text-primary flex items-center gap-3">
               <User className="h-8 w-8" />
               Parent Details
@@ -132,6 +125,23 @@ export default async function ParentDetailPage({ params }: ParentPageProps) {
               View and manage parent/guardian information
             </p>
           </div>
+          <Button asChild>
+            <Link href={`/dashboard/parents/${id}/edit`} className="gap-2">
+              <Edit className="h-4 w-4" />
+              Edit Parent
+            </Link>
+          </Button>
+        </div>
+
+        {/* Back Link */}
+        <div className="mb-6">
+          <Link
+            href="/dashboard/parents"
+            className="btn btn-ghost btn-sm gap-2 hover:bg-primary/10 transition-all duration-200"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Parents
+          </Link>
         </div>
 
         {/* Parent Profile */}
@@ -192,7 +202,7 @@ export default async function ParentDetailPage({ params }: ParentPageProps) {
               <div className="text-center">
                 <p className="text-sm text-base-content/60">Total Children</p>
                 <p className="text-3xl font-bold text-primary">
-                  {studentCount}
+                  {normalizedParent.studentCount}
                 </p>
               </div>
             </div>
@@ -204,13 +214,12 @@ export default async function ParentDetailPage({ params }: ParentPageProps) {
             <div className="bg-base-200 rounded-2xl p-6 border border-base-300 shadow-lg">
               <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                 <Users className="h-5 w-5 text-primary" />
-                Children ({studentCount})
+                Children ({normalizedParent.studentCount})
               </h3>
 
-              {parent.students && parent.students.length > 0 ? (
+              {normalizedParent.students.length > 0 ? (
                 <div className="space-y-4">
-                  {parent.students.map((student) => {
-                    // Safely get grades with fallback
+                  {normalizedParent.students.map((student) => {
                     const studentGrades = student.grades || [];
                     const hasGrades = studentGrades.length > 0;
 
@@ -244,7 +253,7 @@ export default async function ParentDetailPage({ params }: ParentPageProps) {
                           </Link>
                         </div>
 
-                        {/* Recent Grades - Only show if there are grades */}
+                        {/* Recent Grades */}
                         {hasGrades && (
                           <div className="mt-3 pt-3 border-t border-base-200">
                             <p className="text-xs text-base-content/60 mb-2">Recent Grades</p>
@@ -279,43 +288,19 @@ export default async function ParentDetailPage({ params }: ParentPageProps) {
               )}
             </div>
 
-            {/* Quick Actions */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Button asChild variant="outline" className="w-full gap-2">
+            {/* Quick Actions - Consistent with student page */}
+            <div className="flex gap-4">
+              <Button asChild variant="outline" className="flex-1 gap-2">
                 <Link href={`/dashboard/parents/${id}/edit`}>
                   <Edit className="h-4 w-4" />
                   Edit Parent
                 </Link>
               </Button>
-              <Button asChild variant="outline" className="w-full gap-2">
+              <Button asChild variant="outline" className="flex-1 gap-2">
                 <Link href={`/dashboard/students/new?parentId=${id}`}>
                   <Users className="h-4 w-4" />
                   Add Child
                 </Link>
-              </Button>
-              <Button 
-                variant="destructive" 
-                className="w-full gap-2"
-                onClick={async () => {
-                  'use client';
-                  if (confirm(`Are you sure you want to delete ${parent.name}? This action cannot be undone.`)) {
-                    try {
-                      const response = await fetch(`/api/parents/${id}`, {
-                        method: "DELETE",
-                      });
-                      if (response.ok) {
-                        window.location.href = "/dashboard/parents";
-                      } else {
-                        const result = await response.json();
-                        alert(result.error || "Failed to delete parent");
-                      }
-                    } catch (error) {
-                      alert("An error occurred while deleting the parent");
-                    }
-                  }
-                }}
-              >
-                Delete Parent
               </Button>
             </div>
           </div>
