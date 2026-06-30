@@ -7,6 +7,62 @@ import { Plus } from "lucide-react";
 import { getServerSession } from "next-auth";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
+
+// Server action for delete
+async function handleDelete(id: string): Promise<void> {
+  "use server";
+  
+  try {
+    // Check if parent has students
+    const parent = await prisma.parent.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: { students: true },
+        },
+      },
+    });
+
+    if (!parent) {
+      throw new Error("Parent not found");
+    }
+
+    if (parent._count.students > 0) {
+      throw new Error(`Cannot delete parent with ${parent._count.students} linked student(s). Please reassign students first.`);
+    }
+
+    // Delete parent and their user account
+    await prisma.$transaction(async (tx) => {
+      // Get the parent with user info
+      const parentToDelete = await tx.parent.findUnique({
+        where: { id },
+        include: { user: true },
+      });
+
+      if (!parentToDelete) {
+        throw new Error("Parent not found");
+      }
+
+      // Delete parent
+      await tx.parent.delete({
+        where: { id },
+      });
+
+      // Delete linked user if exists
+      if (parentToDelete.userId) {
+        await tx.user.delete({
+          where: { id: parentToDelete.userId },
+        });
+      }
+    });
+
+    revalidatePath("/dashboard/parents");
+  } catch (error: any) {
+    console.error("Delete error:", error);
+    throw new Error(error.message || "Failed to delete parent");
+  }
+}
 
 export default async function ParentsPage() {
   const session = await getServerSession(authOptions);
@@ -15,7 +71,6 @@ export default async function ParentsPage() {
     redirect("/dashboard");
   }
 
-  // ✅ Fetch from Parent model directly
   const parents = await prisma.parent.findMany({
     select: {
       id: true,
@@ -25,7 +80,7 @@ export default async function ParentsPage() {
       occupation: true,
       relationship: true,
       createdAt: true,
-      userId: true,  // ✅ Include userId to check if account exists
+      userId: true,
       user: {
         select: {
           id: true,
@@ -42,11 +97,10 @@ export default async function ParentsPage() {
     orderBy: { name: "asc" },
   });
 
-  // Transform data for the table component - matching Parent interface
   const parentsWithDetails = parents.map(parent => ({
     id: parent.id,
     name: parent.name,
-    email: parent.email || parent.user?.email || "",  // ✅ Ensure email is always a string
+    email: parent.email || parent.user?.email || "",
     phone: parent.phone,
     childrenCount: parent._count.students || 0,
     createdAt: parent.createdAt,
@@ -69,7 +123,10 @@ export default async function ParentsPage() {
           No parents registered yet. Add your first parent.
         </div>
       ) : (
-        <ParentTable parents={parentsWithDetails} />
+        <ParentTable 
+          parents={parentsWithDetails} 
+          onDelete={handleDelete}
+        />
       )}
     </div>
   );
