@@ -20,11 +20,17 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session || session.user.role !== "ADMIN") {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { id } = await params;
+    const userRole = session.user.role as string | undefined;
+
+    // Only ADMIN can view parent details (similar to student access control)
+    if (userRole !== "ADMIN") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
     
     const parent = await prisma.parent.findUnique({
       where: { id },
@@ -60,12 +66,17 @@ export async function GET(
       return NextResponse.json({ error: "Parent not found" }, { status: 404 });
     }
 
+    // Return with additional computed fields (similar to student response)
+    const responseData = {
+      ...parent,
+      studentCount: parent._count.students,
+      hasAccount: !!parent.userId,
+      isActive: parent.user?.isActive || false,
+    };
+
     return NextResponse.json({ 
       success: true, 
-      data: {
-        ...parent,
-        studentCount: parent._count.students,
-      }
+      data: responseData
     });
   } catch (error) {
     console.error("[GET_PARENT]", error);
@@ -81,7 +92,7 @@ export async function PUT(
     const session = await getServerSession(authOptions);
 
     if (!session || session.user.role !== "ADMIN") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized: Only admins can update parents" }, { status: 401 });
     }
 
     const { id } = await params;
@@ -142,7 +153,7 @@ export async function PUT(
       }
     }
 
-    // Update in transaction
+    // Update in transaction (similar to student update)
     const updated = await prisma.$transaction(async (tx) => {
       // Update User if exists and email/phone/name changed
       if (existingParent.userId) {
@@ -210,13 +221,25 @@ export async function PUT(
 
     return NextResponse.json({ 
       success: true, 
+      message: "Parent updated successfully",
       data: {
         ...updated,
         studentCount: updated._count.students,
+        hasAccount: !!updated.userId,
+        isActive: updated.user?.isActive || false,
       }
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("[UPDATE_PARENT]", error);
+
+    if (error.code === "P2002") {
+      return NextResponse.json({ error: "Duplicate phone number or email" }, { status: 409 });
+    }
+
+    if (error.code === "P2025") {
+      return NextResponse.json({ error: "Parent not found" }, { status: 404 });
+    }
+
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -229,7 +252,7 @@ export async function DELETE(
     const session = await getServerSession(authOptions);
 
     if (!session || session.user.role !== "ADMIN") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized: Only admins can delete parents" }, { status: 401 });
     }
 
     const { id } = await params;
@@ -237,8 +260,16 @@ export async function DELETE(
     const parent = await prisma.parent.findUnique({
       where: { id },
       include: { 
-        students: true,
+        students: {
+          select: { 
+            id: true,
+            name: true,
+            admissionNumber: true,
+            _count: { select: { grades: true, attendance: true, invoices: true } }
+          }
+        },
         user: { select: { id: true } },
+        _count: { select: { students: true } },
       },
     });
 
@@ -246,8 +277,31 @@ export async function DELETE(
       return NextResponse.json({ error: "Parent not found" }, { status: 404 });
     }
 
-    // Prevent deletion if parent has linked students
+    // Prevent deletion if parent has linked students (similar to student deletion checks)
     if (parent.students.length > 0) {
+      // Check if students have dependencies
+      const studentsWithDependencies = parent.students.filter(s => 
+        s._count.grades > 0 || s._count.attendance > 0 || s._count.invoices > 0
+      );
+
+      if (studentsWithDependencies.length > 0) {
+        return NextResponse.json(
+          { 
+            error: `Cannot delete parent with ${studentsWithDependencies.length} student(s) that have grades, attendance, or invoices. Please reassign students first.`,
+            students: studentsWithDependencies.map(s => ({
+              id: s.id,
+              name: s.name,
+              admissionNumber: s.admissionNumber,
+              hasGrades: s._count.grades > 0,
+              hasAttendance: s._count.attendance > 0,
+              hasInvoices: s._count.invoices > 0,
+            }))
+          },
+          { status: 409 }
+        );
+      }
+
+      // Allow deletion if students exist but have no dependencies
       return NextResponse.json(
         { 
           error: `Cannot delete parent with ${parent.students.length} linked student(s). Please reassign students first.` 
@@ -256,7 +310,7 @@ export async function DELETE(
       );
     }
 
-    // Delete in transaction
+    // Delete in transaction (similar to student deletion)
     await prisma.$transaction(async (tx) => {
       // Delete parent
       await tx.parent.delete({
@@ -282,6 +336,7 @@ export async function DELETE(
           name: parent.name,
           email: parent.email,
           phone: parent.phone,
+          deletedAt: new Date().toISOString(),
         },
       },
     });
@@ -290,7 +345,7 @@ export async function DELETE(
       success: true, 
       message: `Parent ${parent.name} deleted successfully` 
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("[DELETE_PARENT]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

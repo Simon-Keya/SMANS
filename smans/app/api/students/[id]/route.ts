@@ -275,28 +275,43 @@ export async function DELETE(
       return NextResponse.json({ error: "Student not found" }, { status: 404 });
     }
 
-    // Safety checks
+    // Safety checks - count related records
     const hasGrades = await prisma.grade.count({ where: { studentId: id } });
     const hasAttendance = await prisma.attendance.count({ where: { studentId: id } });
     const hasInvoices = await prisma.invoice.count({ where: { studentId: id } });
 
     if (hasGrades > 0) {
       return NextResponse.json(
-        { error: `Cannot delete student with ${hasGrades} existing grade(s). Please delete grades first.` },
+        { 
+          error: `Cannot delete student with ${hasGrades} existing grade(s). Please delete grades first.`,
+          hasGrades,
+          hasAttendance,
+          hasInvoices,
+        },
         { status: 403 }
       );
     }
 
     if (hasAttendance > 0) {
       return NextResponse.json(
-        { error: `Cannot delete student with ${hasAttendance} attendance record(s). Please delete attendance records first.` },
+        { 
+          error: `Cannot delete student with ${hasAttendance} attendance record(s). Please delete attendance records first.`,
+          hasGrades,
+          hasAttendance,
+          hasInvoices,
+        },
         { status: 403 }
       );
     }
 
     if (hasInvoices > 0) {
       return NextResponse.json(
-        { error: `Cannot delete student with ${hasInvoices} invoice(s). Please delete invoices first.` },
+        { 
+          error: `Cannot delete student with ${hasInvoices} invoice(s). Please delete invoices first.`,
+          hasGrades,
+          hasAttendance,
+          hasInvoices,
+        },
         { status: 403 }
       );
     }

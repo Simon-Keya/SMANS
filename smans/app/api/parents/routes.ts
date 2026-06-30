@@ -59,10 +59,12 @@ export async function GET() {
       orderBy: { name: "asc" },
     });
 
-    // Transform to include student count
+    // Transform to include student count and status
     const parentsWithCount = parents.map(parent => ({
       ...parent,
       studentCount: parent._count.students,
+      hasAccount: !!parent.userId,
+      isActive: parent.user?.isActive || false,
     }));
 
     return NextResponse.json({ success: true, data: parentsWithCount });
@@ -76,7 +78,7 @@ export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
   if (!session || session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Unauthorized: Only admins can create parents" }, { status: 401 });
   }
 
   try {
@@ -111,76 +113,90 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    let userId: string | undefined;
+    // Create User + Parent in a transaction (similar to student creation)
+    const newParent = await prisma.$transaction(async (tx) => {
+      let userId: string | undefined;
 
-    // Create User account for parent if email and password provided
-    if (email && password) {
-      const hashedPassword = await bcrypt.hash(password, 12);
-      const newUser = await prisma.user.create({
+      // Create User account if email and password provided, or use default password
+      if (email) {
+        const hashedPassword = await bcrypt.hash(password || "password123", 12);
+        const newUser = await tx.user.create({
+          data: {
+            name,
+            email,
+            password: hashedPassword,
+            role: "PARENT",
+            phone: phone || null,
+            isActive: true,
+            emailVerified: new Date(),
+          },
+        });
+        userId = newUser.id;
+      }
+
+      // Create Parent record
+      const parent = await tx.parent.create({
         data: {
           name,
-          email,
-          password: hashedPassword,
-          role: "PARENT",
-          phone: phone || null,
-          isActive: true,
-          emailVerified: new Date(),
+          email: email || null,
+          phone,
+          occupation: occupation || null,
+          relationship: relationship || null,
+          userId,
+        },
+        include: {
+          students: { 
+            select: { 
+              id: true, 
+              name: true, 
+              admissionNumber: true,
+              class: { select: { name: true } },
+            }
+          },
+          user: { 
+            select: { 
+              id: true, 
+              email: true, 
+              name: true, 
+              phone: true, 
+              isActive: true,
+              createdAt: true,
+            } 
+          },
         },
       });
-      userId = newUser.id;
-    }
 
-    const parent = await prisma.parent.create({
+      return parent;
+    });
+
+    // Audit log
+    await prisma.auditLog.create({
       data: {
-        name,
-        email: email || null,
-        phone,
-        occupation: occupation || null,
-        relationship: relationship || null,
-        userId,
-      },
-      include: {
-        students: { 
-          select: { 
-            id: true, 
-            name: true, 
-            admissionNumber: true,
-            class: { select: { name: true } },
-          }
-        },
-        user: { 
-          select: { 
-            id: true, 
-            email: true, 
-            name: true, 
-            phone: true, 
-            isActive: true,
-            createdAt: true,
-          } 
+        userId: session.user.id,
+        action: "CREATE_PARENT",
+        entity: "Parent",
+        entityId: newParent.id,
+        metadata: {
+          email: newParent.email,
+          phone: newParent.phone,
+          hasUser: !!newParent.userId,
         },
       },
     });
 
-    // Audit log
-    if (prisma.auditLog) {
-      await prisma.auditLog.create({
-        data: {
-          userId: session.user.id,
-          action: "CREATE_PARENT",
-          entity: "Parent",
-          entityId: parent.id,
-          metadata: {
-            email: parent.email,
-            phone: parent.phone,
-            hasUser: !!userId,
-          },
-        },
-      });
+    return NextResponse.json({ 
+      success: true, 
+      message: "Parent created successfully",
+      data: newParent 
+    }, { status: 201 });
+
+  } catch (error: any) {
+    console.error("[CREATE_PARENT]", error);
+
+    if (error.code === "P2002") {
+      return NextResponse.json({ error: "Duplicate phone number or email" }, { status: 409 });
     }
 
-    return NextResponse.json({ success: true, data: parent }, { status: 201 });
-  } catch (error) {
-    console.error("[CREATE_PARENT]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to create parent. Please try again." }, { status: 500 });
   }
 }
