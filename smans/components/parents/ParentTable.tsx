@@ -26,11 +26,10 @@ import { Edit, Eye, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
-// ✅ Updated interface to match the data structure
 interface Parent {
   id: string;
   name: string | null;
-  email: string;  // ✅ Always a string
+  email: string;
   phone?: string | null;
   childrenCount?: number;
   createdAt: Date;
@@ -39,21 +38,28 @@ interface Parent {
 interface ParentTableProps {
   parents: Parent[];
   onDelete?: (id: string) => Promise<void>;
+  deletingId?: string | null;
 }
 
-export default function ParentTable({ parents, onDelete }: ParentTableProps) {
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+export default function ParentTable({ 
+  parents, 
+  onDelete,
+  deletingId: externalDeletingId 
+}: ParentTableProps) {
+  const [internalDeletingId, setInternalDeletingId] = useState<string | null>(null);
+  
+  // Use external deletingId if provided, otherwise use internal state
+  const deletingId = externalDeletingId !== undefined ? externalDeletingId : internalDeletingId;
 
   const handleDelete = async (id: string) => {
     if (!onDelete) return;
-    setDeletingId(id);
+    setInternalDeletingId(id);
     try {
       await onDelete(id);
     } catch (err) {
       console.error("Delete parent failed:", err);
-      // Optional: show toast error here
     } finally {
-      setDeletingId(null);
+      setInternalDeletingId(null);
     }
   };
 
@@ -106,6 +112,7 @@ export default function ParentTable({ parents, onDelete }: ParentTableProps) {
                     </Link>
                   </Button>
 
+                  {/* ✅ Delete Button with Confirmation Dialog */}
                   {onDelete && (
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
