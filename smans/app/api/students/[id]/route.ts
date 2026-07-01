@@ -109,10 +109,13 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  console.log("🚀 PUT /api/students/[id] - Request received");
+  
   try {
     const session = await getServerSession(authOptions);
 
     if (!session || session.user.role !== "ADMIN") {
+      console.log("❌ Unauthorized: Not an admin");
       return NextResponse.json(
         { error: "Unauthorized: Only admins can update students" },
         { status: 401 }
@@ -120,13 +123,14 @@ export async function PUT(
     }
 
     const { id } = await params;
+    console.log("📌 Student ID:", id);
+    
     const data = await request.json();
-
-    console.log("🔍 [PUT] Updating student:", id);
-    console.log("🔍 [PUT] Data received:", data);
+    console.log("📦 Request body:", JSON.stringify(data, null, 2));
 
     // Basic validation
     if (!data.name || !data.admissionNumber) {
+      console.log("❌ Missing required fields");
       return NextResponse.json(
         { error: "Missing required fields: name, admissionNumber" },
         { status: 400 }
@@ -142,10 +146,11 @@ export async function PUT(
     });
 
     if (!existingStudent) {
+      console.log("❌ Student not found:", id);
       return NextResponse.json({ error: "Student not found" }, { status: 404 });
     }
 
-    console.log("🔍 [PUT] Existing student found:", existingStudent.id);
+    console.log("✅ Existing student found:", existingStudent.id);
 
     // Check admission number uniqueness (if changed)
     if (data.admissionNumber !== existingStudent.admissionNumber) {
@@ -154,6 +159,7 @@ export async function PUT(
       });
 
       if (duplicate) {
+        console.log("❌ Duplicate admission number:", data.admissionNumber);
         return NextResponse.json(
           { error: "Admission number already exists" },
           { status: 409 }
@@ -171,6 +177,7 @@ export async function PUT(
       });
 
       if (existingUser) {
+        console.log("❌ Email already in use:", data.email);
         return NextResponse.json(
           { error: "Email already in use by another user" },
           { status: 409 }
@@ -190,6 +197,7 @@ export async function PUT(
             phone: data.phone?.trim() || null,
           },
         });
+        console.log("✅ User updated:", existingStudent.userId);
       }
 
       // Build the update data
@@ -215,8 +223,10 @@ export async function PUT(
       if (data.classId !== undefined) {
         if (data.classId && data.classId !== "unassigned") {
           updateData.class = { connect: { id: data.classId } };
+          console.log("📚 Class connected:", data.classId);
         } else {
           updateData.class = { disconnect: true };
+          console.log("📚 Class disconnected");
         }
       }
 
@@ -224,12 +234,14 @@ export async function PUT(
       if (data.parentId !== undefined) {
         if (data.parentId && data.parentId !== "no-parent") {
           updateData.parent = { connect: { id: data.parentId } };
+          console.log("👨‍👩‍👦 Parent connected:", data.parentId);
         } else {
           updateData.parent = { disconnect: true };
+          console.log("👨‍👩‍👦 Parent disconnected");
         }
       }
 
-      console.log("🔍 [PUT] Update data:", updateData);
+      console.log("📝 Final update data:", JSON.stringify(updateData, null, 2));
 
       // Update Student
       const student = await tx.student.update({
@@ -245,7 +257,7 @@ export async function PUT(
       return student;
     });
 
-    console.log("✅ [PUT] Student updated successfully:", updatedStudent.id);
+    console.log("✅ Student updated successfully:", updatedStudent.id);
 
     // Audit log
     try {
@@ -262,8 +274,9 @@ export async function PUT(
           },
         },
       });
+      console.log("📝 Audit log created");
     } catch (auditError) {
-      console.error("[PUT] Audit log error:", auditError);
+      console.error("⚠️ Audit log error:", auditError);
       // Don't fail the request if audit log fails
     }
 
@@ -273,7 +286,7 @@ export async function PUT(
       data: updatedStudent,
     });
   } catch (error: any) {
-    console.error("[UPDATE_STUDENT] Error:", error);
+    console.error("❌ [UPDATE_STUDENT] Error:", error);
 
     // Handle specific Prisma errors
     if (error.code === "P2002") {
@@ -304,10 +317,13 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  console.log("🚀 DELETE /api/students/[id] - Request received");
+  
   try {
     const session = await getServerSession(authOptions);
 
     if (!session || session.user.role !== "ADMIN") {
+      console.log("❌ Unauthorized: Not an admin");
       return NextResponse.json(
         { error: "Unauthorized: Only admins can delete students" },
         { status: 401 }
@@ -315,6 +331,7 @@ export async function DELETE(
     }
 
     const { id } = await params;
+    console.log("📌 Student ID:", id);
     
     const student = await prisma.student.findUnique({
       where: { id },
@@ -325,8 +342,11 @@ export async function DELETE(
     });
 
     if (!student) {
+      console.log("❌ Student not found:", id);
       return NextResponse.json({ error: "Student not found" }, { status: 404 });
     }
+
+    console.log("✅ Existing student found:", student.id);
 
     // Safety checks - count related records
     const [hasGrades, hasAttendance, hasInvoices] = await Promise.all([
@@ -335,7 +355,10 @@ export async function DELETE(
       prisma.invoice.count({ where: { studentId: id } }),
     ]);
 
+    console.log("📊 Related records - Grades:", hasGrades, "Attendance:", hasAttendance, "Invoices:", hasInvoices);
+
     if (hasGrades > 0) {
+      console.log("❌ Cannot delete: Has grades");
       return NextResponse.json(
         { 
           error: `Cannot delete student with ${hasGrades} existing grade(s). Please delete grades first.`,
@@ -348,6 +371,7 @@ export async function DELETE(
     }
 
     if (hasAttendance > 0) {
+      console.log("❌ Cannot delete: Has attendance records");
       return NextResponse.json(
         { 
           error: `Cannot delete student with ${hasAttendance} attendance record(s). Please delete attendance records first.`,
@@ -360,6 +384,7 @@ export async function DELETE(
     }
 
     if (hasInvoices > 0) {
+      console.log("❌ Cannot delete: Has invoices");
       return NextResponse.json(
         { 
           error: `Cannot delete student with ${hasInvoices} invoice(s). Please delete invoices first.`,
@@ -377,12 +402,14 @@ export async function DELETE(
       await tx.student.delete({
         where: { id },
       });
+      console.log("✅ Student deleted");
 
       // If student has a linked user account, delete it too
       if (student.user?.id) {
         await tx.user.delete({
           where: { id: student.user.id },
         });
+        console.log("✅ User deleted:", student.user.id);
       }
     });
 
@@ -401,8 +428,9 @@ export async function DELETE(
           },
         },
       });
+      console.log("📝 Audit log created");
     } catch (auditError) {
-      console.error("[DELETE] Audit log error:", auditError);
+      console.error("⚠️ Audit log error:", auditError);
       // Don't fail the request if audit log fails
     }
 
@@ -411,7 +439,7 @@ export async function DELETE(
       message: `Student ${student.admissionNumber} deleted successfully`,
     });
   } catch (error: any) {
-    console.error("[DELETE_STUDENT] Error:", error);
+    console.error("❌ [DELETE_STUDENT] Error:", error);
     return NextResponse.json(
       { 
         error: "Internal server error",

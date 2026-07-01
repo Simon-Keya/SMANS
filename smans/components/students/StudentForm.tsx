@@ -71,13 +71,16 @@ export default function StudentForm({
     },
   });
 
+  // ✅ SIMPLIFIED onSubmit - Direct fetch with no extra logic
   const onSubmit = async (data: StudentFormData) => {
+    console.log("🔄 FORM SUBMITTED with data:", data);
+    
     setIsSubmitting(true);
     setError(null);
 
     try {
+      // For update
       if (isEdit && studentId) {
-        // ✅ UPDATE - Send PUT request
         const updateData = {
           name: data.name.trim(),
           admissionNumber: data.admissionNumber.trim(),
@@ -87,8 +90,8 @@ export default function StudentForm({
           parentId: data.parentId === "no-parent" ? null : data.parentId || null,
         };
 
-        console.log("📤 Sending PUT request to /api/students/" + studentId);
-        console.log("📤 Data:", updateData);
+        console.log("📤 PUT /api/students/" + studentId);
+        console.log("📤 Payload:", updateData);
 
         const response = await fetch(`/api/students/${studentId}`, {
           method: "PUT",
@@ -99,23 +102,20 @@ export default function StudentForm({
         console.log("📥 Response status:", response.status);
 
         const result = await response.json();
-        console.log("📥 Response data:", result);
+        console.log("📥 Response body:", result);
 
         if (!response.ok) {
-          throw new Error(result.error || "Failed to update student");
+          throw new Error(result.error || `Server error: ${response.status}`);
         }
 
-        // ✅ Success - show message and redirect
         alert("✅ Student updated successfully!");
-        
-        if (onSuccess) {
-          onSuccess();
-        } else {
-          router.push("/dashboard/students");
-          router.refresh();
-        }
-      } else {
-        // ✅ CREATE - Send POST request
+        router.push("/dashboard/students");
+        router.refresh();
+        return;
+      }
+
+      // For create
+      if (!isEdit) {
         const createData = {
           name: data.name.trim(),
           admissionNumber: data.admissionNumber.trim(),
@@ -126,8 +126,8 @@ export default function StudentForm({
           password: data.password || "password123",
         };
 
-        console.log("📤 Sending POST request to /api/students");
-        console.log("📤 Data:", createData);
+        console.log("📤 POST /api/students");
+        console.log("📤 Payload:", createData);
 
         const response = await fetch("/api/students", {
           method: "POST",
@@ -138,23 +138,19 @@ export default function StudentForm({
         console.log("📥 Response status:", response.status);
 
         const result = await response.json();
+        console.log("📥 Response body:", result);
 
         if (!response.ok) {
-          throw new Error(result.error || "Failed to create student");
+          throw new Error(result.error || `Server error: ${response.status}`);
         }
 
-        // ✅ Success - show message and redirect
         alert("✅ Student created successfully!");
-        
-        if (onSuccess) {
-          onSuccess();
-        } else {
-          router.push("/dashboard/students");
-          router.refresh();
-        }
+        router.push("/dashboard/students");
+        router.refresh();
+        return;
       }
     } catch (err: any) {
-      console.error("❌ Form submission error:", err);
+      console.error("❌ Error:", err);
       setError(err.message || "Something went wrong. Please try again.");
     } finally {
       setIsSubmitting(false);
@@ -165,7 +161,7 @@ export default function StudentForm({
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       {error && (
         <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
-          {error}
+          <strong>Error:</strong> {error}
         </div>
       )}
 
