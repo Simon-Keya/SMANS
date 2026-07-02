@@ -34,7 +34,6 @@ async function handleDelete(id: string): Promise<void> {
 
     // Delete parent and their user account
     await prisma.$transaction(async (tx) => {
-      // Get the parent with user info
       const parentToDelete = await tx.parent.findUnique({
         where: { id },
         include: { user: true },
@@ -44,12 +43,10 @@ async function handleDelete(id: string): Promise<void> {
         throw new Error("Parent not found");
       }
 
-      // Delete parent
       await tx.parent.delete({
         where: { id },
       });
 
-      // Delete linked user if exists
       if (parentToDelete.userId) {
         await tx.user.delete({
           where: { id: parentToDelete.userId },
@@ -71,9 +68,10 @@ export default async function ParentsPage() {
     redirect("/dashboard");
   }
 
+  // ✅ FIX: Fetch from Parent model directly (not User model)
   const parents = await prisma.parent.findMany({
     select: {
-      id: true,
+      id: true,           // ✅ This is the Parent ID
       name: true,
       email: true,
       phone: true,
@@ -97,8 +95,9 @@ export default async function ParentsPage() {
     orderBy: { name: "asc" },
   });
 
+  // Transform data for the table component
   const parentsWithDetails = parents.map(parent => ({
-    id: parent.id,
+    id: parent.id,  // ✅ This is the Parent ID
     name: parent.name,
     email: parent.email || parent.user?.email || "",
     phone: parent.phone,

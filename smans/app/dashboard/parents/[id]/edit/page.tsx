@@ -68,7 +68,7 @@ export default function EditParentPage({ params }: { params: Promise<{ id: strin
 
         if (!response.ok) {
           if (response.status === 404) {
-            throw new Error("Parent not found");
+            throw new Error("Parent not found. Please check the ID is correct.");
           }
           throw new Error(`Failed to fetch parent: ${response.status}`);
         }
@@ -112,7 +112,6 @@ export default function EditParentPage({ params }: { params: Promise<{ id: strin
 
       const { id } = resolvedParams;
       
-      // Validate form data
       if (!formData.name.trim()) {
         throw new Error("Name is required");
       }
@@ -150,7 +149,6 @@ export default function EditParentPage({ params }: { params: Promise<{ id: strin
       console.log("✅ Parent updated successfully:", result);
       setSuccess(true);
       
-      // Redirect to parent detail after a moment
       setTimeout(() => {
         router.push(`/dashboard/parents/${id}`);
       }, 1500);
@@ -166,6 +164,9 @@ export default function EditParentPage({ params }: { params: Promise<{ id: strin
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
+
+  // ... (rest of the component remains the same - the JSX part)
+  // I'm keeping the JSX the same as it's already correct
 
   if (loading) {
     return (
@@ -187,6 +188,9 @@ export default function EditParentPage({ params }: { params: Promise<{ id: strin
             <div>
               <h3 className="font-bold">Error Loading Parent</h3>
               <p className="text-sm">{error}</p>
+              <p className="text-xs text-base-content/60 mt-1">
+                ID attempted: {resolvedParams?.id || "unknown"}
+              </p>
             </div>
           </div>
           <div className="mt-4 flex gap-4">
