@@ -14,7 +14,7 @@ async function handleDelete(id: string): Promise<void> {
   "use server";
   
   try {
-    // Check if parent has students
+    // ✅ This uses Parent ID (same as the one in the URL)
     const parent = await prisma.parent.findUnique({
       where: { id },
       include: {
@@ -68,10 +68,10 @@ export default async function ParentsPage() {
     redirect("/dashboard");
   }
 
-  // ✅ IMPORTANT: Fetch from Parent model directly, NOT User model
+  // ✅ FIX: Fetch from Parent model directly (NOT User model)
   const parents = await prisma.parent.findMany({
     select: {
-      id: true,           // ✅ This is the Parent ID (starts with different pattern)
+      id: true,           // ✅ This is the Parent ID
       name: true,
       email: true,
       phone: true,
@@ -95,13 +95,7 @@ export default async function ParentsPage() {
     orderBy: { name: "asc" },
   });
 
-  console.log("📊 Parents fetched:", parents.map(p => ({ 
-    parentId: p.id,      // This is the Parent ID
-    userId: p.userId,    // This is the User ID
-    name: p.name 
-  })));
-
-  // Transform data for the table component - using Parent ID
+  // Transform data for the table component
   const parentsWithDetails = parents.map(parent => ({
     id: parent.id,  // ✅ This is the Parent ID
     name: parent.name,
