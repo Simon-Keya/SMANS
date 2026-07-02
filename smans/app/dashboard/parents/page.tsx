@@ -68,17 +68,17 @@ export default async function ParentsPage() {
     redirect("/dashboard");
   }
 
-  // ✅ FIX: Fetch from Parent model directly (not User model)
+  // ✅ IMPORTANT: Fetch from Parent model directly, NOT User model
   const parents = await prisma.parent.findMany({
     select: {
-      id: true,           // ✅ This is the Parent ID
+      id: true,           // ✅ This is the Parent ID (starts with different pattern)
       name: true,
       email: true,
       phone: true,
       occupation: true,
       relationship: true,
       createdAt: true,
-      userId: true,
+      userId: true,       // This is the User ID (for reference)
       user: {
         select: {
           id: true,
@@ -95,7 +95,13 @@ export default async function ParentsPage() {
     orderBy: { name: "asc" },
   });
 
-  // Transform data for the table component
+  console.log("📊 Parents fetched:", parents.map(p => ({ 
+    parentId: p.id,      // This is the Parent ID
+    userId: p.userId,    // This is the User ID
+    name: p.name 
+  })));
+
+  // Transform data for the table component - using Parent ID
   const parentsWithDetails = parents.map(parent => ({
     id: parent.id,  // ✅ This is the Parent ID
     name: parent.name,
