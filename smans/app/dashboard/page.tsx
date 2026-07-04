@@ -1,4 +1,4 @@
-// app/dashboard/page.tsx
+// app/dashboard/Homepage.tsx
 import { getCurrentUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
