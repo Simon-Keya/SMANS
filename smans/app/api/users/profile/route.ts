@@ -128,11 +128,7 @@ export async function PUT(request: NextRequest) {
       });
     }
 
-    // If user is a teacher, update the teacher's classes (just the name in the user table)
-    // Teachers don't have a separate teacher model - they are users with role "TEACHER"
-    // The teacherClasses relation will automatically reflect the updated name
-    // since it's linked to the User model through teacherId
-
+    
     // Audit log
     try {
       await prisma.auditLog.create({
