@@ -92,6 +92,7 @@ export default async function ParentDetailPage({ params }: ParentPageProps) {
     }
 
     console.log("✅ Parent found:", parent.id);
+    console.log("🔑 Parent ID (use this for links):", parent.id);
 
     // Transform to match the normalized data structure
     const normalizedParent = {
@@ -130,8 +131,9 @@ export default async function ParentDetailPage({ params }: ParentPageProps) {
                 View and manage parent/guardian information
               </p>
             </div>
+            {/* ✅ FIX: Use parent.id (the actual Parent ID), not the URL parameter */}
             <Button asChild>
-              <Link href={`/dashboard/parents/${id}/edit`} className="gap-2">
+              <Link href={`/dashboard/parents/${parent.id}/edit`} className="gap-2">
                 <Edit className="h-4 w-4" />
                 Edit Parent
               </Link>
@@ -284,7 +286,7 @@ export default async function ParentDetailPage({ params }: ParentPageProps) {
                     <Users className="h-12 w-12 text-base-content/20 mx-auto mb-3" />
                     <p className="text-base-content/60">No children linked to this parent.</p>
                     <Link
-                      href={`/dashboard/students/new?parentId=${id}`}
+                      href={`/dashboard/students/new?parentId=${parent.id}`}
                       className="btn btn-sm btn-primary mt-3"
                     >
                       Add Child
@@ -296,13 +298,15 @@ export default async function ParentDetailPage({ params }: ParentPageProps) {
               {/* Quick Actions */}
               <div className="flex gap-4">
                 <Button asChild variant="outline" className="flex-1 gap-2">
-                  <Link href={`/dashboard/parents/${id}/edit`}>
+                  {/* ✅ FIX: Use parent.id here too */}
+                  <Link href={`/dashboard/parents/${parent.id}/edit`}>
                     <Edit className="h-4 w-4" />
                     Edit Parent
                   </Link>
                 </Button>
                 <Button asChild variant="outline" className="flex-1 gap-2">
-                  <Link href={`/dashboard/students/new?parentId=${id}`}>
+                  {/* ✅ FIX: Use parent.id here too */}
+                  <Link href={`/dashboard/students/new?parentId=${parent.id}`}>
                     <Users className="h-4 w-4" />
                     Add Child
                   </Link>
