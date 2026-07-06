@@ -1,4 +1,4 @@
-// app/dashboard/Homepage.tsx
+// app/dashboard/Dashboard page.tsx
 import { getCurrentUser } from "@/lib/auth/session";
 import { redirect } from "next/navigation";
 import {
