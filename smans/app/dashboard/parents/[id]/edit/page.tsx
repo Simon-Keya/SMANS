@@ -54,61 +54,49 @@ export default function EditParentPage({ params }: { params: Promise<{ id: strin
     params.then(setResolvedParams);
   }, [params]);
 
-  // Helper function to find parent by either Parent ID or User ID
+  // Simplified helper function to find parent
   const findParent = async (id: string): Promise<{ success: boolean; data?: any; error?: string }> => {
     try {
-      // First attempt: Try to fetch by Parent ID directly
-      console.log("🔍 Attempt 1: Fetching parent with ID:", id);
-      let response = await fetch(`/api/parents/${id}`);
+      // Attempt 1: Try to fetch by Parent ID directly
+      console.log("🔍 Attempt 1: Fetching parent with ID as Parent ID:", id);
+      const response = await fetch(`/api/parents/${id}`);
       
       if (response.ok) {
         const result = await response.json();
         if (result.success && result.data) {
-          console.log("✅ Parent found by Parent ID:", id);
+          console.log("✅ Parent found by ID:", id);
           return { success: true, data: result.data };
         }
       }
 
-      // Second attempt: If the ID looks like a User ID (starts with 'cm'), try to find parent by userId
-      if (id.startsWith('cm')) {
-        console.log("🔍 Attempt 2: ID looks like a User ID, trying to find parent by userId...");
+      // If we got a 404, the ID might be a User ID
+      if (response.status === 404) {
+        console.log("🔍 Attempt 2: ID not found as Parent ID, checking if it's a User ID...");
         
+        // Try to find the parent by userId using a different approach
         // Fetch all parents and check if any have this userId
-        const allParentsResponse = await fetch(`/api/parents?userId=${id}`);
-        if (allParentsResponse.ok) {
-          const allParents = await allParentsResponse.json();
-          if (allParents.success && allParents.data) {
-            // Find the parent with matching userId
-            const parent = allParents.data.find((p: any) => p.userId === id);
-            if (parent) {
-              console.log("✅ Parent found by User ID:", parent.id);
-              // Now fetch the parent by its correct Parent ID
-              const parentResponse = await fetch(`/api/parents/${parent.id}`);
-              if (parentResponse.ok) {
-                const parentResult = await parentResponse.json();
-                if (parentResult.success && parentResult.data) {
-                  return { success: true, data: parentResult.data };
+        try {
+          const allParentsResponse = await fetch('/api/parents');
+          if (allParentsResponse.ok) {
+            const allParents = await allParentsResponse.json();
+            if (allParents.success && allParents.data) {
+              // Find the parent with matching userId
+              const parent = allParents.data.find((p: any) => p.userId === id);
+              if (parent) {
+                console.log("✅ Parent found by User ID:", parent.id);
+                // Now fetch the parent by its correct Parent ID
+                const parentResponse = await fetch(`/api/parents/${parent.id}`);
+                if (parentResponse.ok) {
+                  const parentResult = await parentResponse.json();
+                  if (parentResult.success && parentResult.data) {
+                    return { success: true, data: parentResult.data };
+                  }
                 }
               }
             }
           }
-        }
-      }
-
-      // Third attempt: Try to find by searching the User model directly
-      console.log("🔍 Attempt 3: Trying to find parent through User model...");
-      const userResponse = await fetch(`/api/users/${id}/parent`);
-      if (userResponse.ok) {
-        const userData = await userResponse.json();
-        if (userData.parentId) {
-          console.log("✅ Found parent by User ID:", userData.parentId);
-          const parentResponse = await fetch(`/api/parents/${userData.parentId}`);
-          if (parentResponse.ok) {
-            const parentResult = await parentResponse.json();
-            if (parentResult.success && parentResult.data) {
-              return { success: true, data: parentResult.data };
-            }
-          }
+        } catch (err) {
+          console.log("⚠️ Could not fetch all parents:", err);
         }
       }
 
@@ -137,6 +125,8 @@ export default function EditParentPage({ params }: { params: Promise<{ id: strin
         }
 
         console.log("✅ Parent data loaded:", result.data);
+        console.log("✅ Parent ID (use this for updates):", result.data.id);
+        
         setParent(result.data);
         setFormData({
           name: result.data.name || "",
@@ -168,6 +158,7 @@ export default function EditParentPage({ params }: { params: Promise<{ id: strin
       }
 
       // Use the actual parent ID from the loaded parent data
+      // This ensures we always use the correct Parent ID
       const parentId = parent?.id || resolvedParams.id;
       
       if (!formData.name.trim()) {
@@ -207,6 +198,7 @@ export default function EditParentPage({ params }: { params: Promise<{ id: strin
       console.log("✅ Parent updated successfully:", result);
       setSuccess(true);
       
+      // Redirect to the parent detail page using the correct Parent ID
       setTimeout(() => {
         router.push(`/dashboard/parents/${parentId}`);
       }, 1500);
