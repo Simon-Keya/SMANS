@@ -14,7 +14,7 @@ async function handleDelete(id: string): Promise<void> {
   "use server";
   
   try {
-    // ✅ This uses Parent ID (same as the one in the URL)
+    // ✅ This uses Parent ID
     const parent = await prisma.parent.findUnique({
       where: { id },
       include: {
@@ -32,7 +32,6 @@ async function handleDelete(id: string): Promise<void> {
       throw new Error(`Cannot delete parent with ${parent._count.students} linked student(s). Please reassign students first.`);
     }
 
-    // Delete parent and their user account
     await prisma.$transaction(async (tx) => {
       const parentToDelete = await tx.parent.findUnique({
         where: { id },
@@ -68,7 +67,7 @@ export default async function ParentsPage() {
     redirect("/dashboard");
   }
 
-  // ✅ FIX: Fetch from Parent model directly (NOT User model)
+  // ✅ FIX: Use prisma.parent, NOT prisma.user
   const parents = await prisma.parent.findMany({
     select: {
       id: true,           // ✅ This is the Parent ID
@@ -78,7 +77,7 @@ export default async function ParentsPage() {
       occupation: true,
       relationship: true,
       createdAt: true,
-      userId: true,       // This is the User ID (for reference)
+      userId: true,       // For reference only
       user: {
         select: {
           id: true,
@@ -94,6 +93,14 @@ export default async function ParentsPage() {
     },
     orderBy: { name: "asc" },
   });
+
+  // 🔍 Debug: Check what IDs we're getting
+  console.log("📊 Parents data from database:", parents.map(p => ({
+    parentId: p.id,
+    userId: p.userId,
+    name: p.name,
+    isUserID: p.id.startsWith('cm') ? '⚠️ USER ID (WRONG!)' : '✅ PARENT ID (CORRECT)'
+  })));
 
   // Transform data for the table component
   const parentsWithDetails = parents.map(parent => ({
