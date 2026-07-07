@@ -1,8 +1,9 @@
-// app/page.tsx  (Public Homepage for your school)
+// app/page.tsx (Public Homepage for your school)
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { prisma } from "@/lib/prisma";
 import { format } from "date-fns";
+import type { Metadata } from "next";
 import {
   ArrowRight,
   Bell,
@@ -15,37 +16,69 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+// A public marketing page doesn't need to hit the DB on every request.
+// Re-render at most once an hour; tune to taste.
+export const revalidate = 3600;
+
 type Announcement = {
+  id: string;
   title: string;
   message: string;
   createdAt: Date;
 };
 
+// ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←← CUSTOMIZE THESE
+const schoolName = "Your School Name";           // ← Change to your actual school name
+const schoolTagline = "Nurturing Excellence through Competency-Based Education";
+// ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←
+
+export const metadata: Metadata = {
+  title: `${schoolName} | Student & Parent Portal`,
+  description: schoolTagline,
+  openGraph: {
+    title: schoolName,
+    description: schoolTagline,
+    type: "website",
+  },
+};
+
+async function getHomePageData() {
+  // Run independent queries in parallel instead of sequentially.
+  // ✅ FIX: Use prisma.user.count() with role filter instead of prisma.teacher
+  const [studentCount, teacherCount, announcements] = await Promise.all([
+    prisma.student.count().catch(() => null),
+    prisma.user.count({ where: { role: "TEACHER" } }).catch(() => null),
+    // Pull the latest notifications as announcements
+    prisma.notification
+      .findMany({
+        take: 3,
+        orderBy: { createdAt: "desc" },
+        select: { id: true, title: true, message: true, createdAt: true },
+      })
+      .catch((): Announcement[] => []),
+  ]);
+
+  return { studentCount, teacherCount, announcements };
+}
+
 export default async function HomePage() {
-  const totalStudents = await prisma.student.count().catch(() => 0);
-  const totalClasses = await prisma.class.count().catch(() => 0);
+  const { studentCount, teacherCount, announcements } = await getHomePageData();
 
-  // Simple & safe type for announcements
-  const recentAnnouncements: Announcement[] = await prisma.notification
-    .findMany({
-      take: 3,
-      orderBy: { createdAt: "desc" },
-      where: { read: false },
-      select: {
-        title: true,
-        message: true,
-        createdAt: true,
-      },
-    })
-    .catch(() => []);
-
-  // ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←← CUSTOMIZE THESE
-  const schoolName = "Your School Name";           // ← Change to your actual school name
-  const schoolTagline = "Nurturing Excellence through Competency-Based Education";
-  const studentCount = totalStudents > 0 ? totalStudents.toLocaleString() : "850";
-  const teacherCount = "42";                       // Update with real number
-  const performanceRate = "97";                    // e.g. KCSE / CBC performance
-  // ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←
+  // Only fall back to a placeholder when we genuinely have no data yet
+  // (e.g. a fresh install) — and label it as such rather than presenting
+  // it as a live count.
+  const stats = [
+    {
+      icon: Users,
+      value: studentCount !== null ? studentCount.toLocaleString() : "—",
+      label: "Enrolled Students",
+    },
+    {
+      icon: GraduationCap,
+      value: teacherCount !== null ? teacherCount.toLocaleString() : "—",
+      label: "Dedicated Teachers",
+    },
+  ];
 
   return (
     <div className="min-h-screen bg-base-100">
@@ -74,23 +107,25 @@ export default async function HomePage() {
             Empowering learners with modern tools, real-time updates, and seamless collaboration between students, teachers, and parents.
           </p>
 
+          {/* One clear primary action, one clear secondary action — not
+              two buttons that both go to the same login page. */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button
-              asChild
-              size="lg"
-              variant="outline"
-              className="border-white/40 text-white hover:bg-white/10 px-10 py-6 text-base rounded-xl backdrop-blur-sm"
-            >
-              <Link href="/auth/login">Access Portal</Link>
-            </Button>
             <Button
               asChild
               size="lg"
               className="bg-white hover:bg-white/90 text-primary font-bold px-10 py-6 text-base rounded-xl shadow-xl shadow-black/20 hover:scale-105 transition-all"
             >
               <Link href="/auth/login" className="flex items-center gap-2">
-                Login as Parent / Student <ArrowRight className="w-4 h-4" />
+                Log in to Portal <ArrowRight className="w-4 h-4" />
               </Link>
+            </Button>
+            <Button
+              asChild
+              size="lg"
+              variant="outline"
+              className="border-white/40 text-white hover:bg-white/10 px-10 py-6 text-base rounded-xl backdrop-blur-sm"
+            >
+              <Link href="/admissions">Explore Admissions</Link>
             </Button>
           </div>
 
@@ -118,12 +153,8 @@ export default async function HomePage() {
             <h2 className="text-4xl md:text-5xl font-black text-base-content">Proudly Serving Our Community</h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            {[
-              { icon: Users, value: studentCount, label: "Enrolled Students", suffix: "" },
-              { icon: GraduationCap, value: teacherCount, label: "Dedicated Teachers", suffix: "" },
-              { icon: CalendarCheck, value: performanceRate, label: "Average Performance", suffix: "%" },
-            ].map(({ icon: Icon, value, label, suffix }) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+            {stats.map(({ icon: Icon, value, label }) => (
               <div
                 key={label}
                 className="group relative bg-base-100 border border-base-300 rounded-2xl p-8 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 overflow-hidden"
@@ -132,9 +163,7 @@ export default async function HomePage() {
                 <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-5">
                   <Icon className="w-6 h-6 text-primary" />
                 </div>
-                <div className="text-5xl font-black text-base-content mb-1">
-                  {value}<span className="text-primary">{suffix}</span>
-                </div>
+                <div className="text-5xl font-black text-base-content mb-1">{value}</div>
                 <p className="text-base-content font-medium">{label}</p>
               </div>
             ))}
@@ -199,15 +228,16 @@ export default async function HomePage() {
           </div>
 
           <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
-            {recentAnnouncements.length === 0 ? (
+            {announcements.length === 0 ? (
               <div className="col-span-3 flex flex-col items-center justify-center py-20 text-base-content opacity-40">
                 <Bell className="w-12 h-12 mb-4" />
-                <p className="text-lg font-medium">No recent announcements at the moment</p>
+                <p className="text-lg font-medium">No announcements yet — check back soon</p>
               </div>
             ) : (
-              recentAnnouncements.map((ann, i) => (
+              // ✅ FIX: Added explicit type for ann parameter
+              announcements.map((ann: Announcement) => (
                 <Card
-                  key={i}
+                  key={ann.id}
                   className="group border border-base-300 bg-base-100 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 overflow-hidden"
                 >
                   <CardHeader className="pb-2">
@@ -217,7 +247,7 @@ export default async function HomePage() {
                         Notice
                       </span>
                       <p className="text-xs text-base-content opacity-50">
-                        {format(new Date(ann.createdAt), "MMM d, yyyy")}
+                        {format(ann.createdAt, "MMM d, yyyy")}
                       </p>
                     </div>
                     <CardTitle className="text-lg font-bold text-base-content leading-snug">
@@ -237,37 +267,39 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Final CTA */}
+      {/* Final CTA — distinct job from the hero: admissions/inquiry,
+          not a third link to the same login page. */}
       <section className="relative py-28 overflow-hidden bg-primary text-white">
         <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-white/5 blur-3xl pointer-events-none" />
         <div className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full bg-white/5 blur-3xl pointer-events-none" />
 
         <div className="container mx-auto px-6 text-center relative z-10">
-          <p className="text-sm font-bold text-white/70 uppercase tracking-widest mb-4">Stay Connected</p>
+          <p className="text-sm font-bold text-white/70 uppercase tracking-widest mb-4">Thinking of Joining Us?</p>
           <h2 className="text-4xl md:text-5xl font-black mb-6 leading-tight text-white">
-            Join the {schoolName} Community
+            Start Your Child&apos;s Journey at {schoolName}
           </h2>
           <p className="text-white/70 text-lg max-w-2xl mx-auto mb-12 leading-relaxed">
-            Access attendance, grades, fee balance, and school notices anytime, anywhere.
+            Get in touch with our admissions office to learn about enrollment,
+            fees, and how our CBC program supports every learner.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button
               asChild
               size="lg"
-              variant="outline"
-              className="border-white/40 text-white hover:bg-white/10 px-12 py-7 text-base rounded-xl backdrop-blur-sm"
+              className="bg-white hover:bg-white/90 text-primary font-bold px-12 py-7 text-base rounded-xl shadow-xl shadow-black/20 hover:scale-105 transition-all"
             >
-              <Link href="/auth/login">Open Portal</Link>
+              <Link href="/admissions" className="flex items-center gap-2">
+                Start Admissions <ArrowRight className="w-4 h-4" />
+              </Link>
             </Button>
             <Button
               asChild
               size="lg"
-              className="bg-white hover:bg-white/90 text-primary font-bold px-12 py-7 text-base rounded-xl shadow-xl shadow-black/20 hover:scale-105 transition-all"
+              variant="outline"
+              className="border-white/40 text-white hover:bg-white/10 px-12 py-7 text-base rounded-xl backdrop-blur-sm"
             >
-              <Link href="/auth/login" className="flex items-center gap-2">
-                Login Now <ArrowRight className="w-4 h-4" />
-              </Link>
+              <Link href="/contact">Contact Us</Link>
             </Button>
           </div>
         </div>
