@@ -34,11 +34,20 @@ import {
   AlertCircle,
   MessageSquare,
   TrendingUp,
+  User,
+  Mail,
+  Phone,
+  Briefcase,
+  Heart,
+  Activity,
+  Shield,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 // Define types locally as fallback (these match the ones in lib/permissions.ts)
 type Role = "ADMIN" | "TEACHER" | "STUDENT" | "PARENT" | "ACCOUNTANT";
@@ -47,6 +56,7 @@ type Permission =
   | "users:*"
   | "students:*"
   | "teachers:*"
+  | "parents:*"
   | "classes:*"
   | "attendance:*"
   | "grades:*"
@@ -61,6 +71,8 @@ type Permission =
   | "students:write"
   | "teachers:read"
   | "teachers:write"
+  | "parents:read"
+  | "parents:write"
   | "classes:read"
   | "classes:write"
   | "attendance:mark"
@@ -164,6 +176,7 @@ interface NavItem {
   roles?: Role[];
   permission?: Permission;
   children?: NavItem[];
+  badge?: number;
 }
 
 export default function Sidebar({ role = "STUDENT" }: SidebarProps) {
@@ -171,6 +184,23 @@ export default function Sidebar({ role = "STUDENT" }: SidebarProps) {
   const userRole = role.toUpperCase() as Role;
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [expandedSections, setExpandedSections] = useState<string[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Fetch unread notification count
+  useEffect(() => {
+    const fetchUnreadCount = async () => {
+      try {
+        const response = await fetch("/api/notifications/unread-count");
+        if (response.ok) {
+          const data = await response.json();
+          setUnreadCount(data.count || 0);
+        }
+      } catch (error) {
+        console.error("Failed to fetch unread count:", error);
+      }
+    };
+    fetchUnreadCount();
+  }, []);
 
   const checkPermission = (permission?: Permission): boolean => {
     if (!permission) return true;
@@ -237,6 +267,27 @@ export default function Sidebar({ role = "STUDENT" }: SidebarProps) {
           label: "Add Teacher", 
           icon: UserPlus,
           permission: "teachers:write",
+        },
+      ],
+    },
+    // ✅ ADDED: Parents Module
+    {
+      href: "#",
+      label: "Parents",
+      icon: Users,
+      roles: ["ADMIN"],
+      children: [
+        { 
+          href: "/dashboard/parents", 
+          label: "All Parents", 
+          icon: List,
+          permission: "parents:read",
+        },
+        { 
+          href: "/dashboard/parents/new", 
+          label: "Add Parent", 
+          icon: UserPlus,
+          permission: "parents:write",
         },
       ],
     },
@@ -453,6 +504,7 @@ export default function Sidebar({ role = "STUDENT" }: SidebarProps) {
       label: "Notifications", 
       icon: Bell, 
       permission: "notifications:read",
+      badge: unreadCount,
     },
     {
       href: "#",
@@ -539,17 +591,15 @@ export default function Sidebar({ role = "STUDENT" }: SidebarProps) {
           >
             <item.icon className="h-5 w-5 flex-shrink-0" />
             <span className="flex-1 text-left truncate">{item.label}</span>
-            <svg
+            {item.badge !== undefined && item.badge > 0 && (
+              <span className="badge badge-error badge-sm">{item.badge}</span>
+            )}
+            <ChevronDown 
               className={cn(
                 "h-4 w-4 transition-transform",
                 isExpanded && "transform rotate-180"
               )}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
+            />
           </button>
           {isExpanded && (
             <div className="ml-4 pl-2 border-l-2 border-base-300">
@@ -572,6 +622,9 @@ export default function Sidebar({ role = "STUDENT" }: SidebarProps) {
       >
         <item.icon className="h-5 w-5 flex-shrink-0" />
         <span className="truncate">{item.label}</span>
+        {item.badge !== undefined && item.badge > 0 && (
+          <span className="badge badge-error badge-sm ml-auto">{item.badge}</span>
+        )}
       </Link>
     );
   };
@@ -580,7 +633,7 @@ export default function Sidebar({ role = "STUDENT" }: SidebarProps) {
     <div className="hidden md:flex flex-col w-64 bg-base-200 border-r border-neutral h-screen sticky top-0">
       <div className="p-6 border-b border-neutral">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
             <School className="h-5 w-5 text-primary-content" />
           </div>
           <div>
@@ -588,21 +641,23 @@ export default function Sidebar({ role = "STUDENT" }: SidebarProps) {
             <p className="text-xs text-base-content/60">Kenya CBC System</p>
           </div>
         </div>
-        <div className="mt-2 flex items-center justify-between">
-          <span className="text-xs text-primary/60 font-medium">
+        <div className="mt-3 flex items-center justify-between">
+          <span className="text-xs text-primary/60 font-medium flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-success" />
             {userRole}
           </span>
-          <span className="text-xs bg-success/10 text-success px-2 py-0.5 rounded-full">
+          <span className="text-xs bg-success/10 text-success px-2 py-0.5 rounded-full flex items-center gap-1">
+            <span className="w-1 h-1 rounded-full bg-success animate-pulse" />
             Online
           </span>
         </div>
       </div>
 
-      <nav className="flex-1 p-4 overflow-y-auto">
+      <nav className="flex-1 p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-base-300 scrollbar-track-transparent">
         {filteredNavItems.map(item => renderNavItem(item))}
       </nav>
 
-      <div className="p-4 border-t border-neutral space-y-2">
+      <div className="p-4 border-t border-neutral space-y-2 bg-base-200/50">
         <button
           onClick={handleLogout}
           disabled={isLoggingOut}
@@ -616,7 +671,7 @@ export default function Sidebar({ role = "STUDENT" }: SidebarProps) {
         </button>
         <div className="text-xs text-base-content/50 text-center pt-2">
           <p>© {new Date().getFullYear()} SMANS</p>
-          <p className="mt-0.5">v1.0.0</p>
+          <p className="mt-0.5">v2.0.0</p>
         </div>
       </div>
     </div>
