@@ -22,6 +22,7 @@ export async function middleware(req: NextRequest) {
   // ✅ ALLOW PUBLIC API ROUTES (including /api/classes)
   if (pathname.startsWith("/api/auth") || 
       pathname === "/api/webhooks" ||
+      pathname.startsWith("/api/webhooks/") ||
       pathname === "/api/classes" ||
       pathname.startsWith("/api/classes/")) {
     return NextResponse.next();

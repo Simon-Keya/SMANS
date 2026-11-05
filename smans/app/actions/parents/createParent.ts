@@ -2,6 +2,15 @@
 
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { requirePermission } from "@/lib/auth/permissions";
+import { z } from "zod";
+
+const schema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+  name: z.string().min(1).max(200),
+  phone: z.string().max(30).optional(),
+});
 
 export async function createParent(data: {
   email: string;
@@ -9,34 +18,41 @@ export async function createParent(data: {
   name: string;
   phone?: string;
 }) {
+  await requirePermission("users:write");
+
+  const validated = schema.safeParse(data);
+  if (!validated.success) {
+    return {
+      success: false,
+      error: validated.error.issues[0]?.message || "Invalid input",
+    };
+  }
+
   try {
-    // Optional: check if email already exists
     const existing = await prisma.user.findUnique({
-      where: { email: data.email },
+      where: { email: validated.data.email.toLowerCase().trim() },
     });
     if (existing) {
-      throw new Error("Email already in use");
+      return { success: false, error: "Email already in use" };
     }
 
-    const hashedPassword = await bcrypt.hash(data.password, 10);
+    const hashedPassword = await bcrypt.hash(validated.data.password, 12);
 
     const user = await prisma.user.create({
       data: {
-        email: data.email.trim(),
+        email: validated.data.email.toLowerCase().trim(),
         password: hashedPassword,
-        name: data.name.trim(),
+        name: validated.data.name.trim(),
         role: "PARENT",
       },
     });
 
     const parent = await prisma.parent.create({
       data: {
-        name: data.name.trim(),
-        phone: data.phone?.trim() ?? null,
-        email: data.email.trim(),
-        user: {
-          connect: { id: user.id },
-        },
+        name: validated.data.name.trim(),
+        phone: validated.data.phone?.trim() ?? null,
+        email: validated.data.email.toLowerCase().trim(),
+        user: { connect: { id: user.id } },
       },
     });
 

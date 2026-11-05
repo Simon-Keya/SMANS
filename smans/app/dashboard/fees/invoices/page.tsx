@@ -6,6 +6,7 @@ import { getServerSession } from "next-auth";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { InvoiceStatus } from "@prisma/client";
+import { toNumber } from "@/lib/money";
 
 type SelectedInvoice = {
   id: string;
@@ -138,7 +139,7 @@ export default async function InvoicesPage({ searchParams }: InvoicesPageProps) 
               {typedInvoices.map((inv) => (
                 <tr key={inv.id} className="border-b hover:bg-base-300/50 transition-colors">
                   <td className="p-4">{inv.student.name || "—"}</td>
-                  <td className="p-4 font-medium">{inv.amount.toLocaleString()}</td>
+                  <td className="p-4 font-medium">{toNumber(inv.amount as any).toLocaleString()}</td>
                   <td className="p-4">{new Date(inv.dueDate).toLocaleDateString()}</td>
                   <td className="p-4">
                     <span

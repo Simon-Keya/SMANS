@@ -25,7 +25,8 @@ export default function Header() {
   const isLoading = status === "loading";
 
   const user = session?.user;
-  const notifications = 3; // Replace with real count later
+  // Do not show fabricated counts; real unread should come from API/session
+  const notifications = 0;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-neutral bg-base-100/95 backdrop-blur-xl supports-[backdrop-filter]:bg-base-100/60">

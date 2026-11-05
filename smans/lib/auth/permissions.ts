@@ -54,7 +54,11 @@ export type Permission =
   | "fees:pay"
   | "fees:write"
   | "profile:read"
-  | "profile:write";
+  | "profile:write"
+  | "settings:read"
+  | "settings:write"
+  | "curriculum:read"
+  | "curriculum:write";
 
 /* =========================
    PERMISSION MAP
@@ -81,6 +85,7 @@ export const permissions: Record<Role, Permission[]> = {
     "profile:write",
     "classes:read",
     "classes:write",
+    "curriculum:read",
   ],
 
   STUDENT: [
@@ -97,9 +102,11 @@ export const permissions: Record<Role, Permission[]> = {
     "grades:read",
     "attendance:read",
     "fees:read",
+    "fees:pay",
     "profile:read",
     "profile:write",
     "notifications:read",
+    "reports:read",
   ],
 
   ACCOUNTANT: [

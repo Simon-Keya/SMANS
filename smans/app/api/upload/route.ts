@@ -1,49 +1,63 @@
 // app/api/upload/route.ts
-// Simple file upload endpoint (local storage)
-// In production use Cloudinary, S3, or Supabase Storage
+// Authenticated file upload with size/MIME/extension checks.
+// Local storage only; production should use object storage (Phase 4).
 
-import { writeFile } from "fs/promises";
 import { NextRequest, NextResponse } from "next/server";
-import path from "path";
-import { v4 as uuidv4 } from "uuid";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth/auth";
+import { UploadService } from "@/lib/services/uploadService";
+import { applyRateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (session.user.isActive === false) {
+      return NextResponse.json({ error: "Account deactivated" }, { status: 403 });
+    }
+
+    // Rate-limit by user
+    try {
+      await applyRateLimit(`upload:${session.user.id}`);
+    } catch {
+      return NextResponse.json(
+        { error: "Rate limit exceeded. Try again later." },
+        { status: 429 }
+      );
+    }
+
     const formData = await req.formData();
-    const file = formData.get("file") as File;
+    const file = formData.get("file") as File | null;
+    const folder = (formData.get("folder") as string) || "uploads";
 
     if (!file) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-
-    const extension = path.extname(file.name);
-    const fileName = `${uuidv4()}${extension}`;
-    const uploadDir = path.join(process.cwd(), "public/uploads");
-    const filePath = path.join(uploadDir, fileName);
-
-    await writeFile(filePath, buffer);
-
-    const publicUrl = `/uploads/${fileName}`;
+    const publicUrl = await UploadService.uploadFile(file, folder);
 
     return NextResponse.json({
       success: true,
       url: publicUrl,
-      fileName,
       size: file.size,
     });
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to upload file";
+    const status =
+      message.includes("not allowed") ||
+      message.includes("too large") ||
+      message.includes("Empty") ||
+      message.includes("Invalid")
+        ? 400
+        : 500;
     console.error("Upload error:", error);
-    return NextResponse.json(
-      { error: "Failed to upload file" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: message }, { status });
   }
 }
 
-// Optional: GET for listing uploads (not recommended in prod)
+// Do not expose a public listing endpoint
 export async function GET() {
-  return NextResponse.json({ message: "Upload endpoint ready" });
+  return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
 }

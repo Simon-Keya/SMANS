@@ -9,6 +9,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { InvoiceStatus, PaymentStatus } from "@prisma/client";
 import { requireRole } from "@/lib/permissions";
+import { toNumber } from "@/lib/money";
 
 export default async function FeesDashboard() {
   const session = await getServerSession(authOptions);
@@ -119,7 +120,7 @@ export default async function FeesDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-primary">
-              KSh {totalDue._sum.amount?.toLocaleString() ?? "0"}
+              KSh {toNumber(totalDue._sum.amount ?? 0).toLocaleString() ?? "0"}
             </div>
             <p className="text-xs text-base-content/60 mt-1">
               From pending, partial & overdue invoices
@@ -134,7 +135,7 @@ export default async function FeesDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-success">
-              KSh {totalPaid._sum.amount?.toLocaleString() ?? "0"}
+              KSh {toNumber(totalPaid._sum.amount ?? 0).toLocaleString() ?? "0"}
             </div>
             <p className="text-xs text-base-content/60 mt-1">
               From completed payments
@@ -177,7 +178,7 @@ export default async function FeesDashboard() {
                   {recentPayments.map((payment) => (
                     <tr key={payment.id} className="border-b">
                       <td className="p-2">{payment.invoice.student.name}</td>
-                      <td className="p-2">KSh {payment.amount.toLocaleString()}</td>
+                      <td className="p-2">KSh {toNumber(payment.amount as any).toLocaleString()}</td>
                       <td className="p-2 capitalize">{payment.method}</td>
                       <td className="p-2">{new Date(payment.paymentDate).toLocaleDateString()}</td>
                     </tr>

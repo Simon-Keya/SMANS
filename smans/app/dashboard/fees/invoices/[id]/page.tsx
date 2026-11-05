@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { sumMoney, toNumber, formatMoney } from "@/lib/money";
 
 type InvoiceWithPayments = {
   id: string;
@@ -65,8 +66,9 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
 
   if (!invoice) notFound();
 
-  const totalPaid = invoice.payments.reduce((sum: number, p: { amount: number }) => sum + p.amount, 0);
-  const balance = invoice.amount - totalPaid;
+  const totalPaidDec = sumMoney(invoice.payments.map((p) => p.amount as any));
+  const totalPaid = toNumber(totalPaidDec);
+  const balance = toNumber(invoice.amount as any) - totalPaid;
 
   return (
     <div className="space-y-6 p-6">
@@ -100,7 +102,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
             </div>
             <div>
               <p className="text-sm text-base-content/60">Amount</p>
-              <p className="font-medium text-xl">KSh {invoice.amount.toLocaleString()}</p>
+              <p className="font-medium text-xl">KSh {toNumber(invoice.amount as any).toLocaleString()}</p>
             </div>
             <div>
               <p className="text-sm text-base-content/60">Due Date</p>
@@ -172,7 +174,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                 <tbody>
                   {invoice.payments.map((p) => (
                     <tr key={p.id} className="border-b hover:bg-base-300/30">
-                      <td className="p-3">KSh {p.amount.toLocaleString()}</td>
+                      <td className="p-3">KSh {toNumber(p.amount as any).toLocaleString()}</td>
                       <td className="p-3 capitalize">{p.method}</td>
                       <td className="p-3">{new Date(p.paymentDate).toLocaleDateString()}</td>
                       <td className="p-3">

@@ -1,14 +1,10 @@
 "use server";
 
-import { getCurrentUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
+import { assertCanAccessInvoice } from "@/lib/auth/ownership";
 
 export async function getInvoiceByIdAction(invoiceId: string) {
-  const user = await getCurrentUser();
-
-  if (!user || !["ADMIN", "ACCOUNTANT"].includes(user.role)) {
-    throw new Error("Unauthorized");
-  }
+  await assertCanAccessInvoice(invoiceId);
 
   const invoice = await prisma.invoice.findUnique({
     where: { id: invoiceId },
@@ -19,7 +15,6 @@ export async function getInvoiceByIdAction(invoiceId: string) {
       amount: true,
       dueDate: true,
       status: true,
-      // description: true, // REMOVED - doesn't exist in schema
       createdAt: true,
       createdBy: { select: { name: true } },
       approvedBy: { select: { name: true } },

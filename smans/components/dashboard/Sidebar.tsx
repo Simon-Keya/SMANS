@@ -91,7 +91,9 @@ type Permission =
   | "fees:pay"
   | "fees:write"
   | "profile:read"
-  | "profile:write";
+  | "profile:write"
+  | "curriculum:read"
+  | "curriculum:write";
 
 // Permission map (matches the one in lib/permissions.ts)
 const permissions: Record<Role, Permission[]> = {
@@ -115,6 +117,7 @@ const permissions: Record<Role, Permission[]> = {
     "profile:write",
     "classes:read",
     "classes:write",
+    "curriculum:read",
   ],
   STUDENT: [
     "grades:read",
@@ -315,6 +318,25 @@ export default function Sidebar({ role = "STUDENT" }: SidebarProps) {
           label: "Timetable", 
           icon: Calendar,
           permission: "classes:read",
+        },
+        { 
+          href: "/dashboard/curriculum", 
+          label: "CBC Curriculum", 
+          icon: BookOpen,
+          permission: "grades:read",
+        },
+        { 
+          href: "/dashboard/cbc/assess", 
+          label: "CBC Assess", 
+          icon: ClipboardList,
+          permission: "grades:enter",
+          roles: ["ADMIN", "TEACHER"],
+        },
+        { 
+          href: "/dashboard/cbc/report", 
+          label: "Qualitative Report", 
+          icon: FileCheck,
+          permission: "grades:read",
         },
       ],
     },

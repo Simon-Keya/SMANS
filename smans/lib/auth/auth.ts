@@ -1,11 +1,13 @@
 // lib/auth/auth.ts
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import NextAuth, { DefaultSession } from "next-auth";
+import { authenticator } from "otplib";
+import { decryptSecret } from "@/lib/crypto/secrets";
+import type { DefaultSession, NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 
 // ───────────────────────────────────────────────
-// Type augmentation – extends defaults, keeps name/email/image
+// Type augmentation
 // ───────────────────────────────────────────────
 declare module "next-auth" {
   interface Session {
@@ -34,24 +36,38 @@ declare module "next-auth/jwt" {
 // ───────────────────────────────────────────────
 // Auth configuration
 // ───────────────────────────────────────────────
-export const authOptions = {
+export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
       name: "Credentials",
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
+        totpCode: { label: "2FA Code", type: "text" },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
           return null;
         }
 
+        const email = credentials.email.toLowerCase().trim();
+        const totpCode =
+          typeof credentials.totpCode === "string"
+            ? credentials.totpCode.trim()
+            : "";
+
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email.toLowerCase().trim() },
-          include: {
-            student: { select: { id: true, name: true, admissionNumber: true } },
-            parent: { select: { id: true, name: true } },
+          where: { email },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            password: true,
+            role: true,
+            isActive: true,
+            emailVerified: true,
+            twoFactorEnabled: true,
+            twoFactorSecret: true,
           },
         });
 
@@ -59,15 +75,34 @@ export const authOptions = {
           return null;
         }
 
-        // Check if account is active
         if (!user.isActive) {
-          throw new Error("Your account has been deactivated. Please contact support.");
+          throw new Error("ACCOUNT_DEACTIVATED");
         }
 
         const isValid = await bcrypt.compare(credentials.password, user.password);
-
         if (!isValid) {
           return null;
+        }
+
+        // Email verification (admins exempt)
+        if (!user.emailVerified && user.role !== "ADMIN") {
+          throw new Error("EMAIL_NOT_VERIFIED");
+        }
+
+        // 2FA challenge
+        if (user.twoFactorEnabled) {
+          if (!user.twoFactorSecret) {
+            // Misconfigured account — fail closed
+            throw new Error("2FA_MISCONFIGURED");
+          }
+          if (!totpCode) {
+            // Signal client to show second step
+            throw new Error("2FA_REQUIRED");
+          }
+          const ok = authenticator.check(totpCode, decryptSecret(user.twoFactorSecret));
+          if (!ok) {
+            throw new Error("INVALID_2FA_CODE");
+          }
         }
 
         return {
@@ -88,7 +123,7 @@ export const authOptions = {
   },
 
   session: {
-    strategy: "jwt" as const,
+    strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
 
@@ -107,7 +142,12 @@ export const authOptions = {
         session.user.id = token.id as string;
       }
       if (token?.role) {
-        session.user.role = token.role as "ADMIN" | "TEACHER" | "STUDENT" | "PARENT" | "ACCOUNTANT";
+        session.user.role = token.role as
+          | "ADMIN"
+          | "TEACHER"
+          | "STUDENT"
+          | "PARENT"
+          | "ACCOUNTANT";
       }
       if (token?.isActive !== undefined) {
         session.user.isActive = token.isActive as boolean;
@@ -117,7 +157,11 @@ export const authOptions = {
 
     async redirect({ url, baseUrl }) {
       if (url.startsWith("/")) return `${baseUrl}${url}`;
-      else if (new URL(url).origin === baseUrl) return url;
+      try {
+        if (new URL(url).origin === baseUrl) return url;
+      } catch {
+        // ignore invalid URL
+      }
       return baseUrl;
     },
   },
@@ -129,7 +173,4 @@ export const authOptions = {
   jwt: {
     maxAge: 30 * 24 * 60 * 60,
   },
-} satisfies import("next-auth").NextAuthOptions;
-
-const handler = NextAuth(authOptions);
-export { handler as GET, handler as POST };
+};

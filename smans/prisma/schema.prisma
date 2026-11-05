@@ -276,7 +276,7 @@ model Timetable {
 model FeeItem {
   id          String    @id @default(cuid())
   name        String
-  amount      Float
+  amount      Decimal   @db.Decimal(12, 2)
   frequency   String
   description String?
   createdAt   DateTime  @default(now())
@@ -290,7 +290,7 @@ model Invoice {
   id           String        @id @default(cuid())
   studentId    String
   feeItemId    String?
-  amount       Float
+  amount       Decimal       @db.Decimal(12, 2)
   dueDate      DateTime
   status       InvoiceStatus @default(PENDING)
   createdById  String?
@@ -310,20 +310,23 @@ model Invoice {
 }
 
 model Payment {
-  id           String        @id @default(cuid())
-  invoiceId    String
-  amount       Float
-  method       String
-  status       PaymentStatus @default(COMPLETED)
-  paymentDate  DateTime      @default(now())
-  createdById  String?
-  approvedById String?
+  id                String        @id @default(cuid())
+  invoiceId         String
+  amount            Decimal       @db.Decimal(12, 2)
+  method            String
+  status            PaymentStatus @default(COMPLETED)
+  paymentDate       DateTime      @default(now())
+  checkoutRequestId String?
+  mpesaReceipt      String?
+  createdById       String?
+  approvedById      String?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   approvedBy   User?         @relation("ApprovedByPayment", fields: [approvedById], references: [id])
   createdBy    User?         @relation("CreatedByPayment", fields: [createdById], references: [id])
   invoice      Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
+  @@unique([checkoutRequestId])
   @@index([invoiceId])
   @@index([createdById])
   @@index([approvedById])
@@ -434,17 +437,19 @@ model GeneralSettings {
 }
 
 model AuditLog {
-  id        String   @id @default(cuid())
-  userId    String?
-  action    String
-  entity    String
-  entityId  String?
-  metadata  Json?    @db.Json
-  ipAddress String?
-  userAgent String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  user      User?    @relation(fields: [userId], references: [id])
+  id           String   @id @default(cuid())
+  userId       String?
+  action       String
+  entity       String
+  entityId     String?
+  metadata     Json?    @db.Json
+  ipAddress    String?
+  userAgent    String?
+  contentHash  String?
+  prevHash     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User?    @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([createdAt])
@@ -524,4 +529,267 @@ enum AssessmentType {
   FORMATIVE
   SUMMATIVE
   CBC_CHECK
+}
+// ───────────────────────────────────────────────
+// CBC curriculum hierarchy (Phase 2)
+// version → grade level → learning area → strand → sub-strand → outcome
+// ───────────────────────────────────────────────
+
+model CurriculumVersion {
+  id          String       @id @default(cuid())
+  name        String
+  code        String       @unique
+  description String?
+  isActive    Boolean      @default(true)
+  effectiveFrom DateTime?
+  effectiveTo   DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  gradeLevels GradeLevel[]
+
+  @@map("curriculum_versions")
+}
+
+model GradeLevel {
+  id                  String            @id @default(cuid())
+  curriculumVersionId String
+  name                String            // e.g. "Grade 4"
+  code                String            // e.g. "G4"
+  orderIndex          Int               @default(0)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  curriculumVersion   CurriculumVersion @relation(fields: [curriculumVersionId], references: [id], onDelete: Cascade)
+  learningAreas       CbcLearningArea[]
+
+  @@unique([curriculumVersionId, code])
+  @@index([curriculumVersionId])
+  @@map("grade_levels")
+}
+
+model CbcLearningArea {
+  id           String     @id @default(cuid())
+  gradeLevelId String
+  name         String
+  code         String?
+  description  String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  gradeLevel   GradeLevel @relation(fields: [gradeLevelId], references: [id], onDelete: Cascade)
+  strands      Strand[]
+
+  @@unique([gradeLevelId, code])
+  @@index([gradeLevelId])
+  @@map("cbc_learning_areas")
+}
+
+model Strand {
+  id               String          @id @default(cuid())
+  learningAreaId   String
+  name             String
+  code             String?
+  description      String?
+  orderIndex       Int             @default(0)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  learningArea     CbcLearningArea @relation(fields: [learningAreaId], references: [id], onDelete: Cascade)
+  subStrands       SubStrand[]
+
+  @@index([learningAreaId])
+  @@map("strands")
+}
+
+model SubStrand {
+  id          String    @id @default(cuid())
+  strandId    String
+  name        String
+  code        String?
+  description String?
+  orderIndex  Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  strand      Strand    @relation(fields: [strandId], references: [id], onDelete: Cascade)
+  outcomes    Outcome[]
+
+  @@index([strandId])
+  @@map("sub_strands")
+}
+
+model Outcome {
+  id          String    @id @default(cuid())
+  subStrandId String
+  code        String?
+  description String
+  orderIndex  Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  subStrand   SubStrand @relation(fields: [subStrandId], references: [id], onDelete: Cascade)
+  rubricLevels RubricLevel[]
+  observations Observation[]
+  assessments  OutcomeAssessment[]
+
+  @@index([subStrandId])
+  @@map("outcomes")
+}
+
+/// Configurable competency performance levels (never hardcode thresholds in code)
+model CompetencyScale {
+  id          String              @id @default(cuid())
+  name        String              // e.g. "KICD 4-level"
+  code        String              @unique
+  description String?
+  isDefault   Boolean             @default(false)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  levels      CompetencyLevel[]
+
+  @@map("competency_scales")
+}
+
+model CompetencyLevel {
+  id          String          @id @default(cuid())
+  scaleId     String
+  code        String          // e.g. EE, ME, AE, BE
+  label       String          // e.g. "Exceeding Expectations"
+  description String?
+  orderIndex  Int             @default(0)
+  minScore    Decimal?        @db.Decimal(5, 2) // optional numeric band
+  maxScore    Decimal?        @db.Decimal(5, 2)
+  color       String?         // UI hint
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  scale       CompetencyScale @relation(fields: [scaleId], references: [id], onDelete: Cascade)
+  rubricLevels RubricLevel[]
+  observations Observation[]
+  outcomeAssessments OutcomeAssessment[]
+
+  @@unique([scaleId, code])
+  @@index([scaleId])
+  @@map("competency_levels")
+}
+
+model CoreCompetency {
+  id          String   @id @default(cuid())
+  name        String
+  code        String   @unique
+  description String?
+  orderIndex  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("core_competencies")
+}
+
+model CoreValue {
+  id          String   @id @default(cuid())
+  name        String
+  code        String   @unique
+  description String?
+  orderIndex  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("core_values")
+}
+
+model Pci {
+  id          String   @id @default(cuid())
+  name        String
+  code        String   @unique
+  description String?
+  category    String?
+  orderIndex  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("pcis")
+}
+
+model RubricLevel {
+  id                String           @id @default(cuid())
+  outcomeId         String
+  competencyLevelId String
+  descriptor        String           // what this level looks like for the outcome
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  outcome           Outcome          @relation(fields: [outcomeId], references: [id], onDelete: Cascade)
+  competencyLevel   CompetencyLevel  @relation(fields: [competencyLevelId], references: [id], onDelete: Cascade)
+
+  @@unique([outcomeId, competencyLevelId])
+  @@index([outcomeId])
+  @@map("rubric_levels")
+}
+
+model Observation {
+  id                String           @id @default(cuid())
+  studentId         String
+  outcomeId         String?
+  competencyLevelId String?
+  observedAt        DateTime         @default(now())
+  notes             String
+  evidenceUrl       String?
+  observedById      String
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  outcome           Outcome?         @relation(fields: [outcomeId], references: [id], onDelete: SetNull)
+  competencyLevel   CompetencyLevel? @relation(fields: [competencyLevelId], references: [id], onDelete: SetNull)
+
+  @@index([studentId])
+  @@index([outcomeId])
+  @@index([observedById])
+  @@map("observations")
+}
+
+model Intervention {
+  id          String    @id @default(cuid())
+  studentId   String
+  title       String
+  description String?
+  status      String    @default("OPEN") // OPEN, IN_PROGRESS, CLOSED
+  startedAt   DateTime  @default(now())
+  closedAt    DateTime?
+  createdById String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([studentId])
+  @@index([status])
+  @@map("interventions")
+}
+
+model PortfolioItem {
+  id          String   @id @default(cuid())
+  studentId   String
+  title       String
+  description String?
+  fileUrl     String?
+  itemType    String   @default("EVIDENCE") // EVIDENCE, REFLECTION, ARTIFACT
+  term        String?
+  year        Int?
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([studentId])
+  @@map("portfolio_items")
+}
+
+model OutcomeAssessment {
+  id                String           @id @default(cuid())
+  studentId         String
+  outcomeId         String
+  competencyLevelId String
+  assessedAt        DateTime         @default(now())
+  comments          String?
+  assessedById      String
+  term              String?
+  year              Int?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  outcome           Outcome          @relation(fields: [outcomeId], references: [id], onDelete: Cascade)
+  competencyLevel   CompetencyLevel  @relation(fields: [competencyLevelId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@index([outcomeId])
+  @@unique([studentId, outcomeId, term, year])
+  @@map("outcome_assessments")
 }

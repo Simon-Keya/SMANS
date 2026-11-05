@@ -1,5 +1,6 @@
 // lib/services/fee.service.ts
 import { prisma } from "@/lib/prisma";
+import { sumMoney, gteMoney, gtMoney, toNumber, toDecimal } from "@/lib/money";
 import { InvoiceStatus, PaymentStatus } from "@prisma/client";
 
 export class FeeService {
@@ -106,7 +107,7 @@ export class FeeService {
     });
     if (!student) throw new Error("Student not found");
 
-    const totalAmount = feeItems.reduce((sum, item) => sum + item.amount, 0);
+    const totalAmount = sumMoney(feeItems.map((item) => item.amount));
     const defaultDueDate = new Date();
     defaultDueDate.setDate(defaultDueDate.getDate() + 30); // 30 days from now
 
@@ -253,12 +254,12 @@ export class FeeService {
       _sum: { amount: true },
     });
 
-    const paidAmount = totalPaid._sum.amount || 0;
+    const paidAmount = totalPaid._sum.amount ?? toDecimal(0);
     let newStatus: InvoiceStatus = InvoiceStatus.PENDING;
 
-    if (paidAmount >= invoice.amount) {
+    if (gteMoney(paidAmount, invoice.amount)) {
       newStatus = InvoiceStatus.PAID;
-    } else if (paidAmount > 0) {
+    } else if (gtMoney(paidAmount, 0)) {
       newStatus = InvoiceStatus.PARTIAL;
     }
 
@@ -349,20 +350,20 @@ export class FeeService {
       },
     });
 
-    const totalCollected = payments.reduce((sum, p) => sum + p.amount, 0);
+    const totalCollected = sumMoney(payments.map((p) => p.amount));
     const totalTransactions = payments.length;
 
     // Group by class
     const byClass: Record<string, number> = {};
     for (const payment of payments) {
       const className = payment.invoice.student.classId;
-      byClass[className] = (byClass[className] || 0) + payment.amount;
+      byClass[className] = toNumber(sumMoney([byClass[className] || 0, payment.amount]));
     }
 
     return {
-      totalCollected,
+      totalCollected: toNumber(totalCollected),
       totalTransactions,
-      averageTransaction: totalTransactions > 0 ? totalCollected / totalTransactions : 0,
+      averageTransaction: totalTransactions > 0 ? toNumber(totalCollected) / totalTransactions : 0,
       byClass,
       startDate,
       endDate,

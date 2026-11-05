@@ -56,7 +56,7 @@ services:
     volumes:
       - ./monitoring/grafana-dashboard.json:/var/lib/grafana/dashboards/default.json
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-changeme}
     restart: unless-stopped
 
 volumes:

@@ -6,6 +6,7 @@ import { getServerSession } from "next-auth";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PaymentStatus } from "@prisma/client";
+import { toNumber } from "@/lib/money";
 
 type SelectedPayment = {
   id: string;
@@ -143,7 +144,7 @@ export default async function PaymentsPage({ searchParams }: PaymentsPageProps) 
               {typedPayments.map((pay) => (
                 <tr key={pay.id} className="border-b hover:bg-base-300/50 transition-colors">
                   <td className="p-4">{pay.invoice.student.name || "—"}</td>
-                  <td className="p-4 font-medium">{pay.amount.toLocaleString()}</td>
+                  <td className="p-4 font-medium">{toNumber(pay.amount as any).toLocaleString()}</td>
                   <td className="p-4">{new Date(pay.paymentDate).toLocaleDateString()}</td>
                   <td className="p-4 capitalize">{pay.method.toLowerCase()}</td>
                   <td className="p-4">

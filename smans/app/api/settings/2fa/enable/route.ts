@@ -1,45 +1,20 @@
 // app/api/settings/2fa/enable/route.ts
-
-import { authOptions } from "@/lib/auth/auth";
-import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authenticator } from "otplib";
+import { enable2FA } from "@/app/actions/settings/twoFactorAction";
 
 export async function POST() {
-  const session = await getServerSession(authOptions);
-
-  if (!session?.user?.id) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401 }
-    );
-  }
-
   try {
-    // Generate proper Base32 secret (recommended)
-    const secret = authenticator.generateSecret();
-
-    // Generate otpauth URL
-    const otpauth = authenticator.keyuri(
-      session.user.email ?? session.user.id,
-      "SMANS",
-      secret
-    );
-
-    // TODO (Production):
-    // Save encrypted secret in DB before enabling
-
-    return NextResponse.json({
-      success: true,
-      secret,
-      otpauth,
-    });
+    const result = await enable2FA();
+    return NextResponse.json(result);
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to generate 2FA secret";
+    const status =
+      message === "Unauthorized" || message.includes("deactivated")
+        ? 401
+        : message.includes("already enabled")
+          ? 400
+          : 500;
     console.error("2FA enable error:", error);
-
-    return NextResponse.json(
-      { error: "Failed to generate 2FA secret" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: message }, { status });
   }
 }

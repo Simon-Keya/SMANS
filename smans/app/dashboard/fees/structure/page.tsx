@@ -6,6 +6,7 @@ import { Plus } from "lucide-react";
 import { getServerSession } from "next-auth";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { toNumber } from "@/lib/money";
 
 type SelectedFeeItem = {
   id: string;
@@ -66,7 +67,7 @@ export default async function FeeStructurePage() {
               {feeItems.map((item) => (
                 <tr key={item.id} className="border-b hover:bg-base-300/50 transition-colors">
                   <td className="p-4 font-medium">{item.name}</td>
-                  <td className="p-4">{item.amount.toLocaleString()}</td>
+                  <td className="p-4">{toNumber(item.amount as any).toLocaleString()}</td>
                   <td className="p-4 capitalize">{item.frequency.toLowerCase()}</td>
                   <td className="p-4 text-right">
                     <Button variant="ghost" size="sm" asChild>

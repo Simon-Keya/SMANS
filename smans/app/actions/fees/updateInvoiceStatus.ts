@@ -1,17 +1,31 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { requirePermission } from "@/lib/auth/permissions";
+import { z } from "zod";
+
+const statusSchema = z.enum(["pending", "paid", "partial", "overdue"]);
 
 export async function updateInvoiceStatus(
   invoiceId: string,
-  statusInput: "pending" | "paid" | "partial" | "overdue"  // lowercase input
+  statusInput: "pending" | "paid" | "partial" | "overdue"
 ) {
-  // Convert to uppercase to match Prisma enum
-  const status = statusInput.toUpperCase() as "PENDING" | "PAID" | "PARTIAL" | "OVERDUE";
+  await requirePermission("fees:write");
 
-  if (!invoiceId) {
+  if (!invoiceId?.trim()) {
     throw new Error("Invoice ID is required");
   }
+
+  const parsed = statusSchema.safeParse(statusInput);
+  if (!parsed.success) {
+    throw new Error("Invalid invoice status");
+  }
+
+  const status = parsed.data.toUpperCase() as
+    | "PENDING"
+    | "PAID"
+    | "PARTIAL"
+    | "OVERDUE";
 
   return prisma.invoice.update({
     where: { id: invoiceId },

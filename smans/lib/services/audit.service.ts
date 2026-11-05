@@ -1,15 +1,42 @@
 // lib/services/audit.service.ts
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client"; // Remove 'type' keyword - import the actual namespace
+import { Prisma } from "@prisma/client";
+import { createHash } from "crypto";
+
+function hashPayload(parts: Record<string, unknown>): string {
+  return createHash("sha256")
+    .update(JSON.stringify(parts))
+    .digest("hex");
+}
 
 export class AuditService {
+  /**
+   * Append-only audit entry with hash chain linkage.
+   * prevHash = contentHash of the previous row (by createdAt desc).
+   */
   static async log(
     userId: string | null,
     action: string,
     entity: string,
     entityId?: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>,
+    extras?: { ipAddress?: string; userAgent?: string }
   ) {
+    const prev = await prisma.auditLog.findFirst({
+      orderBy: { createdAt: "desc" },
+      select: { contentHash: true },
+    });
+    const prevHash = prev?.contentHash ?? "GENESIS";
+
+    const contentHash = hashPayload({
+      userId,
+      action,
+      entity,
+      entityId: entityId ?? null,
+      metadata: metadata ?? null,
+      prevHash,
+    });
+
     return prisma.auditLog.create({
       data: {
         userId,
@@ -17,105 +44,80 @@ export class AuditService {
         entity,
         entityId,
         metadata: (metadata || undefined) as Prisma.InputJsonValue,
+        ipAddress: extras?.ipAddress,
+        userAgent: extras?.userAgent,
+        contentHash,
+        prevHash,
       },
     });
   }
 
-  /**
-   * Log a user action with additional metadata
-   */
   static async logAction(
     userId: string,
     action: string,
     entity: string,
     entityId: string,
-    details: Record<string, any>
+    details: Record<string, unknown>
   ) {
-    return prisma.auditLog.create({
-      data: {
-        userId,
-        action,
-        entity,
-        entityId,
-        metadata: details as Prisma.InputJsonValue,
-      },
-    });
+    return this.log(userId, action, entity, entityId, details);
   }
 
-  /**
-   * Get audit logs for a specific entity
-   */
   static async getEntityLogs(entity: string, entityId: string) {
     return prisma.auditLog.findMany({
-      where: {
-        entity,
-        entityId,
-      },
+      where: { entity, entityId },
       include: {
-        user: {
-          select: {
-            name: true,
-            email: true,
-          },
-        },
+        user: { select: { name: true, email: true } },
       },
       orderBy: { createdAt: "desc" },
     });
   }
 
-  /**
-   * Get audit logs for a specific user
-   */
-  static async getUserLogs(userId: string, limit = 50) {
-    return prisma.auditLog.findMany({
-      where: { userId },
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true,
-          },
-        },
-      },
-      orderBy: { createdAt: "desc" },
+  /** Verify chain integrity for the last N entries (or all if limit null). */
+  static async verifyChain(limit = 500): Promise<{
+    ok: boolean;
+    checked: number;
+    brokenAt?: string;
+  }> {
+    const rows = await prisma.auditLog.findMany({
+      orderBy: { createdAt: "asc" },
       take: limit,
+      select: {
+        id: true,
+        userId: true,
+        action: true,
+        entity: true,
+        entityId: true,
+        metadata: true,
+        contentHash: true,
+        prevHash: true,
+      },
     });
-  }
 
-  /**
-   * Get audit logs by action type
-   */
-  static async getLogsByAction(action: string, limit = 100) {
-    return prisma.auditLog.findMany({
-      where: { action },
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true,
-          },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-      take: limit,
-    });
-  }
-
-  /**
-   * Get recent audit logs
-   */
-  static async getRecentLogs(limit = 50) {
-    return prisma.auditLog.findMany({
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true,
-          },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-      take: limit,
-    });
+    let expectedPrev = "GENESIS";
+    for (const row of rows) {
+      if (!row.contentHash) continue;
+      if (row.prevHash && row.prevHash !== expectedPrev && expectedPrev !== "GENESIS") {
+        // allow GENESIS only for first with hash
+      }
+      const recomputed = hashPayload({
+        userId: row.userId,
+        action: row.action,
+        entity: row.entity,
+        entityId: row.entityId ?? null,
+        metadata: row.metadata ?? null,
+        prevHash: row.prevHash ?? "GENESIS",
+      });
+      if (row.contentHash !== recomputed) {
+        return { ok: false, checked: rows.length, brokenAt: row.id };
+      }
+      if (row.prevHash && row.prevHash !== expectedPrev && expectedPrev !== "GENESIS") {
+        // first hashed row may start chain
+        if (rows.indexOf(row) > 0) {
+          return { ok: false, checked: rows.length, brokenAt: row.id };
+        }
+      }
+      expectedPrev = row.contentHash;
+    }
+    return { ok: true, checked: rows.length };
   }
 }
